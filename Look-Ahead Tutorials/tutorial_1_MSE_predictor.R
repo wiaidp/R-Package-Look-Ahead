@@ -58,8 +58,8 @@ acf(na.exclude(x))
 # 1.2 MSE predictor
 # Forecast horizon
 h<-5
-if (h>L_target)
-  print("L_target must be larger than h. Otherwise best forecast is zero!!!!!")
+if (h>q+1)
+  print("(q+1) must be larger than h. Otherwise best forecast is zero!!!!!")
 
 # Note that in applications, typically, epsilon_t are unobserved and can be recovered 
 # through AR-inversion of the MA process. In this example, however, epsilon_t are known.
@@ -71,12 +71,14 @@ if (h>L_target)
 # The h-step ahead MSE predictor is obtained by replacing future ε_{t+k}, k>0, by zero (their best MSE forecast)
 # x_{MSE,th}=b_hε_{t}+...+b_qε_{t+h-q}
 # Thus the optimal MSE predictor has weights 
-b_MSE<-b[h+1:L]
+b_MSE<-b[(h+1):(q+1)]
+# Length of forecast filter
+L<-q+1-h
 # Compute the MSE predictor
-xhat<-rep(NA,len+L_target)
-for (i in L_target:(len+L_target))
+xhat<-rep(NA,len+q+1)
+for (i in (q+1):(len+q+1))
 {
-  xhat[i]<-b_MSE%*%eps[i:(i-L+1)]
+  xhat[i]<-b_MSE%*%eps[i:(i-q+h)]
 }
 
 
@@ -118,13 +120,13 @@ max_lag<-5
 cor_vec_lead<-cor_vec_lag<-NULL
 # Leads: 0 up to h
 for (i in 0:h)#i<-1
-  cor_vec_lead<-c(cor_vec_lead,b[1:(min(L+i,L_target)-i)]%*%gammak[(i+1):min(L+i,L_target)]/(sqrt(b%*%b)*sqrt(gammak%*%gammak)))
-# Leads: h+1,...,L_target (after L_target the best forecast is zero)
+  cor_vec_lead<-c(cor_vec_lead,b_MSE[1:(min(L+i,(q+1))-i)]%*%b[(i+1):min(L+i,(q+1))]/(sqrt(b_MSE%*%b_MSE)*sqrt(b%*%b)))
+# Leads: h+1,...,(q+1) (after (q+1) the best forecast is zero)
 for (i in 1:(L-1))#i<-1
-  cor_vec_lead<-c(cor_vec_lead,b[1:(L-i)]%*%gammak[(h+i)+1:(L-i)]/(sqrt(b%*%b)*sqrt(gammak%*%gammak)))
+  cor_vec_lead<-c(cor_vec_lead,b_MSE[1:(L-i)]%*%b[(h+i)+1:(L-i)]/(sqrt(b_MSE%*%b_MSE)*sqrt(b%*%b)))
 # Lags
 for (i in 1:(max_lag-1))#i<-1
-  cor_vec_lag<-c(cor_vec_lag,b[(i+1):L]%*%gammak[1:(L-i)]/(sqrt(b%*%b)*sqrt(gammak%*%gammak)))
+  cor_vec_lag<-c(cor_vec_lag,b_MSE[(i+1):L]%*%b[1:(L-i)]/(sqrt(b_MSE%*%b_MSE)*sqrt(b%*%b)))
 cor_vec<-c(cor_vec_lag[length(cor_vec_lag):1],cor_vec_lead)
 
 par(mfrow=c(1,1))
