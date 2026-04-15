@@ -214,12 +214,12 @@ axis(2); box()
 # ════════════════════════════════════════════════════════════════════
 # Exercise 2
 # ════════════════════════════════════════════════════════════════════
+# The forecast horizon h is the only tuning (hyper-) parameter of MSE.
 
-# Can we shift the CCF peak of the MSE predictor to the left by increasing 
-# the forecast horizon?
+# Q: Can we shift the CCF peak of the MSE predictor to the left by 
+#    increasing h?
 
-# This is left as an exercise.
-
+# Left as an exercise.
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -235,19 +235,19 @@ axis(2); box()
 # Consequence observed above:
 #   The MSE predictor is effectively "stuck at the present" — its CCF peaks
 #   at k = 0 rather than k = h, so it tracks x_t rather than anticipating
-#   x_{t+h}. No additional accuracy gain can fix this: it is a structural
+#   x_{t+h}. Increasing h cannot fix this: it is a structural
 #   consequence of the MSE criterion and the data generating process.
 #
 # In applications, processes with monotonically decaying ACF (as our example) 
 # are typical.
 
 # Increasing the forecast horizon generally does not address the 
-# "stuck-at-present" problem
+# "stuck-at-present" problem for such processes.
 
 #
 # Remedies addressed in subsequent tutorials:
 #   - Tutorial 2 (Timeliness) : introduces actionable measures for timeliness 
-#                               (lead/lag)
+#                               (lead/lag) to be used in DFP/PCS optimization.
 #   - DFP predictor
 #   - PCS predictor
 
