@@ -64,27 +64,6 @@ DFP_compute_lambda_alpha0_func<-function(gamma0,gammah,h,L,alpha0)
 }
 
 
-# Compute polynomial coefficients from roots: used when computing minimum phase DFP
-poly_from_roots <- function(roots, lead = 1, make_real = TRUE, tol = 1e-12) {
-  roots <- as.vector(roots)
-  n <- length(roots)
-  # Start with P(x) = 1
-  coeffs <- 1
-  if (n > 0) {
-    for (r in roots) {
-      # Multiply current polynomial by (x - r):
-      # new(x) = x*P(x) - r*P(x)
-      coeffs <- c(0, coeffs) - r * c(coeffs, 0)
-    }
-  }
-  # Scale leading coefficient
-  coeffs <- Re(lead) * coeffs
-  # Optionally coerce to real if coefficients are (numerically) real
-  if (make_real) {
-    if (max(abs(Im(coeffs))) < tol) coeffs <- Re(coeffs)
-  }
-  coeffs
-}
 
 
 # Compute MSE DFP
@@ -103,4 +82,35 @@ compute_mse_dfp<-function(alpha0,gamma0,gammah,plot_T=F)
   # check: should vanish
   t(b0)%*%gamma0-alpha0
   return(list(b0=b0))
+}
+
+
+dfp_from_tau_func<-function(gamma0,gammah,lead)
+{
+  # Compute shifts at frequency zero
+  tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
+  tauh<-sum((0:(L-1))*gammah)/sum(gammah)
+  tau<-lead
+  # Formula for lambda0
+  lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+  b<-gammah+lambda0*gamma0
+  
+  return(list(tau0=tau0,tauh=tauh,lambda0=lambda0,b=b))
+}
+
+
+
+dfp_from_alpha0_func<-function(gamma0,gammah,alpha0)
+{
+  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  b<-gammah+lambda*gamma0
+  return(list(lambda=lambda,b=b))
+}
+
+
+
+compute_alpha_0_func<-function(gamma0,gammah,lambda0)
+{
+  alpha0<-as.double(t(gamma0)%*%(gammah+lambda0*gamma0)/sqrt(t(gammah+lambda0*gamma0)%*%(gammah+lambda0*gamma0)))
+  return(list(alpha0=alpha0))
 }

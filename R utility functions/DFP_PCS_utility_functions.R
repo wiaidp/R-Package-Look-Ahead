@@ -18,6 +18,29 @@ conv_two_filt_func<-function(filt1,filt2)
 }
 
 
+# Compute polynomial coefficients from roots: used when computing minimum phase DFP
+poly_from_roots <- function(roots, lead = 1, make_real = TRUE, tol = 1e-12) {
+  roots <- as.vector(roots)
+  n <- length(roots)
+  # Start with P(x) = 1
+  coeffs <- 1
+  if (n > 0) {
+    for (r in roots) {
+      # Multiply current polynomial by (x - r):
+      # new(x) = x*P(x) - r*P(x)
+      coeffs <- c(0, coeffs) - r * c(coeffs, 0)
+    }
+  }
+  # Scale leading coefficient
+  coeffs <- Re(lead) * coeffs
+  # Optionally coerce to real if coefficients are (numerically) real
+  if (make_real) {
+    if (max(abs(Im(coeffs))) < tol) coeffs <- Re(coeffs)
+  }
+  coeffs
+}
+
+
 compute_acf_at_lags_zero_delta_func<-function(max_lag,h,b,gamma)
 {
   L<-length(gamma)
