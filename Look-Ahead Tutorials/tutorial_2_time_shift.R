@@ -1,68 +1,156 @@
-# R code for solving phase excess theta as a function of betah
+# ════════════════════════════════════════════════════════════════════
+# TUTORIAL 2 — TIMELINESS: A MEASURE FOR LEAD 
+# ════════════════════════════════════════════════════════════════════
+
+# ── PURPOSE ───────────────────────────────────────────────────────
+# Measuring timeliness or lead of a predictor poses several challenges:
+# -Simple interpretable measure
+# -Absolute vs. relative measure
+# -Actionable measure: can it be deployed to refine or design predictors
+# -
 
 
-# Define lengths of MSE predictors and angle thetah between them
-# We use the same gammah, gammahm1 as in above plot
-gammahm1<-c(3,1)*0.44*1.2
-gammah<-c(1.5,1)*0.66*1.2
-betah<--0.1
+# time-domain Tau statistic, peak correlation; frequency-domain shift
 
-lh<-sqrt(sum(gammah^2))
-lhm1<-sqrt(sum(gammahm1^2))
-thetah<-atan2(gammah[2],gammah[1])- atan2(gammahm1[2],gammahm1[1])
+# ════════════════════════════════════════════════════════════════════
 
+# ── BACKGROUND ────────────────────────────────────────────────────
+#   Wildi, M. (2024)
+#     Business Cycle Analysis and Zero-Crossings of Time Series:
+#     a Generalized Forecast Approach.
+#     https://doi.org/10.1007/s41549-024-00097-5
 
-a<-lh-cos(thetah)*lhm1
-b<-sin(thetah)*lhm1
-c<--betah
-
+#   Wildi, M. (2026). Forecasting on the Accuracy–Timeliness Frontier:
+#   Two Novel "Look-Ahead" Predictors.
+#   https://doi.org/10.48550/arXiv.2602.23087
 
 
-solve_acos_bsin_eq <- function(a, b, c) {
-  R <- sqrt(a^2 + b^2)
-  if (R == 0) {
-    if (c == 0) return(list(status = "infinite solutions (all theta)", theta = NULL, phi = NA, R = 0))
-    return(list(status = "no solution", theta = NULL, phi = NA, R = 0))
-  }
-  phi <- atan2(b, a)                # phase shift
-  x <- c / R
-  # Clamp for numerical safety
-  x <- max(min(x, 1), -1)
-  if (abs(c) > R + .Machine$double.eps^0.5) {
-    return(list(status = "no real solution (|c| > R)", theta = NULL, phi = phi, R = R))
-  }
-  if (abs(abs(x) - 1) < 1e-14) {
-    # Single solution modulo 2π
-    theta <- if (x > 0) phi else (phi + pi)
-    theta <- atan2(sin(theta), cos(theta))  # wrap to (-pi, pi]
-    return(list(status = "one solution modulo 2π", theta = theta, phi = phi, R = R))
-  }
-  alpha <- acos(x)
-  theta1 <- phi + alpha
-  theta2 <- phi - alpha
-  # Wrap to (-pi, pi]
-  wrap <- function(t) atan2(sin(t), cos(t))
-  theta <- sort(c(wrap(theta1), wrap(theta2)))
-  list(status = "two solutions modulo 2π", theta = theta, phi = phi, R = R)
+# ════════════════════════════════════════════════════════════════════
+
+
+rm(list = ls())
+
+
+
+# Load tau-statistic (measures lead/lag performance)
+source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
+
+# Load signal extraction functions used in JBCY (requires mFilter)
+source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+
+#----------------------------------------------------------------------------
+# Exercise 1: Data Samples
+
+# 1.1 Generate Series With General (Non-Integer) Lead/Lag
+
+len<-120
+periodicity<-3*12
+omega<-2*pi/periodicity
+shift<-5
+A1<-A2<-1
+sigma1<-1
+sigma2<-1
+set.seed(36)
+
+eps1<-sigma1*rnorm(len)
+eps2<-sigma2*rnorm(len)
+
+x<-A1*cos((1:len)*omega)+eps1
+y<-A2*cos((shift+1:len)*omega)+eps2
+
+par(mfrow=c(1,1))
+ts.plot(cbind(x,y))
+#-------------------------------------------------------------------------
+
+# 1.2 Cross Correlation Function (CCF)
+ccf(x, y, lag.max = 10, plot = TRUE)
+
+
+
+#-------------------------------------------------------------------------
+
+# 1.3 Dynamic regression with distributed lags
+
+x_ts <- ts(x, start = 1, frequency = 1)
+y_ts <- ts(y, start = 1, frequency = 1)
+model <- dynlm(x_ts ~ L(y_ts, 0:8))   # lags 0 through 8
+summary(model)
+
+#-------------------------------------------------------------------------
+# 1.4 Lead/lag at zero crossings (see Wildi 2024)
+filter_mat<-cbind(x,y)
+max_lead<-10
+compute_min_tau_func(filter_mat,max_lead)
+  
+
+#-------------------------------------------------------------------------
+# 1.5 Frequency Domain: Coherence and Phase
+library(astsa)
+
+
+# ── Compute cross-spectral analysis ──────────────────────────────────────────
+# spans: smoothing spans for the periodogram (reduces noise)
+# taper: proportion of data tapered at each end (reduces leakage)
+# plot:  TRUE produces a 4-panel plot automatically
+
+spec_result <- mvspec(
+  x       = cbind(x, y),
+  spans   = c(7, 7),       # smoothing: adjust for more/less smoothing
+  taper   = 0.1,           # 10% tapering at each end
+  plot    = TRUE           # produces spectrum, coherence, and phase plots
+)
+
+# ── Frequencies and spectra ───────────────────────────────────────────────────
+freq      <- spec_result$freq          # frequencies (cycles per time unit)
+period    <- 1 / freq                  # corresponding periods
+
+# Individual spectra
+spec_x    <- spec_result$fxx[1, 1, ]  # spectrum of x (real part)
+spec_y    <- spec_result$fxx[2, 2, ]  # spectrum of y (real part)
+
+# Cross-spectrum
+cross_xy  <- spec_result$fxx[1, 2, ]  # complex cross-spectrum x vs y
+
+# ── Coherence: strength of co-movement at each frequency ─────────────────────
+coherence <- Mod(cross_xy)^2 / (Re(spec_x) * Re(spec_y))
+coherence <- pmin(coherence, 1)        # clamp to [0, 1] for numerical safety
+
+# ── Phase: lead/lag at each frequency ────────────────────────────────────────
+phase     <- Arg(cross_xy)             # phase in radians
+
+# Convert phase to time lag at each frequency
+# time_lag > 0: x leads y  |  time_lag < 0: y leads x
+time_lag  <- phase / (2 * pi * freq)
+
+# ── Find dominant frequency (peak in spectrum of x) ──────────────────────────
+peak_idx  <- which.max(Re(spec_x))
+cat("Dominant frequency :", round(freq[peak_idx], 4),   "\n")
+cat("Dominant period    :", round(period[peak_idx], 2),  "\n")
+cat("Phase at peak (rad):", round(phase[peak_idx], 4),   "\n")
+cat("Estimated time lag :", round(time_lag[peak_idx], 2), "periods\n")
+# Expected: close to shift
+
+#---------------------------------------------------------------------------
+if (F)
+{
+# Other: Non-Linear
+  library(RTransferEntropy)
+
+# Estimate transfer entropy in both directions
+  te_result <- transfer_entropy(x, y, lx = 2*shift, ly = 2*shift, nboot = 100)
+  print(te_result)
+
+# Cross-spectral analysis: coherence and phase
+  mvspec(cbind(x, y), spans = c(5, 5), plot = TRUE)
 }
 
-# Find theta for given a,b,c
-solve_acos_bsin_eq(a, b, c )
+
+#----------------------------------------------------------------------------
+# Exercise 2: Filters
 
 
 
-# Verify formula for identical shifts of gamma0 and gamma1
 
-L<-10
-set.seed(53)
-gamma<-rnorm(L-1)
-# Formula for gamma00
-gamma00<-sum(gamma)^2/sum((0:(L-2))*gamma)
-# Define gamma0
-gamma0<-c(gamma00,gamma)
-# lengthen gamma1
-gamma1<-c(gamma,0)
-# Verify shifts: should be the same
-sum((0:(L-1))*gamma0)/sum(gamma0)
-sum((0:(L-1))*gamma1)/sum(gamma1)
+
+
 
