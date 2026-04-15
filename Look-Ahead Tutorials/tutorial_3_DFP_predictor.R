@@ -22,6 +22,15 @@
 # ════════════════════════════════════════════════════════════════════
 
 
+rm(list = ls())
+
+# Load tau-statistic (measures lead/lag performance)
+source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
+
+# Load signal extraction functions used in JBCY (requires mFilter)
+source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+
+
 
 
 # This piece of code calculates lambda2 and lambda1 for unit DFP predictor b0=lambda1*gammah+lambda2*gamma0
@@ -362,10 +371,349 @@ text(gammah[1]-lambda0*gamma0[1]+1.4 * r * cos(th_mid)+0.05, gammah[2]-lambda0*g
 
 
 
+#######################################################################################################
+
+# Example: DFP for a given tau
+# Example in the paper but no plot
 
 
 
 
+max_lag<-2
+L<-50
+h<-3
+# First AR(3)
+lambda1<-0.3
+lambda2<-0.8
+lambda3<-0.2
+ar1<-ar11<-lambda1+lambda2+lambda3
+ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
+ar3<-ar31<-lambda1*lambda2*lambda3
+
+# Compute long sequence: need more values than L for MSE forecasts below
+gamma<-ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000)
+
+ts.plot(gamma[1:L])
+
+gamma0<-gamma[1:L]
+# MSE: last entries are vanishing (we could also insert the longer MA-expansion but this would not be the MSe estimate in the finite length MA case)
+gammah<-c(gamma[h+(1:(L-h))],rep(0,h))
+
+# Compute shifts at frequency zero
+tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
+tauh<-sum((0:(L-1))*gammah)/sum(gammah)
+
+# MSE is slightly leading
+tau0
+tauh
+# Select lead over MSE
+lead<--1
+tau<-lead
+# Formula for lambda0
+lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+# Compute b
+b<-gammah+lambda0*gamma0
+# Unitary DFP
+b_opt<-b/as.double(sqrt(b%*%b))
+
+# Check lead
+taub<-sum((0:(L-1))*b_opt)/sum(b_opt)
+# Should equal lead (or tau): this is an exact result
+taub-tauh
+
+# Compute alpha0
+alpha0<-as.double(t(gamma0)%*%(gammah+lambda0*gamma0)/sqrt(t(gammah+lambda0*gamma0)%*%(gammah+lambda0*gamma0)))
+# Replicate DFP predictor with DFP criterion in MSE_LA_closed_form_rank_two_func
+criterion_number<-1
+# Select large lambda
+lambda<-1000
+val_vec_target<-1
+# Need to scale alpha0 since the optimization routine assumes scaled gamma0,gammah
+val_vec_constraint<-alpha0/as.double(sqrt(gamma0%*%gamma0))
+
+MSE_LA_obj<-MSE_LA_closed_form_rank_two_func(criterion_number,h,lambda,gammah,gamma0,val_vec_target,val_vec_constraint,L)
+
+# Check: ratio should be nearly one (up to negligible errors due to roots of quartic equation)  
+b_opt/MSE_LA_obj$b
 
 
+#--------------------------------------------------------
+# Plots
+
+par(mfrow=c(3,2))
+
+colo<-c("black","green","blue")
+
+mplot<-scale(cbind(gamma0,gammah,b_opt),center=F,scale=F)#/sqrt((L-1))
+colnames(mplot)<-c("Nowcast",paste("MSE ",h,"-step"),"DFP")
+apply(mplot^2,2,sum)
+plot(mplot[,1],main="Filters",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+mtext(colnames(mplot)[1],col=colo[1],line=-1)
+for (i in 2:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[i],type="l")
+  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+}  
+lines(mplot[,2],col=colo[2])
+axis(1,at=1:nrow(mplot),labels=0:(nrow(mplot)-1))
+axis(2)
+box()
+
+mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec)
+
+
+
+
+K<-600
+mplot<-scale(cbind(gamma0,gammah,b_opt),center=F,scale=F)#/sqrt((L-1))
+apply(mplot^2,2,sum)
+colnames(mplot)<-c("Nowcast",paste("MSE ",h,"-step"),"DFP")
+shift_mat<-amp_mat<-matrix(ncol=ncol(mplot),nrow=K+1)
+colnames(shift_mat)<-colnames(amp_mat)<-colnames(mplot)
+for (i in 1:ncol(mplot))
+{  
+  filt_obj<-amp_shift_func(K,mplot[,i],F)
+  shift_mat[,i]<-apply(cbind(rep(0,K+1),filt_obj$shift),1,max)
+  amp_mat[,i]<-filt_obj$amp
+}  
+
+
+mplot<-amp_mat
+plot(mplot[,1],ylim=c(0,max(mplot)),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Amplitude")
+#mtext(colnames(mplot)[1],col=colo[1],line=-1)
+for (i in 2:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[i],type="l")
+  #  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+}  
+abline(h=0)
+axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
+axis(2)
+box()
+
+# Positive numbers signify left shift
+mplot<-cbind(shift_mat[,1]-shift_mat[,1],shift_mat[,2]-shift_mat[,1],shift_mat[,3]-shift_mat[,1])
+plot(mplot[,1],axes=F,col=colo[1],type="l",xlab="",ylab="",main="Leads over nowcast",ylim=c(min(mplot),max(mplot)))
+mtext(colnames(mplot)[1],col=colo[1],line=-1)
+for (i in 2:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[i],type="l")
+  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+}  
+abline(h=0)
+axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
+axis(2)
+box()
+
+
+# 1. Linear trend
+len<-10000
+x<-1:len
+# Scale all filters to unit-length
+filter_mat<-cbind(gamma0/mean(gamma0),gammah/mean(gammah),b_opt/mean(b_opt))/L
+apply(filter_mat,2,sum)
+y_out_mat<-filter(x,filter_mat[,1],side=1)
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
+colnames(y_out_mat)<-c("Process=nowcast",paste("MSE ",h,"-step",sep=""),"DFP")
+colo<-c("black","green","blue")
+
+anf<-100
+enf<-110
+ts.plot(y_out_mat[anf:enf,]-(anf-tau0-1),col=colo,main="Linear trend",xlab="",ylab="")
+#mtext("Nowcast",line=-1,col=colo[1])
+#mtext("MSE",line=-2,col=colo[2])
+#mtext("DFP",line=-3,col=colo[3])
+abline(h=4)
+
+set.seed(345)
+
+x<-rnorm(len)
+y_out_mat<-filter(x,filter_mat[,1],side=1)
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
+colnames(y_out_mat)<-c("Process=nowcast",paste("MSE ",h,"-step",sep=""),"DFP")
+
+ts.plot(scale(y_out_mat[290:320,],center=F,scale=T),main="White noise",col=colo,xlab="",ylab="")
+abline(h=0)
+
+#######################################################################################################
+
+
+
+
+# Example DFP applied to MA(9)
+# It relies on quadratic DFP in lambda1,lambda2: function DFP_compute_lambda_alpha0_func above.
+
+
+
+# We use the solution to the first unit-length DFP criterion: quadratic in lambda
+# Advantage: alpha0 in decoupling constraint is lag-zero CCF (theta)
+
+# Design
+h<-5
+L<-10
+ar1<-0.9
+ar2<-0.
+# Use c(1,ARMAtoMA(ar=c(ar1,ar2),lag.max=L)) since the weight 1 of epsilon_t is omitted
+gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2),lag.max=L-1))
+# Forecast horizon
+delta<-h
+
+# Compute MSE forecast and nowcast (the latter is the DGP since x_t is causal)
+gamma0<-gamma
+gammah<-c(gamma0[(h+1):L],rep(0,h))
+
+# CCF of MSE predictor at delta=0
+ccf_mse0<-as.double(t(gammah)%*%gamma0/sqrt(t(gamma0)%*%gamma0*t(gammah)%*%gammah))
+
+# Compute alpha0 in decoupling constraint: this is also the lag zero CCF (or theta)
+# Impose mild decoupling and complete decoupling
+alpha0_vec<-c(ccf_mse0/2,0)
+# Compute DFP predictors
+b0_mat<-matrix(nrow=L,ncol=length(alpha0_vec))
+lambda1<-lambda2<-NULL
+for (i in 1:length(alpha0_vec))
+{ 
+  alpha0<-alpha0_vec[i]
+  # Compute quadratic in lambda and then unit length DFP  
+  b0_obj<-DFP_compute_lambda_alpha0_func(gamma0,gammah,h,L,alpha0)
+  b0_mat[,i]<-b0_obj$b0
+  lambda1<-c(lambda1,b0_obj$lambda1)
+  lambda2<-c(lambda2,b0_obj$lambda2)
+  
+}
+colnames(b0_mat)<-c("DFP mild","DFP complete")
+
+ts.plot(b0_mat)
+# Check: should be one on diagonal (unit length)
+diag(t(b0_mat)%*%b0_mat)
+
+
+#----------------------------------------------
+# Apply filters to data
+# generate filtered series
+len1<-100000
+
+set.seed(4)
+eps<-rnorm(len1)
+mat_out<-matrix(nrow=len1,ncol=3)
+z<-mse<-fast_for<-rep(NA,len)
+for (i in L:len1)
+{
+  # DGP  
+  z[i]<-gamma0%*%eps[i:(i-L+1)]
+  # MSE and DFP predictors  
+  mat_out[i,1]<-gammah%*%eps[i:(i-L+1)]
+  mat_out[i,2]<-b0_mat[,1]%*%eps[i:(i-L+1)]
+  mat_out[i,3]<-b0_mat[,2]%*%eps[i:(i-L+1)]
+}
+colnames(mat_out)<-c("mse",colnames(b0_mat))
+colo<-c("black","green","royalblue")
+ts.plot(scale(mat_out[500:min(1000,len1),],scale=T,center=F),col=colo)
+for (i in 1:ncol(mat_out))
+  mtext(colnames(mat_out)[i],col=colo[i],line=-i)
+
+#-----------------------
+max_lag<-0
+
+# Simon's proposal: MSE-predictor of x_{t+h}-x_t
+#gammah<-gammah-gamma0
+
+
+# Compute CCFs of predictors
+# MSE
+gamma1<-gammah
+# Add zeroes to avoid NAs
+gamma_ref<-c(gamma0,rep(0,100))
+ccf_mat<-compute_ccf_func(gamma1,gamma_ref,h,max_lag,L)$cor_vec
+# DFP mild
+# Add zerors to avoid NAs
+gamma1<-b0_mat[,1]
+ccf_mat<-cbind(ccf_mat,compute_ccf_func(gamma1,gamma_ref,h,max_lag,L)$cor_vec)
+# DFP mild
+gamma1<-b0_mat[,2]
+ccf_mat<-cbind(ccf_mat,compute_ccf_func(gamma1,gamma_ref,h,max_lag,L)$cor_vec)
+
+colnames(ccf_mat)<-c("MSE",colnames(b0_mat))
+
+
+#----------------------------------------
+# Generate plot and table
+
+
+colo<-c("green","red","royalblue")
+
+layout(matrix(c(1,2,3,3), 2, 2, byrow = T)) 
+
+
+mplot<-cbind(gammah,b0_mat)
+plot(mplot[,1],main="Predictor",axes=F,type="l",xlab="Lags",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+lines(mplot[,2],col=colo[2])
+lines(mplot[,3],col=colo[3])
+abline(h=0)
+axis(1,at=1:nrow(mplot),labels=-1+1:nrow(mplot))
+axis(2)
+box()
+
+
+mplot<-ccf_mat
+plot(mplot[,1],main="CCF",axes=F,type="l",xlab="Leads",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+lines(mplot[,2],col=colo[2])
+lines(mplot[,3],col=colo[3])
+abline(v=max_lag+1,col="royalblue")
+abline(v=max_lag+1+h)
+abline(h=0)
+text(5,0.7,"MSE",col=colo[1])
+text(5,0.5,"Partial decoupling",col=colo[2])
+text(5,0.1,"Complete decoupling",col=colo[3])
+
+axis(1,at=1:nrow(mplot),labels=-(max_lag+1)+1:nrow(mplot))
+axis(2)
+box()
+
+anf<-900
+anf<-1300
+anf<-1500
+anf<-1800
+anf<-3200
+mplot<-scale(mat_out[anf:min(anf+80,len1),],scale=T,center=F)
+
+plot(mplot[,1],main="Forecast",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+lines(mplot[,2],col=colo[2])
+lines(mplot[,3],col=colo[3])
+abline(h=0)
+axis(1,at=(1:(nrow(mplot)/10))*10,labels=(1:(nrow(mplot)/10))*10)
+axis(2)
+box()
+
+
+
+
+mplot<-cbind(gammah,b0_mat)
+
+# Performances: CCFs and lead at frequency zero
+mat_cor_vec<-ccf_mat[c(max_lag+1,max_lag+1+h),]
+colnames(mat_cor_vec)<-c("MSE","DFP weak decoupling","DFP complete decoupling")
+rownames(mat_cor_vec)<-c("CCF at lag=0",paste("CCF at h=",h,sep=""))
+mat_cor_vec
+# Impose a positive sign of zero
+mat_cor_vec[1,3]<-abs(mat_cor_vec[1,3])
+
+
+# Time shifts at omega=0: DFP with complete decoupling is not meaningful because of phase reversal at zero
+tauh<-(1:(L-1))%*%gammah[2:L]/sum(gammah)
+tau_pd<-(1:(L-1))%*%b0_mat[2:L,1]/sum(b0_mat[,1])
+tau_cd<-(1:(L-1))%*%b0_mat[2:L,2]/sum(b0_mat[,2])
+
+
+
+mat_cor_vec<-rbind(mat_cor_vec,c(0,2.12,4.03))
+mat_cor_vec[3,]<-round(mat_cor_vec[3,])
+
+rownames(mat_cor_vec)[3]<-"Relative lead over MSE"
+mat_cor_vec
+
+
+#######################################################################################################
 
