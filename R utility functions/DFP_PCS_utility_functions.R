@@ -80,7 +80,8 @@ compute_ccf_func<-function(gamma1,gamma_ref,h,max_lag,L)
     cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(min(L+i,L)-i)]%*%gamma_ref[(i+1):min(L+i,L)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
   # Leads: h+1,...,L (after L the best forecast is zero)
   for (i in 1:(L-h-1))#i<-1
-    cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(L-i)]%*%gamma_ref[(h+i)+1:(L-i)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
+    if ((h+L)<=length(gamma_ref))
+      cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(L-i)]%*%gamma_ref[(h+i)+1:(L-i)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
   cor_vec<-cor_vec_lead_LA
   
   # Lags  
