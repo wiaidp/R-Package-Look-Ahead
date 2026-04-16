@@ -464,10 +464,10 @@ x_shift_amp_trend2 <- amp2_trend * (-shift2_trend + (1:len))
 par(mfrow = c(2, 1))
 ts.plot(cbind(x_shift_amp_trend1, y1_trend),
         main = "Equally-weighted MA: analytical trend prediction vs. filtered trend",
-        col  = c("blue", "black"))
+        col  = c("blue", "black"),lty=1:2)
 ts.plot(cbind(x_shift_amp_trend2, y2_trend),
         main = "Exponentially-weighted MA: analytical trend prediction vs. filtered trend",
-        col  = c("red", "black"))
+        col  = c("red", "black"),lty=1:2)
 
 # ════════════════════════════════════════════════════════════════════
 # MAIN FINDINGS

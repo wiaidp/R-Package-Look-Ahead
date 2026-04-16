@@ -1,25 +1,141 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 2 — DFP PREDICTOR -
+# TUTORIAL 3 — THE DFP PREDICTOR
 # ════════════════════════════════════════════════════════════════════
 
-# ── PURPOSE ───────────────────────────────────────────────────────────────────
-# Tutorial 1 demonstrates that the classical Mean Squared Error (MSE)
-# multi-step-ahead predictor can become "stuck" at the current time point:
-# rather than targeting x_{t+h}, it correlates most strongly with x_t,
-# where h > 0 denotes the forecast horizon. This phenomenon motivates the
-# introduction of the so-called Decouple-From-Present (DFP) criterion,
-# a novel approach designed to explicitly enforce look-ahead behavior in
-# the predictor.
-# ─────────────────────────────────────────────────────────────────────────────
-
-
+# ── PURPOSE ───────────────────────────────────────────────────────────
+# Tutorial 1 showed that the classical MSE multi-step-ahead predictor
+# can become "stuck at the present": rather than anticipating x_{t+h},
+# it correlates most strongly with x_t (the current observation), where
+# h > 0 is the forecast horizon. This look-ahead failure motivates the
+# Decouple-From-Present (DFP) criterion — a novel optimisation framework
+# that explicitly enforces look-ahead behaviour by controlling how strongly
+# the predictor is tied to the present value of the series.
 # ════════════════════════════════════════════════════════════════════
-# Theoretical background:
-#   Wildi, M. (2026). Forecasting on the Accuracy–Timeliness Frontier:
-#   Two Novel "Look-Ahead" Predictors.
-#   https://doi.org/10.48550/arXiv.2602.23087
 
+# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     https://doi.org/10.48550/arXiv.2602.23087
 # ════════════════════════════════════════════════════════════════════
+
+# ── CORE IDEA ─────────────────────────────────────────────────────────
+# Let x_t be a stationary time series, h > 0 the forecast horizon, and
+# y_t(h) the h-step-ahead predictor. The DFP criterion pursues two
+# simultaneous objectives:
+#
+#   (1) TRACKING  — Maximise correlation of y_t(h) with the target x_{t+h},
+#                   equivalently minimise the MSE forecast error.
+#
+#   (2) DECOUPLING — Control (reduce) the correlation of y_t(h) with x_t,
+#                    the value at the CURRENT time point. Decoupling from
+#                    the present forces the predictor to "look ahead"
+#                    rather than mirroring what is already observed.
+#
+# These two objectives are placed in explicit tension via a constraint
+# hyperparameter, allowing the practitioner to navigate the full
+# Accuracy–Timeliness (AT) trade-off frontier.
+
+
+# ── EDGING ON A TRADEOFF ──────────────────────────────────────────────
+# Decoupling y_t(h) from x_t comes at a cost: the DFP correlates less strongly
+# with the target x_{t+h} than the classical MSE-optimal predictor does.
+#   - The DFP criterion is designed to minimize this loss, i.e., to find the
+#     best achievable correlation with x_{t+h} under the decoupling constraint.
+#
+# Crucially, however, decoupling is not merely a limitation — it is the very
+# mechanism that enables y_t(h) to look ahead effectively.
+# No other predictor can look as far ahead as the DFP predictor for a given 
+# level of tracking accuracy, see Wildi 2026, sections 3.5 and 4.3.
+
+# ── GENERALISATION ────────────────────────────────────────────────────
+# The framework extends naturally beyond point forecasting:
+#   - The target can be an arbitrary non-causal signal z_{t+h}, where z_t
+#     is a trend or business-cycle component extracted from x_t.
+#   - This enables the design of LEADING INDICATOR predictors: filters
+#     tailored to anticipate a specific signal of interest (e.g., a
+#     band-pass filtered cycle) rather than the raw series.
+#   - See the dedicated leading-indicator example for a worked application.
+
+# ── SCOPE AND MOTIVATION ──────────────────────────────────────────────
+# This tutorial analyses STATIONARY time series only.
+#
+# Motivation for the stationarity assumption in applied work:
+#   Most macroeconomic and financial series are non-stationary (e.g., GDP,
+#   prices, asset values). However, it is typically the GROWTH component
+#   (first differences) that carries the economically relevant signal.
+#   First-differencing renders most economic series approximately stationary,
+#   at least over the sample periods relevant for short- to medium-term
+#   forecasting. The DFP framework is therefore applied to differenced data
+#   without material loss of generality for practical applications.
+
+# ── TWO OPTIMISATION FORMS ────────────────────────────────────────────
+# DFP can be formulated in two equivalent but complementary ways:
+#
+#   Form 1 — UNITARY DFP  (Equation 2 in Wildi 2026)
+#     A quadratic (squared) optimisation problem. The constraint
+#     hyperparameter has a direct, intuitive interpretation: it corresponds
+#     to a prescribed correlation between y_t(h) and x_t (the degree of
+#     decoupling from the present).
+#
+#   Form 2 — MSE-DFP  (Equation 9 in Wildi 2026)
+#     A linear optimisation problem obtained by relaxing the unit-length 
+#     constraint in a MSE formulation of the problem.  Computationally 
+#     simpler, but the constraint hyperparameter is less directly 
+#     interpretable in isolation.
+#
+# In both forms, solutions are obtained in CLOSED FORM and correspond to
+# the global optimum of the respective problem.
+
+# ── CONNECTION TO TIMELINESS (TUTORIAL 2) ─────────────────────────────
+# The time-shift function at zero frequency (omega = 0), introduced in
+# Tutorial 2 as a measure of filter timeliness, is directly related to
+# the DFP constraint hyperparameter.
+#
+# Specifically, when the constraint is expressed in terms of the
+# zero-frequency time-shift, both Unitary DFP and MSE-DFP acquire a
+# concrete, interpretable meaning: the hyperparameter controls the
+# LEAD (in time units) of the predictor relative to the present, at the
+# frequency that dominates most macroeconomic signals (near zero /
+# business-cycle band).
+
+# ── PRIMAL AND DUAL FORMULATIONS ─────────────────────────────────────
+#   PRIMAL form:
+#     Maximise tracking accuracy (correlation of y_t(h) with x_{t+h} or z_{t+h})
+#     subject to a prescribed time-shift (lead) constraint.
+#
+#   DUAL form:
+#     Minimise the link with the present x_t — equivalently, maximise the
+#     lead of y_t(h) — subject to a prescribed level of tracking accuracy.
+#
+# Both formulations trace the same efficient frontier; the choice between
+# them is a matter of which quantity (accuracy or lead) is fixed as the
+# binding constraint.
+
+# ── THE ACCURACY–TIMELINESS (AT) EFFICIENT FRONTIER ──────────────────
+# The DFP predictor sweeps out the complete efficient AT frontier:
+#   - No other linear predictor can achieve higher tracking accuracy for
+#     a given lead constraint.
+#   - Equivalently, no other linear predictor can achieve a greater lead
+#     for a given tracking accuracy.
+#
+# The classical MSE predictor corresponds to a SINGLE POINT on this
+# frontier (the accuracy-maximising endpoint).
+# DFP generalises MSE to the ENTIRE frontier, giving practitioners
+# explicit control over the accuracy–timeliness trade-off.
+
+# ── INTERPRETABILITY AND PRACTICAL ADVANTAGES ─────────────────────────
+#   - Both the objective function and the constraint have clear economic
+#     interpretations (correlation with target; lead relative to present).
+#   - DFP nests MSE as a special case.
+#   - Closed-form solutions guarantee global optimality and fast computation.
+#   - The framework is modular: swap the target signal z_t to design
+#     predictors tailored to cycles, trends, or custom band-pass signals.
+#   - It is possible to formulate a specialized leading indicator DFP.
+# ════════════════════════════════════════════════════════════════════
+
+
+
 
 
 rm(list = ls())
@@ -35,17 +151,50 @@ source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
 
+# Exercise 1 Core Ideas DFP in MA-inverted Form
 
+# Let x_t be a stationary time series with convergent (square summable) Wold-decomposition 
+# \sum_{k=0}^{\infty}gamma_k epsilon_{t-k}. It is natural to express the DFP in terms of the 
+# innovations epsilon_t rather than x_t (the latter will be performed in exercise 2 below).
 
-
-# This piece of code calculates lambda2 and lambda1 for unit DFP predictor b0=lambda1*gammah+lambda2*gamma0
-# 1. Set up design
-# First example such that gamma0, gammah are not orthogonal
-set.seed(1)
-L<-20
-h<-4
-alpha0<-0.5
+# To illustrate the DFP in the natural innovation form consider the following data generating process
+# (finite Wold decomposition)
+set.seed(12)
+L<-10
 gamma0<-rnorm(L)
+
+ts.plot(gamma0,main="Wold decomposition")
+
+# For illustration, we simulate a realization of this process
+len<-100
+set.seed(3)
+eps<-rnorm(len)
+x<-filter(eps,gamma0)
+
+ts.plot(x,main="A realization of the process")
+acf(na.exclude(x))
+
+# Note: 
+# 1. We interpret the Wold decomposition as filter that is applied to the innovations
+#     - In practice the inverse holds: x_t is observed and the innovations can be recovered from a filter applied to x_t (assuming invertibility)
+# 2. The MA-sequence (Wold decomposition) does not need to be invertible (we do not impose the minimum phase property)
+
+# Forecasting: horizon
+
+h<-4
+
+
+# Target decomposition:
+#   x_{t+h} = ε_{t+h} + gamma_1 ε_{t+h-1} + ... + gamma_{h-1} ε_{t+1}   [future shocks]
+#           + gamma_h ε_t  + gamma_{h+1} ε_{t-1} + ... + gamma_q ε_{t+h-q}   [available shocks]
+#
+# The MSE criterion replaces all future shocks (ε_{t+k} for k > 0) with their
+# conditional expectation of zero. The remaining terms define the predictor:
+#
+#   x̂_{t|t+h} = gamma_h ε_t + gamma_{h+1} ε_{t-1} + ... + gamma_q ε_{t+h-q}
+
+
+# MSE predictor
 gammah<-c(gamma0[(h+1):L],rep(0,h))
 
 if (F)
@@ -76,6 +225,12 @@ which_sol<-b0_obj$which_sol
 t(b0)%*%b0-1
 # 2. Decoupling constraint: should vanish
 t(gamma0)%*%b0/sqrt(t(gamma0%*%gamma0))-alpha0
+
+
+#-------------------------------------------------------------
+
+# Exercise 2 AR-form
+
 
 
 
