@@ -136,224 +136,324 @@
 
 
 
+# ════════════════════════════════════════════════════════════════════
+# TUTORIAL 3 — THE DFP PREDICTOR
+# Exercise 1: Core Ideas — DFP in MA (Innovation) Form
+# ════════════════════════════════════════════════════════════════════
 
-
+# ── INITIALISATION ────────────────────────────────────────────────────
 rm(list = ls())
 
-
+# Load the DFP optimisation routines
+# Provides DFP_compute_lambda_alpha0_func() and related solvers
 source(paste(getwd(), "/R/DFP.r", sep = ""))
 
-
-# Load tau-statistic (measures lead/lag performance)
+# Load the tau-statistic utility: measures lead/lag at zero crossings
 source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 
-# Load general DFP-PCS utility functions (not immediately related to optimization)
+# Load general DFP/PCS utility functions (amplitude, time-shift, CCF helpers)
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
 
-# Exercise 1 Core Ideas DFP in MA-inverted Form
-
-# Let x_t be a stationary time series with convergent (square summable) Wold-decomposition 
-# \sum_{k=0}^{\infty}gamma_k epsilon_{t-k}. It is natural to express the DFP in terms of the 
-# innovations epsilon_t rather than x_t (the latter will be performed in exercise 2 below).
-
-# To illustrate the DFP in the natural innovation form consider the following data generating process
-# (finite Wold decomposition)
-set.seed(12)
-L<-10
-gamma0<-rep(1,L)
-
-ts.plot(gamma0,main="Wold decomposition")
-
-# For illustration, we simulate a realization of this process
-len<-100
-set.seed(3)
-eps<-rnorm(len)
-x<-filter(eps,gamma0)
-
-ts.plot(x,main="A realization of the process")
-acf(na.exclude(x))
-
-# Note: 
-# 1. We interpret the Wold decomposition as filter that is applied to the innovations
-#     - In practice the inverse holds: x_t is observed and the innovations can be recovered from a filter applied to x_t (assuming invertibility)
-# 2. The MA-sequence (Wold decomposition) does not need to be invertible (we do not impose the minimum phase property)
-
-# Forecasting: horizon
-
-h<-2
-
-
-# Target decomposition:
-#   x_{t+h} = ε_{t+h} + gamma_1 ε_{t+h-1} + ... + gamma_{h-1} ε_{t+1}   [future shocks]
-#           + gamma_h ε_t  + gamma_{h+1} ε_{t-1} + ... + gamma_q ε_{t+h-q}   [available shocks]
+# ════════════════════════════════════════════════════════════════════
+# CONCEPTUAL BACKGROUND
+# ════════════════════════════════════════════════════════════════════
+# Let x_t be a stationary time series with a convergent (square-summable)
+# Wold decomposition:
 #
-# The MSE criterion replaces all future shocks (ε_{t+k} for k > 0) with their
-# conditional expectation of zero. The remaining terms define the predictor:
+#   x_t = sum_{k=0}^{inf} gamma_k * epsilon_{t-k}
 #
-#   x̂_{t|t+h} = gamma_h ε_t + gamma_{h+1} ε_{t-1} + ... + gamma_q ε_{t+h-q}
+# It is natural to express the DFP predictor in terms of the INNOVATIONS
+# epsilon_t rather than in terms of x_t directly.  Exercise ??? will extend 
+# this to the observable x_t representation.
+#
+# Two important notes on the MA / Wold representation:
+#   (1) In practice, x_t is observed and the innovations are LATENT;
+#       they must be recovered by applying an AR-inversion filter to x_t
+#       (requiring stationarity of the AR or ARMA for a convergent Wold decomposition).
+#       Here epsilon_t is simulated directly, so no inversion is needed.
+#   (2) The DFP framework does NOT require the MA sequence to be invertible
+#       (minimum-phase). The MA representation can be non-invertible.
+# ════════════════════════════════════════════════════════════════════
 
 
-# MSE predictor
-gammah<-c(gamma0[(h+1):L],rep(0,h))
+# ── 1.1 Data-Generating Process (DGP) ────────────────────────────────
+# We reuse the MA(9) process from Tutorial 1:
+#   x_t = sum_{k=0}^{9} gamma_k * epsilon_{t-k},   gamma_k = 0.9^k
+#
+# The Wold decomposition (gamma0) plays a dual role here:
+#   - It defines the DGP (how x_t is generated from innovations).
+#   - It serves as the NOWCAST filter: applying gamma0 to the innovation
+#     sequence recovers x_t itself (the present value).
+
+L      <- 10          # filter length (truncation of the Wold decomposition)
+a1     <- 0.9         # geometric decay rate of the Wold coefficients
+gamma0 <- a1^(0:9)    # Wold coefficients: gamma_k = a1^k, k = 0,...,9
+
+ts.plot(gamma0, main = "Wold decomposition (MA coefficients of the DGP)",
+        xlab = "Lag k", ylab = expression(gamma[k]))
+
+# Simulate one realisation of the MA(9) process
+len    <- 100
+set.seed(21)
+eps    <- rnorm(len)               # i.i.d. standard normal innovations
+x      <- filter(eps, gamma0)      # MA(9) output: x_t = gamma0 * epsilon_t
+
+par(mfrow = c(2, 1))
+ts.plot(x,   main = "One realisation of the MA(9) process", xlab = "")
+acf(na.exclude(x), main = "ACF — significant lags up to order q = 9 in long samples")
 
 
-# Nomenclature
-# gamma0 is called nowcast, gammah is the h-step ahead predictor, b or b0 is the DFP predictor
-# The nowcast in this example is trivial (it is x_t or, in our filter terminology, the Wold decomposition)
-# Later we shall use examples where z_t is trend based on an acausal filter (Hodrick Prescott) applied to x_t.
-# In this case the nowcast is non trivial (the causal part of the acausal filter.)
+# ── 1.2 MSE Predictor ────────────────────────────────────────────────
+# Forecast horizon (must satisfy h <= q; otherwise the optimal forecast is 0)
+h <- 5
 
-# We can compute the correlation of the MSE predictor with the nowcast
-cor_mse_now<-t(gamma0)%*%gammah/sqrt(t(gamma0%*%gamma0)*t(gammah%*%gammah))
-# A high correlation of the MSE predictor (gammah) with the nowcast (gamma0) indicates strong coupling.
-# In such a case the MSE predictor would be "stuck at present"
-cor_mse_now
+# The h-step-ahead MSE predictor retains only the MA coefficients at lags
+# h through q (future shocks are replaced by their conditional mean of zero):
+#
+#   x̂_{t|t+h} = gamma_h * eps_t + gamma_{h+1} * eps_{t-1} + ... + gamma_q * eps_{t+h-q}
+#
+# In filter form, the MSE weights are gamma0 shifted forward by h positions:
+gammah <- c(gamma0[(h + 1):L], rep(0, h))   # MSE filter (length L, last h entries = 0)
 
-# The DFP predictor b0 is a linear combination of the nowcast gamma0 and the MSE predictor gammah, see Wildi 2026
-# The unit-length (unit-norm) DFP derives the predictor under a unit-length constraint
-# This allows interpretation of the hyperparameter alpha0 in the DFP constraint in terms of correlation between y_t(h) and x_t (present time), see Wildi 2026, section 3.1
-# The function DFP_compute_lambda_alpha0_func computes b0 for given h and alpha0 (correlation at present time)
+# ── Nomenclature used throughout this tutorial ────────────────────────
+# gamma0  : Wold decomposition = NOWCAST filter (recovers x_t from innovations)
+# gammah  : h-step-ahead MSE predictor filter
+# b0      : DFP predictor filter (to be computed below)
+#
+# In this simple example the nowcast is trivial (gamma0 applied to eps gives x_t).
+# In later exercises the TARGET will be a non-causal signal z_t (e.g., an
+# HP-filter trend), and the nowcast will be its causal approximation — a
+# non-trivial filter in its own right.
 
-alpha0<-0.
-
-b0_obj<-DFP_compute_lambda_alpha0_func(gamma0,gammah,h,L,alpha0)
-
-b0<-b0_obj$b0
-lambda1<-b0_obj$lambda1
-lambda2<-b0_obj$lambda2
-which_sol<-b0_obj$which_sol
-
-
-# Checks (verifications)
-# 1. Reconstruct the DFP predictor
-b<-lambda2*gamma0+lambda1*gammah
-# Normalize length
-b<-b/as.double(sqrt(t(b)%*%b))
-# Check: difference is zero
-max(abs(b-b0))
-
-# 2. Length constraint of unit-length DFP
-# Check: difference is zero
-t(b0)%*%b0-1
-# 3. Decoupling constraint: 
-# Compute correlation of DFP predictor with x_t (nowcast)
-cor_dfp_now<-t(gamma0)%*%b0/sqrt(t(gamma0%*%gamma0))
-# Check: should vanish
-cor_dfp_now-alpha0
-
-# Verify tradeoff: AT dilemma 
-# 1. Compare correlations with nowcast (with x_t at present time)
-# The DFP predictor correlates less strongly with the nowcast
-cor_mse_now
-cor_dfp_now
-
-# 2. Compare target correlations: we can compare correlations with either the effective target, i.e.,
-# x_{t+h}, or its MSE predictor. The solution to the DFP criterion is indifferent to this choice.
-
-# A) Correlations with effective target
-target_cor_dfp<-t(b0)%*%gammah/sqrt((t(b0)%*%b0)*(t(gamma0)%*%gamma0))
-target_cor_mse<-t(gammah)%*%gammah/sqrt(t(gamma0)%*%gamma0*t(gammah)%*%gammah)
-
-target_cor_dfp
-target_cor_mse
-
-# B) Correlations with MSE predictor
-t(b0)%*%gammah/sqrt((t(b0)%*%b0)*(t(gammah)%*%gammah))
-t(gammah)%*%gammah/(t(gammah)%*%gammah)
-
-# Summarize in table
-
-perf_mat<-rbind(c(cor_mse_now,cor_dfp_now),c(target_cor_mse,target_cor_dfp))
-
-colnames(perf_mat)<-c("MSE","DFP")
-rownames(perf_mat)<-c("Correlation with nowcast (present time","Target correlation")
-
-# Here we can see the AT-dilemma at work: the DFP predictor traces the efficient frontier.
-# The MSE predictor is a single point at the boundary of the frontier, maximizing the target correlation.
-round(perf_mat,3)
-
-# Apply Predictors: Filter the data
-
-y_dfp<-filter(eps,b0,side=1)
-y_mse<-filter(eps,gammah,side=1)
+# Measure coupling of MSE predictor to the present (nowcast correlation):
+# A value close to 1 signals strong "stuck-at-present" behaviour.
+cor_mse_now <- t(gamma0) %*% gammah / sqrt(t(gamma0 %*% gamma0) * t(gammah %*% gammah))
+cat("Correlation of MSE predictor with nowcast (present):", round(cor_mse_now, 4), "\n")
 
 
-ts.plot(scale(cbind(y_mse,y_dfp)),col=c("green","blue"))
-abline(h=0)
+# ── 1.3 DFP Predictor ────────────────────────────────────────────────
+# The UNIT-LENGTH DFP predictor b0 is a constrained linear combination of
+# the nowcast (gamma0) and the MSE predictor (gammah):
+#
+#   b0 = lambda2 * gamma0 + lambda1 * gammah,   normalised to ||b0|| = 1
+#
+# The unit-norm constraint gives the hyperparameter alpha0 a direct
+# interpretation: it equals the prescribed correlation between the predictor
+# y_t(h) and the current value x_t (the degree of coupling with the present).
+# Setting alpha0 < cor_mse_now decouples the predictor from the present.
+# See Wildi (2026), Section 3.1 for the closed-form derivation.
 
-ccf(na.exclude(y_mse), na.exclude(y_dfp), lag.max = 10, plot = TRUE,
-    main = "CCF of x and y — peak lag estimates the lead")
+alpha0  <- 0.2   # target correlation with the nowcast (present coupling level)
+# must satisfy alpha0 < cor_mse_now for decoupling
 
-library(dynlm)
-x_ts  <- ts(y_mse, start = 1, frequency = 1)
-y_ts  <- ts(y_dfp, start = 1, frequency = 1)
+b0_obj  <- DFP_compute_lambda_alpha0_func(gamma0, gammah, h, L, alpha0)
 
-# Fit model: x_t = alpha + sum_{k=0}^{8} beta_k * y_{t-k} + error
-model <- dynlm(x_ts ~ L(y_ts, 0:8))
-summary(model)   # inspect coefficient significance across lags
+b0        <- b0_obj$b0          # DFP filter coefficients
+lambda1   <- b0_obj$lambda1     # weight on the MSE predictor
+lambda2   <- b0_obj$lambda2     # weight on the nowcast
 
-filter_mat <- cbind(y_mse, y_dfp)
-max_lead   <- 10
-compute_min_tau_func(filter_mat, max_lead)
+# Plot MSE and DFP filter coefficients side by side
+colo  <- c("green", "blue")
+mplot <- cbind(gammah, b0)
+colnames(mplot) <- c("MSE", "DFP")
 
-library(astsa)
-
-# Compute cross-spectral quantities using smoothed periodogram
-#   spans : smoothing bandwidths applied to the periodogram (reduces noise)
-#   taper : proportion of data tapered at each end (reduces spectral leakage)
-#   plot  : automatically produces spectrum, coherence, and phase panels
-spec_result <- mvspec(
-  x     = na.exclude(cbind(y_mse, y_dfp)),
-  spans = c(7, 7),     # adjust spans for more (larger) or less (smaller) smoothing
-  taper = 0.1,         # 10% cosine taper applied to each end of the series
-  plot  = TRUE         # display the four-panel cross-spectral plot
-)
-
-# ── Extract frequencies and spectral components ───────────────────────
-freq     <- spec_result$freq           # frequencies in cycles per time unit
-period   <- 1 / freq                   # corresponding cycle lengths (time units)
-
-spec_x   <- spec_result$fxx[1, 1, ]   # power spectrum of x (real part)
-spec_y   <- spec_result$fxx[2, 2, ]   # power spectrum of y (real part)
-cross_xy <- spec_result$fxx[1, 2, ]   # complex cross-spectrum of x vs. y
-
-# ── Coherence: fraction of variance in x explained by y at each frequency ──
-coherence <- Mod(cross_xy)^2 / (Re(spec_x) * Re(spec_y))
-coherence <- pmin(coherence, 1)        # clamp to [0, 1] to guard against numerical noise
-
-# ── Phase: angular lead/lag between x and y at each frequency ────────
-phase    <- Arg(cross_xy)              # phase difference in radians
-
-# Convert phase (radians) to time units using:  time_lag = phase / (2π × freq)
-# Interpretation: time_lag > 0  →  x leads y
-#                 time_lag < 0  →  y leads x
-time_lag <- phase / (2 * pi * freq)
-
-# ── Report results at the dominant frequency (spectral peak of x) ─────
-peak_idx <- which.max(Re(spec_x))
-cat("Dominant frequency :", round(freq[peak_idx],     4), "\n")
-cat("Dominant period    :", round(period[peak_idx],   2), "\n")
-cat("Phase at peak (rad):", round(phase[peak_idx],    4), "\n")
-cat("Estimated time lag :", round(time_lag[peak_idx], 2), "time units\n")
-# Expected result: estimated time lag is close to the true `shift` (= 5)
-
-
-
-if (F)
-{
-  # Second example with orthogonal gamma0, gammah
-  h<-4
-  gamma0<-(-1)^(1:L)
-  gammah<-c(rep(1,L-h),rep(0,h))
-  # Check orthogonality  
-  t(gamma0)%*%gammah
+par(mfrow = c(1, 1))
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Lag", ylab = "Coefficient",
+     main = "Filter coefficients: MSE predictor vs. DFP predictor",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
+abline(h = 0)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
+axis(2); box()
+
+# Observation:
+# Unlike the MSE predictor (whose coefficients are zero at lags >= q+1-h),
+# the DFP predictor assigns NON-ZERO weight to observations further in the 
+# past. 
+# Intuitively, this weighting scheme seems to contradict a look-ahead 
+# perspective.
+
+
+# ── 1.4 Verification Checks ──────────────────────────────────────────
+# Confirm that the computed DFP solution satisfies all theoretical properties.
+
+# Check 1: b0 is a normalised linear combination of gamma0 and gammah
+b <- lambda2 * gamma0 + lambda1 * gammah
+b <- b / as.double(sqrt(t(b) %*% b))   # enforce unit norm
+cat("Check 1 — max deviation from linear combination formula:",
+    max(abs(b - b0)), "\n")             # should be (near) zero
+
+# Check 2: Unit-norm constraint (||b0|| = 1)
+cat("Check 2 — unit-norm residual:", t(b0) %*% b0 - 1, "\n")   # should be zero
+
+# Check 3: Decoupling constraint (correlation of b0 with gamma0 equals alpha0)
+cor_dfp_now <- t(gamma0) %*% b0 / sqrt(t(gamma0 %*% gamma0))
+cat("Check 3 — decoupling constraint residual:",
+    cor_dfp_now - alpha0, "\n")         # should be zero
+
+
+# ── 1.5 Accuracy–Timeliness (AT) Dilemma ─────────────────────────────
+# The decoupling constraint is not free: by reducing correlation with x_t,
+# the DFP predictor also sacrifices some correlation with the future target
+# x_{t+h}. This is the AT dilemma in action.
+# DFP minimises this accuracy loss subject to the prescribed lead constraint.
+
+# A) Correlation with the nowcast (present coupling)
+cat("\nCorrelation with nowcast — MSE:", round(cor_mse_now, 4),
+    "| DFP:", round(cor_dfp_now, 4), "\n")
+
+# B) Correlation with the effective target x_{t+h}
+# (represented by the MSE filter gammah in the innovation space)
+target_cor_dfp <- t(b0)    %*% gammah / sqrt((t(b0)    %*% b0)    * (t(gamma0) %*% gamma0))
+target_cor_mse <- t(gammah) %*% gammah / sqrt((t(gamma0) %*% gamma0) * (t(gammah) %*% gammah))
+
+cat("Target correlation  — MSE:", round(target_cor_mse, 4),
+    "| DFP:", round(target_cor_dfp, 4), "\n")
+
+# C) Correlation with the MSE predictor itself (alternative target representation)
+cat("Corr. with MSE filt — MSE:", 1,
+    "| DFP:", round(t(b0) %*% gammah / sqrt((t(b0) %*% b0) * (t(gammah) %*% gammah)), 4), "\n")
+
+# Summary table of the AT trade-off
+perf_mat <- rbind(
+  c(cor_mse_now,   cor_dfp_now),
+  c(target_cor_mse, target_cor_dfp)
+)
+colnames(perf_mat) <- c("MSE", "DFP")
+rownames(perf_mat) <- c("Correlation with nowcast (present coupling)",
+                        "Target correlation (horizon h)")
+
+cat("\nAccuracy–Timeliness performance summary:\n")
+print(round(perf_mat, 3))
+# Interpretation:
+#   Row 1: DFP achieves the prescribed lower coupling with the present (alpha0).
+#   Row 2: The accompanying reduction in target correlation is the AT cost —
+#          minimised by DFP's optimal weighting of gamma0 and gammah.
+
+
+# ── 1.6 Apply Predictors to the Simulated Data ───────────────────────
+# Filter the innovation sequence with each predictor to obtain time series
+# of h-step-ahead forecasts, then compare visually.
+
+y_dfp <- filter(eps, b0,    side = 1)   # DFP forecast series
+y_mse <- filter(eps, gammah, side = 1)  # MSE forecast series
+
+# Scale for comparability (unit variance) and remove NA burn-in
+mplot <- na.exclude(scale(cbind(y_mse, y_dfp)))
+colnames(mplot) <- c("MSE", "DFP")
+
+par(mfrow = c(1, 1))
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Time", ylab = "",
+     main = "Standardised forecast series: MSE (green) vs. DFP (blue)",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+abline(h = 0)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
+axis(2); box()
+
+# The DFP (blue) seems left-shifted when compared to the MSE predictor (green).
+# We now verify this assertion.
+
+
+# ── 1.7 Sample CCF ────────────────────────────────────────────────────
+# Estimate the cross-correlation between x and each predictor from the
+# simulated data. The CCF peak location indicates how far ahead (or behind)
+# each predictor is relative to x_t.
+# Note: sample CCF is noisy; the true (population) CCF is computed in 1.8.
+
+sample_ccf_dfp <- ccf(na.exclude(x), na.exclude(y_dfp), lag.max = 10,
+                      plot = FALSE)$acf
+sample_ccf_mse <- ccf(na.exclude(x), na.exclude(y_mse), lag.max = 10,
+                      plot = FALSE)$acf
+
+mplot <- cbind(sample_ccf_mse, sample_ccf_dfp)
+colnames(mplot) <- c("MSE", "DFP")
+rownames(mplot)  <- c(-(L:1), 0:L)
+
+par(mfrow = c(1, 1))
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Lag (−) and Lead (+)", ylab = "CCF",
+     main = "Sample CCF of x with MSE (green) and DFP (blue) predictors",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+abline(v = which(rownames(mplot) == "0"),   lty = 2)              # k = 0 (present)
+abline(v = which(rownames(mplot) == as.character(h)), col = "blue", lty = 1) # k = h (target horizon)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
+axis(2); box()
+
+# Interpretation:
+# The black dashed line marks k = 0 (present); the blue solid line marks k = h.
+# A peak at the dashed vertical line indicates "stuck to present" problem.
+# A CCF peak to the RIGHT of k = 0 indicates that the predictor effectively 
+# leads x_t.
+
+# We now verify the above right-shift (lead) of the DFP by computing sample 
+# independent true CCFs.
+
+# ── 1.8 True (Population) CCF ─────────────────────────────────────────
+# The population CCF is computed analytically from the filter coefficients,
+# avoiding the noise inherent in sample-based estimates.
+# This provides a clean, sample-independent comparison of the two predictors.
+
+ccf_dfp <- compute_ccf_func(b0,    gamma0)   # true CCF of DFP predictor with x
+ccf_mse <- compute_ccf_func(gammah, gamma0)  # true CCF of MSE predictor with x
+
+mplot <- cbind(ccf_mse, ccf_dfp)
+colnames(mplot) <- c("MSE", "DFP")
+rownames(mplot)  <- names(ccf_mse)
+
+par(mfrow = c(1, 1))
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Lag (−) and Lead (+)", ylab = "CCF",
+     main = "True (population) CCF: MSE (green) vs. DFP (blue) predictor",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+abline(v = which(rownames(mplot) == "0"),   lty = 2)              # k = 0 (present)
+abline(v = which(rownames(mplot) == as.character(h)), col = "blue", lty = 1) # k = h (horizon)
+abline(h=alpha0,lty=2)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
+axis(2); box()
+
+# Interpretation:
+# The true CCF strenghtens the previous findings:
+#   - The MSE predictor's CCF peaks near k = 0: "stuck at present".
+#   - The DFP predictor's CCF peak is shifted toward k = h: genuine look-ahead.
+#   - The DFP constraint pulls the CCF down to alpha0 at lag k=0 (intersection of 
+#     vertical and horizontal black lines). 
+#   - The DFP optimization principle minimzes the loss in CCF at k=h (blue vertical line). 
+# This connects the DFP to the AT-dilemma, tracing the resulting efficient frontier.
+
+
+
 
 
 #-------------------------------------------------------------
 
-# Exercise 2 AR-form
+# Exercise 2 AR-form or Complete decoupling
+
+# AR and ARMA
+
+
+# Leading indicator
 
 
 

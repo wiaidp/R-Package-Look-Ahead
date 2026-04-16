@@ -72,27 +72,35 @@ compute_acf_at_lags_zero_delta_func<-function(max_lag,h,b,gamma)
 
 
 # Compute CCF between predictor gamma and data generating process gamma1
-compute_ccf_func<-function(gamma1,gamma_ref,h,max_lag,L)
+compute_ccf_func<-function(gamma1,gamma_ref)
 {
-  cor_vec_lead_LA<-cor_vec_lag_LA<-NULL
-  # Leads: 0 up to h
-  for (i in 0:h)#i<-1
-    cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(min(L+i,L)-i)]%*%gamma_ref[(i+1):min(L+i,L)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
-  # Leads: h+1,...,L (after L the best forecast is zero)
-  for (i in 1:(L-h-1))#i<-1
-    if ((h+L)<=length(gamma_ref))
-      cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(L-i)]%*%gamma_ref[(h+i)+1:(L-i)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
-  cor_vec<-cor_vec_lead_LA
-  
-  # Lags  
-  if (F)
+  if (length(gamma1)<length(gamma_ref))
   {
-    for (i in 1:(max_lag-1))#i<-1
-      cor_vec_lag<-c(cor_vec_lag,gamma1[(i+1):L]%*%gamma_ref[1:(L-i)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
-    cor_vec<-c(cor_vec_lag[length(cor_vec_lag):1],cor_vec_lead)
+    print("length(gamma1)<length(gamma_ref): gamma1 is zero-padded")
+    gamma1<-c(gamma1,rep(0,length(gamma_ref)-length(gamma1)))
   }
-  
-  return(list(cor_vec=cor_vec))
+  if (length(gamma_ref)<length(gamma1))
+  {
+    print("length(gamma1_ref<length(gamma1): gamma_ref is zero-padded")
+    gamma_ref<-c(gamma_ref,rep(0,length(gamma1)-length(gamma_ref)))
+  }
+  cor_vec_lead_LA<-cor_vec_lag_LA<-i_lead<-i_lag<-NULL
+  # Leads: 0 up to h
+  for (i in 0:(L-1))#i<-1
+  {
+    cor_vec_lead_LA<-c(cor_vec_lead_LA,gamma1[1:(min(L+i,L)-i)]%*%gamma_ref[(i+1):min(L+i,L)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
+    i_lead<-c(i_lead,i)
+  }
+  # Lags 
+  for (i in 1:(L-1))#i<-1
+  {
+    cor_vec_lag_LA<-c(cor_vec_lag_LA,gamma_ref[1:(min(L+i,L)-i)]%*%gamma1[(i+1):min(L+i,L)]/(sqrt(gamma1%*%gamma1)*sqrt(gamma_ref%*%gamma_ref)))
+    i_lag<-c(i_lag,-i)
+  }
+  cor_vec<-c(cor_vec_lag_LA[length(cor_vec_lag_LA):1],cor_vec_lead_LA)
+  names(cor_vec)<-c(i_lag[length(i_lag):1],i_lead)
+
+  return(cor_vec)
 }
 
 

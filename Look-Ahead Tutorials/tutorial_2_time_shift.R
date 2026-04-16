@@ -224,8 +224,9 @@ h <- 5   # forecast horizon parameter passed to CCF utility
 # Compute the cross-correlation between the two filter coefficient vectors.
 # The lag at the CCF peak estimates the relative lag of b1 with respect to b2.
 # Expected peak: at lag = shift (= 1), confirming the one-period offset.
-max_lag <- 5
-compute_ccf_func(b2, b1, h, max_lag, L)
+max_lead <- 5
+
+compute_ccf_func(b2, b1, h, max_lead )
 
 
 # ── 2.3 Time-Shift Function ───────────────────────────────────────────
