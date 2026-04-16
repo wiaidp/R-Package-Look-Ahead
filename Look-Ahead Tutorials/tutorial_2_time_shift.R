@@ -344,14 +344,13 @@ box()
 # larger (more negative) values indicate greater lag introduced by the filter.
 # The EWMA has a smaller shift magnitude than the equally-weighted MA because
 # it concentrates more weight on recent observations, making it more responsive.
-colos <- c("blue", "red")
 mplot <- cbind(as_obj1$shift, as_obj2$shift)
 colnames(mplot) <- c("Equally weighted", "Exponentially weighted")
 
 plot(mplot[, 1], type = "l", axes = FALSE, xlab = "Frequency", ylab = "",
      main = "Time-Shift Function",
      ylim = c(min(mplot), max(mplot)), col = colos[1])
-mtext(colnames(mplot)[1], line = -1, col = colos[1])
+#mtext(colnames(mplot)[1], line = -1, col = colos[1])
 for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = colos[i])
   # Legend labels omitted here to avoid overlap; colours identify each filter

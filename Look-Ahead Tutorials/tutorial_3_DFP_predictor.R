@@ -433,6 +433,9 @@ abline(h=alpha0,lty=2)
 axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
 axis(2); box()
 
+# ──────────────────────────────────────────────────────────────────────────
+# REMARKABLE: THE PEAK OF THE CCF SHIFTED FROM k=0 (PRESENT) to k=h (FUTURE)
+# ──────────────────────────────────────────────────────────────────────────
 # Interpretation:
 # The true CCF strenghtens the previous findings:
 #   - The MSE predictor's CCF peaks near k = 0: "stuck at present".
@@ -442,17 +445,91 @@ axis(2); box()
 #   - The DFP optimization principle minimzes the loss in CCF at k=h (blue vertical line). 
 # This connects the DFP to the AT-dilemma, tracing the resulting efficient frontier.
 
+# ── 1.9 Amplitude and Time-Shift ─────────────────────────────────────────
+# For a linear filter applied to a sinusoid at frequency omega, the output is
+# again a sinusoid at the same frequency, but scaled by the filter's AMPLITUDE
+# (gain) and delayed by the filter's TIME-SHIFT (phase delay).
+#
+# Plotting both functions across all frequencies [0, π] allows a direct
+# comparison of how each filter distorts the magnitude and timing of signals
+# at every frequency — a more informative picture than a single CCF lag.
 
+K      <- 600      # number of frequency grid points spanning [0, π]
+plot_T <- FALSE    # suppress internal plotting; custom plots are built below
+
+# Compute amplitude and time-shift for each filter across the frequency grid
+as_obj1 <- amp_shift_func(K, b0, plot_T)   # equally-weighted MA
+as_obj2 <- amp_shift_func(K, gammah, plot_T)   # exponentially-weighted MA
+
+par(mfrow = c(2, 1))
+
+# ── Amplitude plot ────────────────────────────────────────────────────────────
+# Amplitude (gain) at each frequency: values close to 1 mean the filter passes
+# that frequency with little attenuation; values near 0 indicate suppression.
+colos <- c("blue", "green")
+mplot <- cbind(as_obj1$amp, as_obj2$amp)
+colnames(mplot) <- c("DFP", "MSE")
+
+plot(mplot[, 1], type = "l", axes = FALSE, xlab = "Frequency", ylab = "",
+     main = "Amplitude (Gain) Function",
+     ylim = c(min(mplot), max(mplot)), col = colos[1])
+mtext(colnames(mplot)[1], line = -1, col = colos[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colos[i])
+  mtext(colnames(mplot)[i], col = colos[i], line = -i)
+}
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# ── Time-shift plot ────────────────────────────────────────────────────────────
+# Time-shift : we truncate the shift of DFP at values below -3  
+# (leads larger than 3 are set to NA). 
+mplot <- cbind(as_obj1$shift, as_obj2$shift)
+mplot[which(mplot[,1]<(-3)),1]<-NA
+colnames(mplot) <- c("DFP", "MSE")
+
+plot(mplot[, 1], type = "l", axes = FALSE, xlab = "Frequency", ylab = "",
+     main = "Time-Shift Function",
+     ylim = c(min(na.exclude(mplot)), 4), col = colos[1])
+#mtext(colnames(mplot)[1], line = -1, col = colos[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colos[i])
+  # Legend labels omitted here to avoid overlap; colours identify each filter
+}
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# The DFP predictor has a smaller time-shift than the MSE predictor toward
+# the low-frequency spectral mass of the MA(9) process. While the time-shift
+# varies by frequency, the above true CCF provides an exact aggregate lead measure
+# (across all frequency components): the left-shifted CCF peak of the DFP
+# predictor confirms an effective aggregate lead of h = 5 time points
+# relative to the MSE predictor.
+#
+# The smaller time-shift of DFP is achieved through a deformation of the
+# amplitude function toward lower frequencies: the trade-off between
+# amplitude and time-shift is an instance of the ATS-trilemma in MDFA
+# (Accuracy–Timeliness–Smoothness). See the MDFA tutorial for background.
 
 
 
 #-------------------------------------------------------------
 
-# Exercise 2 AR-form or Complete decoupling
+# Exercise 2 AR-form 
 
-# AR and ARMA
+# Exercise 3 Complete decoupling and limit to look ahead
+# Intuitively difficult since latest observation most important.
+
+# Exercise 4: MSE DFP
+
+# AR and ARMA: MSE DFP
 
 
+# Exercise 5
 # Leading indicator
 
 
