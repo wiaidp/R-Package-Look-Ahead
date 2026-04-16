@@ -161,7 +161,7 @@ source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = 
 # (finite Wold decomposition)
 set.seed(12)
 L<-10
-gamma0<-rnorm(L)
+gamma0<-rep(1,L)
 
 ts.plot(gamma0,main="Wold decomposition")
 
@@ -181,7 +181,7 @@ acf(na.exclude(x))
 
 # Forecasting: horizon
 
-h<-4
+h<-2
 
 
 # Target decomposition:
@@ -197,18 +197,25 @@ h<-4
 # MSE predictor
 gammah<-c(gamma0[(h+1):L],rep(0,h))
 
-if (F)
-{
-  # Second example with orthogonal gamma0, gammah
-  h<-4
-  gamma0<-(-1)^(1:L)
-  gammah<-c(rep(1,L-h),rep(0,h))
-  # Check orthogonality  
-  t(gamma0)%*%gammah
-}
 
+# Nomenclature
+# gamma0 is called nowcast, gammah is the h-step ahead predictor, b or b0 is the DFP predictor
+# The nowcast in this example is trivial (it is x_t or, in our filter terminology, the Wold decomposition)
+# Later we shall use examples where z_t is trend based on an acausal filter (Hodrick Prescott) applied to x_t.
+# In this case the nowcast is non trivial (the causal part of the acausal filter.)
 
+# We can compute the correlation of the MSE predictor with the nowcast
+cor_mse_now<-t(gamma0)%*%gammah/sqrt(t(gamma0%*%gamma0)*t(gammah%*%gammah))
+# A high correlation of the MSE predictor (gammah) with the nowcast (gamma0) indicates strong coupling.
+# In such a case the MSE predictor would be "stuck at present"
+cor_mse_now
 
+# The DFP predictor b0 is a linear combination of the nowcast gamma0 and the MSE predictor gammah, see Wildi 2026
+# The unit-length (unit-norm) DFP derives the predictor under a unit-length constraint
+# This allows interpretation of the hyperparameter alpha0 in the DFP constraint in terms of correlation between y_t(h) and x_t (present time), see Wildi 2026, section 3.1
+# The function DFP_compute_lambda_alpha0_func computes b0 for given h and alpha0 (correlation at present time)
+
+alpha0<-0.
 
 b0_obj<-DFP_compute_lambda_alpha0_func(gamma0,gammah,h,L,alpha0)
 
@@ -218,13 +225,130 @@ lambda2<-b0_obj$lambda2
 which_sol<-b0_obj$which_sol
 
 
-# Specify coefficients of quadratic in lambda2
+# Checks (verifications)
+# 1. Reconstruct the DFP predictor
+b<-lambda2*gamma0+lambda1*gammah
+# Normalize length
+b<-b/as.double(sqrt(t(b)%*%b))
+# Check: difference is zero
+max(abs(b-b0))
 
-# Checks:
-# 1. Length constraint: should vanish
+# 2. Length constraint of unit-length DFP
+# Check: difference is zero
 t(b0)%*%b0-1
-# 2. Decoupling constraint: should vanish
-t(gamma0)%*%b0/sqrt(t(gamma0%*%gamma0))-alpha0
+# 3. Decoupling constraint: 
+# Compute correlation of DFP predictor with x_t (nowcast)
+cor_dfp_now<-t(gamma0)%*%b0/sqrt(t(gamma0%*%gamma0))
+# Check: should vanish
+cor_dfp_now-alpha0
+
+# Verify tradeoff: AT dilemma 
+# 1. Compare correlations with nowcast (with x_t at present time)
+# The DFP predictor correlates less strongly with the nowcast
+cor_mse_now
+cor_dfp_now
+
+# 2. Compare target correlations: we can compare correlations with either the effective target, i.e.,
+# x_{t+h}, or its MSE predictor. The solution to the DFP criterion is indifferent to this choice.
+
+# A) Correlations with effective target
+target_cor_dfp<-t(b0)%*%gammah/sqrt((t(b0)%*%b0)*(t(gamma0)%*%gamma0))
+target_cor_mse<-t(gammah)%*%gammah/sqrt(t(gamma0)%*%gamma0*t(gammah)%*%gammah)
+
+target_cor_dfp
+target_cor_mse
+
+# B) Correlations with MSE predictor
+t(b0)%*%gammah/sqrt((t(b0)%*%b0)*(t(gammah)%*%gammah))
+t(gammah)%*%gammah/(t(gammah)%*%gammah)
+
+# Summarize in table
+
+perf_mat<-rbind(c(cor_mse_now,cor_dfp_now),c(target_cor_mse,target_cor_dfp))
+
+colnames(perf_mat)<-c("MSE","DFP")
+rownames(perf_mat)<-c("Correlation with nowcast (present time","Target correlation")
+
+# Here we can see the AT-dilemma at work: the DFP predictor traces the efficient frontier.
+# The MSE predictor is a single point at the boundary of the frontier, maximizing the target correlation.
+round(perf_mat,3)
+
+# Apply Predictors: Filter the data
+
+y_dfp<-filter(eps,b0,side=1)
+y_mse<-filter(eps,gammah,side=1)
+
+
+ts.plot(scale(cbind(y_mse,y_dfp)),col=c("green","blue"))
+abline(h=0)
+
+ccf(na.exclude(y_mse), na.exclude(y_dfp), lag.max = 10, plot = TRUE,
+    main = "CCF of x and y — peak lag estimates the lead")
+
+library(dynlm)
+x_ts  <- ts(y_mse, start = 1, frequency = 1)
+y_ts  <- ts(y_dfp, start = 1, frequency = 1)
+
+# Fit model: x_t = alpha + sum_{k=0}^{8} beta_k * y_{t-k} + error
+model <- dynlm(x_ts ~ L(y_ts, 0:8))
+summary(model)   # inspect coefficient significance across lags
+
+filter_mat <- cbind(y_mse, y_dfp)
+max_lead   <- 10
+compute_min_tau_func(filter_mat, max_lead)
+
+library(astsa)
+
+# Compute cross-spectral quantities using smoothed periodogram
+#   spans : smoothing bandwidths applied to the periodogram (reduces noise)
+#   taper : proportion of data tapered at each end (reduces spectral leakage)
+#   plot  : automatically produces spectrum, coherence, and phase panels
+spec_result <- mvspec(
+  x     = na.exclude(cbind(y_mse, y_dfp)),
+  spans = c(7, 7),     # adjust spans for more (larger) or less (smaller) smoothing
+  taper = 0.1,         # 10% cosine taper applied to each end of the series
+  plot  = TRUE         # display the four-panel cross-spectral plot
+)
+
+# ── Extract frequencies and spectral components ───────────────────────
+freq     <- spec_result$freq           # frequencies in cycles per time unit
+period   <- 1 / freq                   # corresponding cycle lengths (time units)
+
+spec_x   <- spec_result$fxx[1, 1, ]   # power spectrum of x (real part)
+spec_y   <- spec_result$fxx[2, 2, ]   # power spectrum of y (real part)
+cross_xy <- spec_result$fxx[1, 2, ]   # complex cross-spectrum of x vs. y
+
+# ── Coherence: fraction of variance in x explained by y at each frequency ──
+coherence <- Mod(cross_xy)^2 / (Re(spec_x) * Re(spec_y))
+coherence <- pmin(coherence, 1)        # clamp to [0, 1] to guard against numerical noise
+
+# ── Phase: angular lead/lag between x and y at each frequency ────────
+phase    <- Arg(cross_xy)              # phase difference in radians
+
+# Convert phase (radians) to time units using:  time_lag = phase / (2π × freq)
+# Interpretation: time_lag > 0  →  x leads y
+#                 time_lag < 0  →  y leads x
+time_lag <- phase / (2 * pi * freq)
+
+# ── Report results at the dominant frequency (spectral peak of x) ─────
+peak_idx <- which.max(Re(spec_x))
+cat("Dominant frequency :", round(freq[peak_idx],     4), "\n")
+cat("Dominant period    :", round(period[peak_idx],   2), "\n")
+cat("Phase at peak (rad):", round(phase[peak_idx],    4), "\n")
+cat("Estimated time lag :", round(time_lag[peak_idx], 2), "time units\n")
+# Expected result: estimated time lag is close to the true `shift` (= 5)
+
+
+
+if (F)
+{
+  # Second example with orthogonal gamma0, gammah
+  h<-4
+  gamma0<-(-1)^(1:L)
+  gammah<-c(rep(1,L-h),rep(0,h))
+  # Check orthogonality  
+  t(gamma0)%*%gammah
+}
 
 
 #-------------------------------------------------------------
