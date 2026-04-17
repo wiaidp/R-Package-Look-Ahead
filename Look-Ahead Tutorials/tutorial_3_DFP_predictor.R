@@ -138,7 +138,7 @@
 
 # ════════════════════════════════════════════════════════════════════
 # TUTORIAL 3 — THE DFP PREDICTOR
-# Exercise 1: Core Ideas — DFP in MA (Innovation) Form
+# Exercise 1: Unit-Length DFP
 # ════════════════════════════════════════════════════════════════════
 
 # ── INITIALISATION ────────────────────────────────────────────────────
@@ -670,116 +670,579 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 
 
 
+# ════════════════════════════════════════════════════════════════════
+# Exercise 2: MSE-DFP
+# ════════════════════════════════════════════════════════════════════
+# Two novelties: 
+# A) MSE-DFP predictor
+# Function compute_mse_dfp()
+# The MSE-DFP is based on equation 9 in Wildi 2026
+# In analyogy to the above unit-length DFP, the MSE-DFP also lies in the plan 
+#   spanned by gamma0 and gammah but the weight lambda1 on gammah is one, i.e., 
+#   b0=lambda * gamma0 + gammah where lambda is the only remaining adjustment.
+# By emphasizing MSE (equation 9) instead of the target correlation (equation 2), the unit-length constraint
+# can be skipped.
+# Consequences: 
+# advantages: 
+#  -The optimization reduces to a linear problem with a single optimum 
+#  -The DFP predictor is scaled to minimize DFP (in contrast to unit-lnegth DFP whose length is unity)
+# disadvantage: alpha0 in the DFP constraint cannot be interpeted as correlation 
+# (of DFP with nowcast) anymore.
+
+
+# AR (exercise 3 with ARMA?)
+# DFP MSE
+# AR inversion
+# Shift as DFP constraint
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.1 Data generating process: AR(3)
+# ─────────────────────────────────────────────────────────────────────
+# First AR(3)
+# Specify the roots of the characteristic polynomial
+lambda1<-0.3
+lambda2<-0.8
+lambda3<-0.2
+# Specify AR-parameters from roots
+ar1<-ar11<-lambda1+lambda2+lambda3
+ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
+ar3<-ar31<-lambda1*lambda2*lambda3
+# Check: characteristic polynomial should replicate the above lambdas
+polyroot(c(-ar3,-ar2,-ar1,1))
+
+# MA-inversion (Wold decomposition of AR(3))
+par(mfrow=c(1,1))
+ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),lag.max=100),main="Wold decomposition of AR(3)",xlab="Lag",ylab="")
+
+# MA inversion
+# Compute long sequence: need more values than L for MSE forecasts below
+gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000))
+
+# Check: transform back into AR (must specify MA inversion gamma as AR to obtain AR inversion; and change sign)
+# The first three entries match the AR(3) parmameters; all subsequent entries are zero
+ts.plot(-ARMAtoMA(ar=-gamma[2:L],lag.max=40))
 
 
 
-#-------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
+# 2.2 DFP settings
+# ─────────────────────────────────────────────────────────────────────
+# As in exercise 1 we first compute predictors in the MA-form, based on the innovation sequence epsilon_t
+# Below, we shall compute predictors in the AR-form, based on the data x_t
+# Forecast horizon
+h<-5
+# Predictor (filter) length
+L<-50
 
 
-# Exercise 2: MSE DFP
+# Nowcast: gamma01 will be used in simulation below
+gamma0<-gamma01<-gamma[1:L]
+# MSE forecast
+gammah<-gammah1<-gamma[h+(1:L)]
 
-# AR and ARMA: MSE DFP
+colo  <- c("green", "black")
+mplot <- cbind(gammah, gamma0)
+colnames(mplot) <- c(paste("MSE predictor: h=",h,sep=""), "Nowcast")
 
-
-
-
-# Exercise 3 Complete decoupling and limit to look ahead
-# Intuitively difficult since latest observation most important.
-
-
-# Exercise 4 AR-form?  
-
-
-# Exercise 5
-# Leading indicator
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+par(mfrow = c(1, 1))
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Lag", ylab = "Coefficient",
+     main = "Filter coefficients: MSE predictor vs. DFP predictor (both in MA-form)",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+abline(h = 0)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
+axis(2); box()
 
 
 
+# Compute CCF of MSE as reference
+max_lag<-0
 
+cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
 
+cor_vec_mat<-compute_ccf_func(gammah,gamma0)[L:(2*L-1)]
+  
 
+# Specify alpha0: this is not interpretable as a correlation anymore
+# We provide a whole sequence of alpha0 and derive MSE DFP predictors for each element
+alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
 
+# Initialize matrices
+b_mat<-lambda_vec1<-a_mat<-NULL
+cor_vec_1<-matrix(ncol=2,nrow=length(alpha0_vec))
 
+# MSE-DFP loop: run through all alpha0
+for (i in 1:length(alpha0_vec))
+{
+  alpha0<-alpha0_vec[i]
+  # Compute MSE-DFP 
+  # Function for deriving the MSE-DFP: see proposition 1 in Wildi 2026
+  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
+  
+# Here's an alternative derivation (Proposition 1) 
+  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  b0_alternative<-gammah+lambda*gamma0
+# Difference vanishes  
+  max(abs(b0-b0_alternative))
 
-
-####################################################
-# R code for solving phase excess theta as a function of betah
-
-
-# Define lengths of MSE predictors and angle thetah between them
-# We use the same gammah, gammahm1 as in above plot
-gammahm1<-c(3,1)*0.44*1.2
-gammah<-c(1.5,1)*0.66*1.2
-betah<--0.1
-
-lh<-sqrt(sum(gammah^2))
-lhm1<-sqrt(sum(gammahm1^2))
-thetah<-atan2(gammah[2],gammah[1])- atan2(gammahm1[2],gammahm1[1])
-
-
-a<-lh-cos(thetah)*lhm1
-b<-sin(thetah)*lhm1
-c<--betah
-
-
-
-solve_acos_bsin_eq <- function(a, b, c) {
-  R <- sqrt(a^2 + b^2)
-  if (R == 0) {
-    if (c == 0) return(list(status = "infinite solutions (all theta)", theta = NULL, phi = NA, R = 0))
-    return(list(status = "no solution", theta = NULL, phi = NA, R = 0))
-  }
-  phi <- atan2(b, a)                # phase shift
-  x <- c / R
-  # Clamp for numerical safety
-  x <- max(min(x, 1), -1)
-  if (abs(c) > R + .Machine$double.eps^0.5) {
-    return(list(status = "no real solution (|c| > R)", theta = NULL, phi = phi, R = R))
-  }
-  if (abs(abs(x) - 1) < 1e-14) {
-    # Single solution modulo 2π
-    theta <- if (x > 0) phi else (phi + pi)
-    theta <- atan2(sin(theta), cos(theta))  # wrap to (-pi, pi]
-    return(list(status = "one solution modulo 2π", theta = theta, phi = phi, R = R))
-  }
-  alpha <- acos(x)
-  theta1 <- phi + alpha
-  theta2 <- phi - alpha
-  # Wrap to (-pi, pi]
-  wrap <- function(t) atan2(sin(t), cos(t))
-  theta <- sort(c(wrap(theta1), wrap(theta2)))
-  list(status = "two solutions modulo 2π", theta = theta, phi = phi, R = R)
+  b_mat<-cbind(b_mat,b0)
+  
+  lambda_vec1<-lambda
+  
+# Compute CCF  
+  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,as.vector(b0),gamma0)$cor_vec
+  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
+  # Extract CCF at lead 0 and h  
+  cor_vec_1[i,1]<-cor_vec[1]
+  cor_vec_1[i,2]<-cor_vec[1+h]
 }
 
-# Find theta for given a,b,c
-solve_acos_bsin_eq(a, b, c )
 
-#########################################################
+colnames(b_mat)<-paste("alpha0=",alpha0_vec,sep="")
+colnames(cor_vec_1)<-c("Lag 0","Lag h")
+# Check DFP constraint: should vanish
+# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
+t(b_mat)%*%gamma0-alpha0_vec
+# Alternative check DFP constraint: should vanish
+# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
+cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
+
+
+
+
+
+par(mfrow=c(1,2))
+
+#ts.plot(gammah1,main=paste("MSE first process: h=",h,sep=""),col="green",xlab="",ylab="")
+
+#ts.plot(gammah,main="Second process",col="green",xlab="",ylab="")
+
+
+colo<-c("green","brown","orange","blue","violet","red")
+# Scale filters
+mplot<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
+
+ts.plot(mplot,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
+mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
+#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
+#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
+#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
+#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
+mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
+mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
+mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
+mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
+mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
+abline(h=0)
+
+
+mplot<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
+
+plot(mplot[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+for (i in 2:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[i])
+}
+abline(h=0)
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
+#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
+#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
+#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
+#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+axis(1,at=1:nrow(mplot),labels=-max_lag-1+1:(nrow(mplot)))
+axis(2)
+box()
+
+
+mat_cor_vec<-round(cor_vec_1,2)
+
+
+mat_cor_vec
 
 
 
 
 
 
+#--------------
+# AR-inversion of DFP: two possibilities
+# A. Invert DFP directly.
+#   Problem: generally not invertible (not minimum phase).
+# B. Since AR is invertible we can convolve AR with DFP to obtain AR-weights of DFP
+#   This is preferable because epsilon_t can always be obtained through MA-inversion of AR
+# Example: consider MA(2) with weights c(1,0.3,0.3): this is minimum-phase and can be expressed as convergent AR.
+#   -However, the one-step ahead forecast with weights (0.3,0.3) is not invertible
+#   -But we can convolve the AR-inversion (of the MA with weights 1,0.3,0.3) with the forecast (with weights 0.3,0.3) 
+#       to obtain the AR-weights of the 1-step ahead forecast
+
+# Let's proceed with A first (does not work for all DFPs, i.e., some direct AR inversions are unstable): 
+a_mat<-NULL
+for (i in 1:ncol(b_mat))
+  # ARMAtoMA assumes that the lag-zero weight is: we must scale by 1/b_mat[1,i]
+  # AR inversion can be obtained with ARMAtoMA by plugging the signe reverted MA-weights from lag 1 to lag L, i.e. remove lag 0  
+  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b_mat[2:L,i]/b_mat[1,i],lag.max=L))
 
 
+# Check AR-inversion: the max absolute deviations should vanish
+for (i in  1:length(alpha0_vec))#i<-1
+{
+  ar_vec<-a_mat[,i]
+  # Check: should vanish  
+  print(max(abs(c(1,ARMAtoMA(ar=a_mat[,i],lag.max=L-1))-b_mat[,i]/b_mat[1,i])))
+}
+
+# Plot direct AR-inversion: some AR inversions are divergent
+#   Solution A does not work properly
+par(mfrow=c(1,2))
+ts.plot(scale(b_mat,center=F,scale=T),col=rainbow(ncol(a_mat)),main="DFP predictors ")
+ts.plot(scale(a_mat,center=F,scale=T),col=rainbow(ncol(a_mat)),main="Method A: DFP predictors AR-inverted")
+
+# Solution B
+# Compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
+# 1 check: the following should give an identity
+filt1<-c(1,-ar1,-ar2,-ar3)
+filt2<-gamma
+conv_two_filt_func(filt1,filt2)$conv[1:10]
+
+# Compute AR weights of MSE and DFP predictors
+# a. MSE
+filt1<-c(1,-ar1,-ar2,-ar3)
+filt2<-gammah
+ar_mse_ar3<-conv_two_filt_func(filt1,filt2)$conv
+# b. DFP
+ar_dfp_ar3_mat<-NULL
+for (i in 1:length(alpha0_vec))
+{
+  # Use original (unscaled) MSE-DFP
+  filt2<-b_mat[,i]
+  ar_dfp_ar3_mat<-cbind(ar_dfp_ar3_mat,conv_two_filt_func(filt1,filt2)$conv)
+  
+}
+# We see that only the first weight of the AR-predictor is affected
+# This is because b=gammah+lambda*gamma0
+#   -AR-inversion applied to gamma0 is lambda*identity: only the first weight is affected!!!
+#   -Since gammah is fixed and convolution is linear we conclude that only first weight of DFP-AR is affected!!!
+# This changes with PCS predictor since PCS=gammah+lambda*(gamma_{h-1}-gammah): more complex!!!
+ts.plot(ar_dfp_ar3_mat[1:5,],col=rainbow(ncol(a_mat)),main="Method B: DFP predictors AR-inverted")
+
+# Check
+# Note: we cannot check pertinence by verifying that the convolution of both filters gives an identity (as we did for AR and its MA-inversion above)
+k<-1
+filt1<-ar_dfp_ar3_mat[,k]
+filt2<-b_mat[,k]
+# This is no more an identity
+conv_two_filt_func(filt1,filt2)$conv[1:10]
+# But we can check pertinence by verifying that predictors are identical (up to finite MA-inversion errors) when applied
+#   to data: ar_dfp_ar3_mat applied to x and b_mat applied to eps
+# Check: apply filters to MA and AR representations
+set.seed(1)
+len<-1000
+x<-eps<-rnorm(len)
+for (i in 4:len)
+{
+  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]
+}
+
+y_dfp_ma<-y_dfp_ar<-rep(NA,len)
+# Select DFP design
+k<-3
+for (i in L:len)
+{
+  y_dfp_ma[i]<-b_mat[,k]%*%eps[i:(i-L+1)]
+  y_dfp_ar[i]<-ar_dfp_ar3_mat[,k]%*%x[i:(i-L+1)]
+}
+# Both series are identical up to negligible finite MA/AR inversion errors
+ts.plot(cbind(y_dfp_ma,y_dfp_ar)[1:200,])
+# Maximal error is negligible (due to finite length MA/AR inversions)
+max(na.exclude(abs(y_dfp_ma-y_dfp_ar)[1:200]))
+
+#--------------------
+
+# Will be used in plots further down
+mplot1<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
+#mplot1<-cbind(gammah,b_mat)
+# Note: cor_vec_mat is CCF between DFP and nowcast. Here we scale to have CCF between DFP and process
+mplot2<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
+
+# Compare MSE h-step ahead with DFP: select any k in 1:length(alpha0_vec)
+# DFP is not always invertible: if not, the AR-inversion diverges
+k<-length(alpha0_vec)
+k<-1
+par(mfrow=c(1,2))
+mplot<-cbind(b_mat[1:L,k],gammah)
+ts.plot(mplot,col=c("blue","green"),main="MA-inversion")
+mtext("MSE",col="green",line=-1)
+mtext(paste("DFP, alpha0=",alpha0_vec[k],sep=""),col="blue",line=-2)
+mplot<-cbind(a_mat[,k],-ARMAtoMA(ar=-gammah[2:L]/gammah[1],lag.max=L))
+ts.plot(mplot,col=c("blue","green"),main="AR-inversion")
+mtext("MSE",col="green",line=-1)
+mtext(paste("DFP, alpha0=",alpha0_vec[k],sep=""),col="blue",line=-2)
+
+
+
+
+
+#-----------------------------
+# Second process: ARMA(3,2)
+# AR-coefficients
+ar1<-0.4
+ar2<-0.3
+ar3<-0.2
+b1<-0.5
+b2<-0.4
+
+ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=100))
+
+
+# Roots of characteristic polynomial
+1/(Arg(polyroot(c(-ar3,-ar2,-ar1,1)))/pi)
+abs(polyroot(c(-ar3,-ar2,-ar1,1)))
+
+# MA inversion
+# Compute long sequence: need more values than L for MSE forecasts below
+gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=1000))
+ts.plot(gamma[1:20])
+# L-length now- and MSE forecast
+gamma0<-gamma[1:L]
+gammah<-gamma[h+(1:L)]
+
+
+# Compute MSE-DFP
+cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
+alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
+#alpha0_vec<-5*c(0.9,0.45,0.22,0.1,0)
+b_mat<-b_mat_unscaled<-a_mat<-lambda_vec2<-NULL
+cor_vec_2<-matrix(ncol=2,nrow=length(alpha0_vec))
+
+for (i in 1:length(alpha0_vec))#i<-1
+{
+  alpha0<-alpha0_vec[i]
+  # Function for deriving b0  
+  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
+  # This is the same as 
+  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  b0_simpler<-gammah+lambda*gamma0
+  max(abs(b0-b0_simpler))
+  b_mat_unscaled<-cbind(b_mat_unscaled,b0)
+  
+  lambda_vec2<-lambda
+  # MSE scaling is not used anymore (closed-form solution is already MSE optimal)  
+  if (F)
+  {
+    scale<-as.double(t(b0)%*%gammah/(t(b0)%*%b0))
+    b0<-scale*b0
+  }
+  # Compute minimum phase DFP  
+  if (use_min_phase)
+  {
+    # Compute roots      
+    roots<-polyroot(b0)
+    # Invert unstable roots      
+    roots[which(abs(roots)>1)]<-1/roots[which(abs(roots)>1)]
+    # Compute coefficients from roots: minimum phase version of DFP      
+    b_min_phase<-Re(rev(poly_from_roots(roots)))
+    # Check lag-one ACF: the same
+    b0[1:(length(b0)-1)]%*%b0[2:length(b0)]/t(b0)%*%b0-b_min_phase[1:(length(b_min_phase)-1)]%*%b_min_phase[2:length(b_min_phase)]/b_min_phase%*%b_min_phase
+    b0<-b_min_phase
+  }
+  # Use either solution
+  b_mat<-cbind(b_mat,b0)
+  # AR-inversion (problem: b0 is not always invertible)  
+  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b0[2:L]/b0[1],lag.max=L))
+  
+  # Compute CCF  
+  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,ncol(b_mat)],gamma0)$cor_vec
+  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
+  # Extract CCF at lead 0 and h  
+  cor_vec_2[i,1]<-cor_vec[1]
+  cor_vec_2[i,2]<-cor_vec[1+h]
+}
+
+# Check DFP constraint: should vanish
+# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
+t(b_mat)%*%gamma0-alpha0_vec
+# Alternative check DFP constraint: should vanish
+# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
+cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
+# Check AR-inversion: the max absolute deviations should vanish (all designs are non-invertible and therefore one observes numerical cancellation effects, i.e., absolute deviations do not vanish exactly)
+for (i in  1:length(alpha0_vec))#i<-1
+{
+  b0<-b_mat[,i]
+  ar_vec<-a_mat[,i]
+  print(max(abs(c(1,ARMAtoMA(ar=ar_vec,lag.max=L-1))-b0/b0[1])))
+}
+
+
+
+mplot3<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
+#mplot3<-cbind(gammah,b_mat)
+
+mplot4<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
+
+#--------------
+# AR-inversion of DFP: we rely on possibility B described above
+# Solution B: compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
+# 1. Compute AR-inversion of ARMA
+ar_inv<-c(1,ARMAtoMA(ar=-c(b1,b2),ma=-c(ar1,ar2,ar3),lag.max=L))
+# 1.1 check: the following should give an identity
+filt1<-ar_inv
+filt2<-gamma
+conv_two_filt_func(filt1,filt2)$conv[1:10]
+
+# 2. Compute AR weights of MSE and DFP predictors
+# a. MSE
+filt2<-gammah
+ar_mse_arma32<-conv_two_filt_func(filt1,filt2)$conv
+# b. DFP
+ar_dfp_arma32_mat<-NULL
+for (i in 1:length(alpha0_vec))
+{
+  # Use original (unscaled) MSE-DFP
+  filt2<-b_mat_unscaled[,i]
+  ar_dfp_arma32_mat<-cbind(ar_dfp_arma32_mat,conv_two_filt_func(filt1,filt2)$conv)
+  
+}
+ts.plot(cbind(ar_mse_arma32,ar_dfp_arma32_mat)[1:L,],col=rainbow(ncol(a_mat)),main="Method B: MSE and DFP predictors AR-inverted")
+lines(ar_mse_arma32,lwd=2)
+
+# Check: apply filters to MA and AR representations
+set.seed(1)
+len<-1000
+x<-eps<-rnorm(len)
+for (i in 4:len)
+{
+  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]+b1*eps[i-1]+b2*eps[i-2]
+}
+
+y_dfp_ar32<-y_dfp_ma32<-rep(NA,len)
+# Select DFP design
+k<-2
+for (i in L:len)
+{
+  y_dfp_ma32[i]<-b_mat_unscaled[,k]%*%eps[i:(i-L+1)]
+  y_dfp_ar32[i]<-ar_dfp_arma32_mat[1:L,k]%*%x[i:(i-L+1)]
+}
+# Both series are identical up to negligible finite MA/AR inversion errors
+ts.plot(cbind(y_dfp_ma32,y_dfp_ar32)[1:200,])
+# Maximal error is negligible (due to finite length MA/AR inversions)
+max(na.exclude(abs(y_dfp_ma32-y_dfp_ar32)[1:200]))
+
+
+#-------------------------------------------------
+# Plot
+
+
+par(mfrow=c(2,2))
+
+#ts.plot(gammah1,main=paste("MSE first process: h=",h,sep=""),col="green",xlab="",ylab="")
+
+#ts.plot(gammah,main="Second process",col="green",xlab="",ylab="")
+
+
+colo<-c("green","brown","orange","blue","violet","red")
+# Scale filters
+ts.plot(mplot1,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
+mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
+#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
+#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
+#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
+#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
+mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
+mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
+mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
+mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
+mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
+abline(h=0)
+
+cor_vec_1
+
+
+ts.plot(mplot3,main="ARMA(3,2)",col=colo,xlab="",ylab="")
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("    ",alpha[0],"=0.9, ",rho,"=",0.99)),line=-2,col=colo[2])
+#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.96)),line=-3,col=colo[3])
+#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.84)),line=-4,col=colo[4])
+#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.58)),line=-5,col=colo[5])
+#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
+abline(h=0)
+
+plot(mplot2[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot2),max(mplot2)))
+for (i in 2:ncol(mplot2))
+{  
+  lines(mplot2[,i],col=colo[i])
+}
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
+#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
+#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
+#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
+#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+abline(h=0)
+axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
+axis(2)
+box()
+
+plot(mplot4[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot4),max(mplot4)))
+for (i in 2:ncol(mplot4))
+{  
+  lines(mplot4[,i],col=colo[i])
+}
+abline(h=0)
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
+#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
+#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
+#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
+#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+axis(1,at=1:nrow(mplot4),labels=-max_lag-1+1:(nrow(mplot4)))
+axis(2)
+box()
+
+
+mat_cor_vec<-round(cbind(cor_vec_1,cor_vec_2),2)
+
+# Must use a special proceeding when utilizing greek letters in column or rownames
+
+rownames(mat_cor_vec) <- c("$\\alpha_0=0.9$","$\\alpha_0=0.45$","$\\alpha_0=0.22$","$\\alpha_0=0.1$","$\\alpha_0=0$")
+colnames(mat_cor_vec) <- c(" $\\textrm{Process 1: CCF }\\delta=0$","$\\delta=5$","$\\textrm{Process 2: } \\delta=0$","$\\delta=5$")
+
+mat_cor_vec
+
+
+if (F)
+{
+  tbl <- xtable(mat_cor_vec)
+  caption(tbl)<-paste("CCFs of the DFP predictors for the first process (columns 1–2) and the second process (columns 3–4) evaluated at $\\delta=0$ (columns 1 and 3) and at $\\delta=h=5$ (columns 2 and 4), shown for multiple values of the decoupling parameter $\\alpha_0$. Note that $\\alpha_0$ generally differs from the CCF at $\\delta=0$ except in the case of complete decoupling (columns 1 and 3, last row).")
+  label(tbl)<-"ar3_decoupling"
+  
+  print.xtable(tbl, sanitize.text.function = function(x) x)
+}
+
+
+
+
+
+
+ 
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.??? Geometry of the DFP Predictor
+# ─────────────────────────────────────────────────────────────────────
 
 
 
@@ -882,6 +1345,448 @@ lines(gammah[1]-lambda0*gamma0[1]+r * cos(th_seq), gammah[2]-lambda0*gamma0[2]+r
 th_mid <-  th_seq[50]
 text(gammah[1]-lambda0*gamma0[1]+1.4 * r * cos(th_mid)+0.05, gammah[2]-lambda0*gamma0[2]+1.15 * r * sin(th_mid),
      labels = expression(alpha), col = "red", cex = 1.2)
+
+
+
+
+
+
+
+
+
+# The above example continued
+
+
+
+L<-50
+h<-3
+# Long forecast horizon
+htilde<-20
+# First AR(3)
+lambda1<-0.3
+lambda2<-0.8
+lambda3<-0.2
+ar1<-ar11<-lambda1+lambda2+lambda3
+ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
+ar3<-ar31<-lambda1*lambda2*lambda3
+
+# Compute long sequence: need more values than L for MSE forecasts below
+gamma<-ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000)
+
+ts.plot(gamma[1:L])
+
+gamma0<-gamma[1:L]
+# MSE: last entries are vanishing (we could also insert the longer MA-expansion but this would not be the MSe estimate in the finite length MA case)
+gammah<-c(gamma[h+(1:(L-h))],rep(0,h))
+# Long forecast horizon
+gammahtilde<-c(gamma[htilde+(1:(L-htilde))],rep(0,htilde))
+
+# Select lead over MSE
+lead<--2
+
+# Compute shifts at frequency zero
+if (F)
+{
+  # Old code  
+  tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
+  tauh<-sum((0:(L-1))*gammah)/sum(gammah)
+  tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
+  
+  # MSE is slightly leading
+  tau0
+  tauh
+  tau<-lead
+  # Formula for lambda0
+  lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+  # Compute b
+  b<-gammah+lambda0*gamma0
+  
+}
+tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
+
+dfp_obj<-dfp_from_tau_func(gamma0,gammah,lead)
+tau0=dfp_obj$tau0
+tauh=dfp_obj$tauh
+lambda0=dfp_obj$lambda0
+b=dfp_obj$b
+
+
+# Unitary DFP
+b_opt<-b/as.double(sqrt(b%*%b))
+
+# Check 1: verify lead
+taub<-sum((0:(L-1))*b_opt)/sum(b_opt)
+# Should equal lead (or tau): this is an exact result
+taub-tauh
+
+# Compute alpha0
+alpha0<-as.double(t(gamma0)%*%(gammah+lambda0*gamma0))#/sqrt(t(gammah+lambda0*gamma0)%*%(gammah+lambda0*gamma0)))
+
+# Check 2
+# Compute lambda from alpha0: Proposition 1
+if (F)
+{
+  # old code
+  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  # Compute b: Proposition 1
+  b<-gammah+lambda*gamma0
+  
+}
+dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0)
+lambda<-dfp_obj$lambda
+b<-dfp_obj$b
+scale<-as.double(1/sqrt(t(b)%*%b))
+b0<-scale*b
+# Check: should vanish
+max(abs(b_opt-b0))
+
+# Compute DFP complete decoupling
+alpha0_cd<-0
+if (F)
+{
+  lambda_cd<-as.double((alpha0_cd-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  b_cd<-gammah+lambda_cd*gamma0
+  
+}
+
+# Compute b: Proposition 1
+
+dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0_cd)
+
+lambda_cd<-dfp_obj$lambda
+b_cd<-dfp_obj$b
+scale<-as.double(1/sqrt(t(b_cd)%*%b_cd))
+b_cd<-scale*b_cd
+# Check: should vanish
+t(b_cd)%*%gamma0
+# Note: b_cd is subject to phase reversal: Gamma(0)<0
+sum(b_cd)
+# Therefore time-shift at frequency zero is ill-defined. We can still compute that number, though
+# Compute time-shift: this is shift of sign-reverted predictor.
+tau_cd<-sum((0:(L-1))*b_cd)/sum(b_cd)
+tau_cd
+
+# Compute roots to check minimum-phase property
+abs(polyroot(b_opt[L:1]))
+abs(polyroot(b_cd[L:1]))
+
+
+# Table with time shifts, transfer functions at omega=0 (,i.e., sum of filter weights), lambda and alpha0
+
+mat_perf<-matrix(nrow=4, ncol=4)
+
+colnames(mat_perf) <- c("$\\tau(0)$","$\\Gamma(0)$","$\\lambda$","$\\alpha_0$")
+rownames(mat_perf) <- c(paste("MSE(",h,")",sep=""),paste("MSE(",htilde,")",sep=""),"DFP-shifted","DFP full dec.")
+mat_perf[1,1:2]<-c(-tauh,sum(gammah)/as.double(sqrt(t(gammah)%*%gammah)))
+mat_perf[2,1:2]<-c(-tauhtilde,sum(gammahtilde)/as.double(sqrt(t(gammahtilde)%*%gammahtilde)))
+mat_perf[3,]<-c(-taub,sum(b_opt),lambda0,alpha0)
+mat_perf[4,]<-c(NA,sum(b_cd),lambda_cd,alpha0_cd)
+
+
+#--------------------------------------------------------
+# Plots
+
+
+layout(matrix(c(1,2,3,3), 2, 2, byrow = T)) 
+colo<-c("black","green","blue","red")
+
+mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
+col_names<-c("AR(3)",paste("MSE ",h,"-step"),"DFP-shift","DFP-full-decouple")
+colnames(mplot)<-col_names
+apply(mplot^2,2,sum)
+plot(mplot[,1],main="Scaled Predictors",axes=F,type="l",xlab="Lags",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+mtext(colnames(mplot)[1],col=colo[1],line=-1)
+for (i in 2:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[i],type="l")
+  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+}  
+lines(mplot[,2],col=colo[2])
+axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
+axis(2)
+box()
+
+mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
+colnames(mplot)<-col_names[2:length(col_names)]
+
+plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
+for (i in 1:ncol(mplot))
+{  
+  lines(mplot[,i],col=colo[1+i])
+}
+#mtext("MSE",line=-1,col=colo[1+1])
+#mtext("DFP",line=-2,col=colo[2+1])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+abline(h=0)
+axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
+axis(2)
+box()
+
+
+# Scale filters to unit variance (scaled b_cd is still phase reverting at omega=0)   
+filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
+
+set.seed(345)
+len<-10000
+
+
+x<-rnorm(len)
+y_out_mat<-filter(x,filter_mat[,1],side=1)
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
+y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
+colnames(y_out_mat)<-col_names
+
+#ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
+#abline(h=0)
+
+ts.plot(y_out_mat[300:350,],main="Predictor Outputs",col=colo,xlab="",ylab="")
+abline(h=0)
+
+
+
+
+# The following plot also shows amplitudes, shifts and output of filters when applied to linear trend
+if (F)
+{
+  par(mfrow=c(3,2))
+  
+  colo<-c("black","green","blue","red")
+  
+  mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
+  col_names<-c("Nowcast",paste("MSE ",h,"-step"),"DFP-shift","DFP-decouple")
+  colnames(mplot)<-col_names
+  apply(mplot^2,2,sum)
+  plot(mplot[,1],main="Scaled Filters",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
+  mtext(colnames(mplot)[1],col=colo[1],line=-1)
+  for (i in 2:ncol(mplot))
+  {  
+    lines(mplot[,i],col=colo[i],type="l")
+    mtext(colnames(mplot)[i],col=colo[i],line=-i)
+  }  
+  lines(mplot[,2],col=colo[2])
+  axis(1,at=1:nrow(mplot),labels=0:(nrow(mplot)-1))
+  axis(2)
+  box()
+  
+  mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
+  colnames(mplot)<-col_names[2:length(col_names)]
+  
+  plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
+  for (i in 1:ncol(mplot))
+  {  
+    lines(mplot[,i],col=colo[1+i])
+  }
+  #mtext("MSE",line=-1,col=colo[1+1])
+  #mtext("DFP",line=-2,col=colo[2+1])
+  abline(v=max_lag+1,lty=1)
+  abline(v=max_lag+1+h,lty=2)
+  abline(h=0)
+  axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
+  axis(2)
+  box()
+  
+  
+  K<-600
+  mplot<-scale(cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
+  colnames(mplot)<-col_names
+  
+  apply(mplot^2,2,sum)
+  shift_mat<-amp_mat<-matrix(ncol=ncol(mplot),nrow=K+1)
+  colnames(shift_mat)<-colnames(amp_mat)<-colnames(mplot)
+  for (i in 1:ncol(mplot))
+  {  
+    filt_obj<-amp_shift_func(K,mplot[,i],F)
+    shift_mat[,i]<-apply(cbind(rep(0,K+1),filt_obj$shift),1,max)
+    shift_mat[,i]<-filt_obj$shift
+    amp_mat[,i]<-filt_obj$amp
+  }  
+  
+  
+  mplot<-amp_mat
+  plot(mplot[,1],ylim=c(0,max(mplot)),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Amplitude of Scaled Filters")
+  #mtext(colnames(mplot)[1],col=colo[1],line=-1)
+  for (i in 2:ncol(mplot))
+  {  
+    lines(mplot[,i],col=colo[i],type="l")
+    #  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+  }  
+  abline(h=0)
+  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
+  axis(2)
+  box()
+  
+  # Positive numbers signify left shift
+  mplot<-cbind(shift_mat[,1]-shift_mat[,1],shift_mat[,2]-shift_mat[,1],shift_mat[,3]-shift_mat[,1],shift_mat[,4]-shift_mat[,1])
+  plot(mplot[,1],axes=F,col=colo[1],type="l",xlab="",ylab="",main="Leads over nowcast",ylim=c(max(-4,min(mplot)),max(mplot)))
+  mtext(colnames(mplot)[1],col=colo[1],line=-1)
+  for (i in 2:ncol(mplot))
+  {  
+    lines(mplot[,i],col=colo[i],type="l")
+    mtext(colnames(mplot)[i],col=colo[i],line=-i)
+  }  
+  abline(h=0)
+  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
+  axis(2)
+  box()
+  
+  
+  # 1. Linear trend: note that full decoupling filter has a phase reversal at frequency zero, i.e., transfer function is negative
+  len<-10000
+  x<--L:len
+  # Scale all filters such that they sum up to one (not unit variance)
+  # !!!!!!
+  # Since Fully decoupled DFP is subject to phase reversal, we invert its sign when scaling by sum(b_cd)!!!!  
+  filter_mat<-cbind(gamma0/sum(gamma0),gammah/sum(gammah),b_opt/sum(b_opt),b_cd/sum(b_cd))
+  # Check unit variance
+  apply(filter_mat^2,2,sum)
+  y_out_mat<-filter(x,filter_mat[,1],side=1)
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
+  colnames(y_out_mat)<-col_names
+  
+  anf<-L
+  enf<-L+20
+  #  ts.plot(y_out_mat[anf:enf,]-(anf-tau0-1),col=colo,main="Linear trend",xlab="",ylab="")
+  ts.plot(y_out_mat[anf:enf,],col=colo,main="Linear trend",xlab="",ylab="")
+  #mtext("Nowcast",line=-1,col=colo[1])
+  #mtext("MSE",line=-2,col=colo[2])
+  #mtext("DFP",line=-3,col=colo[3])
+  abline(h=0)
+  
+  set.seed(345)
+  
+  x<-rnorm(len)
+  # Scale so that variance = 1: here we preserve sign of b_cd, i.e., scaled b_cd is phase reverting at omega=0   
+  filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
+  
+  y_out_mat<-filter(x,filter_mat[,1],side=1)
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
+  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
+  colnames(y_out_mat)<-col_names
+  
+  #ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
+  #abline(h=0)
+  
+  #ts.plot(scale(y_out_mat[300:350,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
+  #abline(h=0)
+  
+  ts.plot(y_out_mat[300:350,],main="AR(3)",col=colo,xlab="",ylab="")
+  abline(h=0)
+  
+} 
+
+
+
+
+
+#############################################################################################################
+
+
+
+
+# Exercise 3 Complete decoupling and limit to look ahead
+# Intuitively difficult since latest observation most important.
+
+
+# Exercise 4 DFP Constraint in terms of time-shift  
+
+
+# Exercise 5
+# Leading indicator
+
+
+# Exercise 6 AR-form?  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+####################################################
+# R code for solving phase excess theta as a function of betah
+
+
+# Define lengths of MSE predictors and angle thetah between them
+# We use the same gammah, gammahm1 as in above plot
+gammahm1<-c(3,1)*0.44*1.2
+gammah<-c(1.5,1)*0.66*1.2
+betah<--0.1
+
+lh<-sqrt(sum(gammah^2))
+lhm1<-sqrt(sum(gammahm1^2))
+thetah<-atan2(gammah[2],gammah[1])- atan2(gammahm1[2],gammahm1[1])
+
+
+a<-lh-cos(thetah)*lhm1
+b<-sin(thetah)*lhm1
+c<--betah
+
+
+
+solve_acos_bsin_eq <- function(a, b, c) {
+  R <- sqrt(a^2 + b^2)
+  if (R == 0) {
+    if (c == 0) return(list(status = "infinite solutions (all theta)", theta = NULL, phi = NA, R = 0))
+    return(list(status = "no solution", theta = NULL, phi = NA, R = 0))
+  }
+  phi <- atan2(b, a)                # phase shift
+  x <- c / R
+  # Clamp for numerical safety
+  x <- max(min(x, 1), -1)
+  if (abs(c) > R + .Machine$double.eps^0.5) {
+    return(list(status = "no real solution (|c| > R)", theta = NULL, phi = phi, R = R))
+  }
+  if (abs(abs(x) - 1) < 1e-14) {
+    # Single solution modulo 2π
+    theta <- if (x > 0) phi else (phi + pi)
+    theta <- atan2(sin(theta), cos(theta))  # wrap to (-pi, pi]
+    return(list(status = "one solution modulo 2π", theta = theta, phi = phi, R = R))
+  }
+  alpha <- acos(x)
+  theta1 <- phi + alpha
+  theta2 <- phi - alpha
+  # Wrap to (-pi, pi]
+  wrap <- function(t) atan2(sin(t), cos(t))
+  theta <- sort(c(wrap(theta1), wrap(theta2)))
+  list(status = "two solutions modulo 2π", theta = theta, phi = phi, R = R)
+}
+
+# Find theta for given a,b,c
+solve_acos_bsin_eq(a, b, c )
+
+#########################################################
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1261,806 +2166,6 @@ mat_cor_vec
 
 
 
-
-max_lag<-0
-# Forecast horizon
-h<-5
-L<-50
-# First AR(3)
-# Specify the roots of the characteristic polynomial
-lambda1<-0.3
-lambda2<-0.8
-lambda3<-0.2
-ar1<-ar11<-lambda1+lambda2+lambda3
-ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
-ar3<-ar31<-lambda1*lambda2*lambda3
-# Check: should replicate lambdas
-polyroot(c(-ar3,-ar2,-ar1,1))
-
-ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),lag.max=100))
-
-# MA inversion
-# Compute long sequence: need more values than L for MSE forecasts below
-gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000))
-
-# Check: transform back into AR (must specify MA inversion gamma as AR to obtain AR inversion; and change sign)
-ARMAtoMA(ar=-gamma[2:L],lag.max=100)
-
-
-# L-length nowcast: gamma01 will be used in simulation below
-gamma0<-gamma01<-gamma[1:L]
-# L-length MSE forecast
-gammah<-gammah1<-gamma[h+(1:L)]
-
-ts.plot(gammah)
-
-# Compute MSE-DFP 
-cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
-alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
-b_mat_unscaled<-b_mat<-lambda_vec1<-a_mat<-NULL
-# Use minimum phase DFP predictor: T/F
-# Interestingly, the minimum phase version of strong decoupling does not strongly decouple, i.e., it is not looking ahead 
-use_min_phase<-F
-cor_vec_1<-matrix(ncol=2,nrow=length(alpha0_vec))
-for (i in 1:length(alpha0_vec))#i<-1
-{
-  alpha0<-alpha0_vec[i]
-  # Function for deriving b0  
-  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
-  # This is the same as 
-  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  b0_simpler<-gammah+lambda*gamma0
-  max(abs(b0-b0_simpler))
-  b_mat_unscaled<-cbind(b_mat_unscaled,b0)
-  
-  # Part of old code: MSE scaling is not necessary anymore since closed-form solution is MSE optimal already  
-  if (F)
-  {
-    # MSE scaling:   
-    scale<-as.double(t(b0)%*%gammah/(t(b0)%*%b0))
-    b0<-scale*b0
-  }
-  lambda_vec1<-lambda
-  
-  # Compute minimum phase DFP: does not provide strong decoupling  
-  if (use_min_phase)
-  {
-    # Compute roots      
-    roots<-polyroot(b0)
-    # Invert unstable roots      
-    roots[which(abs(roots)>1)]<-1/roots[which(abs(roots)>1)]
-    # Compute coefficients from roots: minimum phase version of DFP      
-    b_min_phase<-Re(rev(poly_from_roots(roots)))
-    # Check lag-one ACF: the same
-    b0[1:(length(b0)-1)]%*%b0[2:length(b0)]/t(b0)%*%b0-b_min_phase[1:(length(b_min_phase)-1)]%*%b_min_phase[2:length(b_min_phase)]/b_min_phase%*%b_min_phase
-    b0<-b_min_phase
-  }
-  
-  # Use either solution
-  b_mat<-cbind(b_mat,b0)
-  # AR-inversion (problem: b0 is not always invertible)  
-  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b0[2:L]/b0[1],lag.max=L))
-  
-  # Older code   
-  if (F)
-  {  
-    # CCF at delta=0  
-    cor_vec_1[i,1]<-t(b0)%*%gamma0/sqrt(t(b0)%*%b0*t(gamma0)%*%gamma0)
-    # CCF at delta=h
-    # The first variant is the wrong one: it computes the correlation with the MSE predictor gammah
-    #   This is incorrect, because the CCF is the correlation with the DGP: the DGP has larger variance than the MSE predictor gammah  
-    #   However, the objective in the optimization criterion could rely on either one (target correlation with respect to shifted DGP or with respect to gammah)  
-    cor_vec_1[i,2]<-t(b0)%*%gammah/sqrt(t(b0)%*%b0*t(gamma0)%*%gamma0)
-    # The second variant is correct: it scles with the inverse variance of the DGP (as measured/approximated by gamma0)
-    #   This number also agrees with cor_vec_mat at horizon delta=h 
-    cor_vec_1[i,2]<-t(b0)%*%gammah/sqrt(t(b0)%*%b0*t(gamma0)%*%gamma0)
-  }
-  # Compute CCF  
-  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,as.vector(b0),gamma0)$cor_vec
-  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
-  # Extract CCF at lead 0 and h  
-  cor_vec_1[i,1]<-cor_vec[1]
-  cor_vec_1[i,2]<-cor_vec[1+h]
-}
-
-
-colnames(b_mat)<-colnames(b_mat_unscaled)<-paste("alpha0=",alpha0_vec,sep="")
-colnames(cor_vec_1)<-c("Lag 0","Lag h")
-# Check DFP constraint: should vanish
-# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
-t(b_mat)%*%gamma0-alpha0_vec
-# Alternative check DFP constraint: should vanish
-# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
-cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
-
-#--------------
-# AR-inversion of DFP: two possibilities
-# A. Invert DFP directly.
-#   Problem: generally not invertible (not minimum phase).
-# B. Since AR is invertible we can convolve AR with DFP to obtain AR-weights of DFP
-#   This is preferable because epsilon_t can always be obtained through MA-inversion of AR
-# Example: consider MA(2) with weights c(1,0.3,0.3): this is minimum-phase and can be expressed as convergent AR.
-#   -However, the one-step ahead forecast with weights (0.3,0.3) is not invertible
-#   -But we can convolve the AR-inversion (of the MA with weights 1,0.3,0.3) with the forecast (with weights 0.3,0.3) 
-#       to obtain the AR-weights of the 1-step ahead forecast
-
-# Let's proceed with A first (does not work for all DFPs, i.e., some direct AR inversions are unstable): 
-a_mat<-NULL
-for (i in 1:ncol(b_mat_unscaled))
-  # ARMAtoMA assumes that the lag-zero weight is: we must scale by 1/b_mat_unscaled[1,i]
-  # AR inversion can be obtained with ARMAtoMA by plugging the signe reverted MA-weights from lag 1 to lag L, i.e. remove lag 0  
-  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b_mat_unscaled[2:L,i]/b_mat_unscaled[1,i],lag.max=L))
-
-
-# Check AR-inversion: the max absolute deviations should vanish
-for (i in  1:length(alpha0_vec))#i<-1
-{
-  ar_vec<-a_mat[,i]
-  # Check: should vanish  
-  print(max(abs(c(1,ARMAtoMA(ar=a_mat[,i],lag.max=L-1))-b_mat_unscaled[,i]/b_mat_unscaled[1,i])))
-}
-
-# Plot direct AR-inversion: some AR inversions are divergent
-#   Solution A does not work properly
-par(mfrow=c(1,2))
-ts.plot(scale(b_mat,center=F,scale=T),col=rainbow(ncol(a_mat)),main="DFP predictors ")
-ts.plot(scale(a_mat,center=F,scale=T),col=rainbow(ncol(a_mat)),main="Method A: DFP predictors AR-inverted")
-
-# Solution B
-# Compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
-# 1 check: the following should give an identity
-filt1<-c(1,-ar1,-ar2,-ar3)
-filt2<-gamma
-conv_two_filt_func(filt1,filt2)$conv[1:10]
-
-# Compute AR weights of MSE and DFP predictors
-# a. MSE
-filt1<-c(1,-ar1,-ar2,-ar3)
-filt2<-gammah
-ar_mse_ar3<-conv_two_filt_func(filt1,filt2)$conv
-# b. DFP
-ar_dfp_ar3_mat<-NULL
-for (i in 1:length(alpha0_vec))
-{
-  # Use original (unscaled) MSE-DFP
-  filt2<-b_mat_unscaled[,i]
-  ar_dfp_ar3_mat<-cbind(ar_dfp_ar3_mat,conv_two_filt_func(filt1,filt2)$conv)
-  
-}
-# We see that only the first weight of the AR-predictor is affected
-# This is because b=gammah+lambda*gamma0
-#   -AR-inversion applied to gamma0 is lambda*identity: only the first weight is affected!!!
-#   -Since gammah is fixed and convolution is linear we conclude that only first weight of DFP-AR is affected!!!
-# This changes with PCS predictor since PCS=gammah+lambda*(gamma_{h-1}-gammah): more complex!!!
-ts.plot(ar_dfp_ar3_mat[1:5,],col=rainbow(ncol(a_mat)),main="Method B: DFP predictors AR-inverted")
-
-# Check
-# Note: we cannot check pertinence by verifying that the convolution of both filters gives an identity (as we did for AR and its MA-inversion above)
-k<-1
-filt1<-ar_dfp_ar3_mat[,k]
-filt2<-b_mat_unscaled[,k]
-# This is no more an identity
-conv_two_filt_func(filt1,filt2)$conv[1:10]
-# But we can check pertinence by verifying that predictors are identical (up to finite MA-inversion errors) when applied
-#   to data: ar_dfp_ar3_mat applied to x and b_mat_unscaled applied to eps
-# Check: apply filters to MA and AR representations
-set.seed(1)
-len<-1000
-x<-eps<-rnorm(len)
-for (i in 4:len)
-{
-  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]
-}
-
-y_dfp_ma<-y_dfp_ar<-rep(NA,len)
-# Select DFP design
-k<-3
-for (i in L:len)
-{
-  y_dfp_ma[i]<-b_mat_unscaled[,k]%*%eps[i:(i-L+1)]
-  y_dfp_ar[i]<-ar_dfp_ar3_mat[,k]%*%x[i:(i-L+1)]
-}
-# Both series are identical up to negligible finite MA/AR inversion errors
-ts.plot(cbind(y_dfp_ma,y_dfp_ar)[1:200,])
-# Maximal error is negligible (due to finite length MA/AR inversions)
-max(na.exclude(abs(y_dfp_ma-y_dfp_ar)[1:200]))
-
-#--------------------
-
-# Will be used in plots further down
-mplot1<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
-#mplot1<-cbind(gammah,b_mat)
-# Note: cor_vec_mat is CCF between DFP and nowcast. Here we scale to have CCF between DFP and process
-mplot2<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
-
-# Compare MSE h-step ahead with DFP: select any k in 1:length(alpha0_vec)
-# DFP is not always invertible: if not, the AR-inversion diverges
-k<-length(alpha0_vec)
-k<-1
-par(mfrow=c(1,2))
-mplot<-cbind(b_mat[1:L,k],gammah)
-ts.plot(mplot,col=c("blue","green"),main="MA-inversion")
-mtext("MSE",col="green",line=-1)
-mtext(paste("DFP, alpha0=",alpha0_vec[k],sep=""),col="blue",line=-2)
-mplot<-cbind(a_mat[,k],-ARMAtoMA(ar=-gammah[2:L]/gammah[1],lag.max=L))
-ts.plot(mplot,col=c("blue","green"),main="AR-inversion")
-mtext("MSE",col="green",line=-1)
-mtext(paste("DFP, alpha0=",alpha0_vec[k],sep=""),col="blue",line=-2)
-
-
-
-
-
-#-----------------------------
-# Second process: ARMA(3,2)
-# AR-coefficients
-ar1<-0.4
-ar2<-0.3
-ar3<-0.2
-b1<-0.5
-b2<-0.4
-
-ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=100))
-
-
-# Roots of characteristic polynomial
-1/(Arg(polyroot(c(-ar3,-ar2,-ar1,1)))/pi)
-abs(polyroot(c(-ar3,-ar2,-ar1,1)))
-
-# MA inversion
-# Compute long sequence: need more values than L for MSE forecasts below
-gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=1000))
-ts.plot(gamma[1:20])
-# L-length now- and MSE forecast
-gamma0<-gamma[1:L]
-gammah<-gamma[h+(1:L)]
-
-
-# Compute MSE-DFP
-cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
-alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
-#alpha0_vec<-5*c(0.9,0.45,0.22,0.1,0)
-b_mat<-b_mat_unscaled<-a_mat<-lambda_vec2<-NULL
-cor_vec_2<-matrix(ncol=2,nrow=length(alpha0_vec))
-
-for (i in 1:length(alpha0_vec))#i<-1
-{
-  alpha0<-alpha0_vec[i]
-  # Function for deriving b0  
-  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
-  # This is the same as 
-  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  b0_simpler<-gammah+lambda*gamma0
-  max(abs(b0-b0_simpler))
-  b_mat_unscaled<-cbind(b_mat_unscaled,b0)
-  
-  lambda_vec2<-lambda
-  # MSE scaling is not used anymore (closed-form solution is already MSE optimal)  
-  if (F)
-  {
-    scale<-as.double(t(b0)%*%gammah/(t(b0)%*%b0))
-    b0<-scale*b0
-  }
-  # Compute minimum phase DFP  
-  if (use_min_phase)
-  {
-    # Compute roots      
-    roots<-polyroot(b0)
-    # Invert unstable roots      
-    roots[which(abs(roots)>1)]<-1/roots[which(abs(roots)>1)]
-    # Compute coefficients from roots: minimum phase version of DFP      
-    b_min_phase<-Re(rev(poly_from_roots(roots)))
-    # Check lag-one ACF: the same
-    b0[1:(length(b0)-1)]%*%b0[2:length(b0)]/t(b0)%*%b0-b_min_phase[1:(length(b_min_phase)-1)]%*%b_min_phase[2:length(b_min_phase)]/b_min_phase%*%b_min_phase
-    b0<-b_min_phase
-  }
-  # Use either solution
-  b_mat<-cbind(b_mat,b0)
-  # AR-inversion (problem: b0 is not always invertible)  
-  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b0[2:L]/b0[1],lag.max=L))
-  
-  # Compute CCF  
-  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,ncol(b_mat)],gamma0)$cor_vec
-  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
-  # Extract CCF at lead 0 and h  
-  cor_vec_2[i,1]<-cor_vec[1]
-  cor_vec_2[i,2]<-cor_vec[1+h]
-}
-
-# Check DFP constraint: should vanish
-# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
-t(b_mat)%*%gamma0-alpha0_vec
-# Alternative check DFP constraint: should vanish
-# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
-cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
-# Check AR-inversion: the max absolute deviations should vanish (all designs are non-invertible and therefore one observes numerical cancellation effects, i.e., absolute deviations do not vanish exactly)
-for (i in  1:length(alpha0_vec))#i<-1
-{
-  b0<-b_mat[,i]
-  ar_vec<-a_mat[,i]
-  print(max(abs(c(1,ARMAtoMA(ar=ar_vec,lag.max=L-1))-b0/b0[1])))
-}
-
-
-
-mplot3<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
-#mplot3<-cbind(gammah,b_mat)
-mplot4<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
-
-#--------------
-# AR-inversion of DFP: we rely on possibility B described above
-# Solution B: compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
-# 1. Compute AR-inversion of ARMA
-ar_inv<-c(1,ARMAtoMA(ar=-c(b1,b2),ma=-c(ar1,ar2,ar3),lag.max=L))
-# 1.1 check: the following should give an identity
-filt1<-ar_inv
-filt2<-gamma
-conv_two_filt_func(filt1,filt2)$conv[1:10]
-
-# 2. Compute AR weights of MSE and DFP predictors
-# a. MSE
-filt2<-gammah
-ar_mse_arma32<-conv_two_filt_func(filt1,filt2)$conv
-# b. DFP
-ar_dfp_arma32_mat<-NULL
-for (i in 1:length(alpha0_vec))
-{
-  # Use original (unscaled) MSE-DFP
-  filt2<-b_mat_unscaled[,i]
-  ar_dfp_arma32_mat<-cbind(ar_dfp_arma32_mat,conv_two_filt_func(filt1,filt2)$conv)
-  
-}
-ts.plot(cbind(ar_mse_arma32,ar_dfp_arma32_mat)[1:L,],col=rainbow(ncol(a_mat)),main="Method B: MSE and DFP predictors AR-inverted")
-lines(ar_mse_arma32,lwd=2)
-
-# Check: apply filters to MA and AR representations
-set.seed(1)
-len<-1000
-x<-eps<-rnorm(len)
-for (i in 4:len)
-{
-  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]+b1*eps[i-1]+b2*eps[i-2]
-}
-
-y_dfp_ar32<-y_dfp_ma32<-rep(NA,len)
-# Select DFP design
-k<-2
-for (i in L:len)
-{
-  y_dfp_ma32[i]<-b_mat_unscaled[,k]%*%eps[i:(i-L+1)]
-  y_dfp_ar32[i]<-ar_dfp_arma32_mat[1:L,k]%*%x[i:(i-L+1)]
-}
-# Both series are identical up to negligible finite MA/AR inversion errors
-ts.plot(cbind(y_dfp_ma32,y_dfp_ar32)[1:200,])
-# Maximal error is negligible (due to finite length MA/AR inversions)
-max(na.exclude(abs(y_dfp_ma32-y_dfp_ar32)[1:200]))
-
-
-#-------------------------------------------------
-# Plot
-
-
-par(mfrow=c(2,2))
-
-#ts.plot(gammah1,main=paste("MSE first process: h=",h,sep=""),col="green",xlab="",ylab="")
-
-#ts.plot(gammah,main="Second process",col="green",xlab="",ylab="")
-
-
-colo<-c("green","brown","orange","blue","violet","red")
-# Scale filters
-ts.plot(mplot1,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
-mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
-#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
-#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
-#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
-#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
-mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
-mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
-mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
-mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
-mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
-abline(h=0)
-
-cor_vec_1
-
-
-ts.plot(mplot3,main="ARMA(3,2)",col=colo,xlab="",ylab="")
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("    ",alpha[0],"=0.9, ",rho,"=",0.99)),line=-2,col=colo[2])
-#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.96)),line=-3,col=colo[3])
-#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.84)),line=-4,col=colo[4])
-#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.58)),line=-5,col=colo[5])
-#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
-abline(h=0)
-
-plot(mplot2[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot2),max(mplot2)))
-for (i in 2:ncol(mplot2))
-{  
-  lines(mplot2[,i],col=colo[i])
-}
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
-#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
-#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
-#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
-#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-abline(h=0)
-axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
-axis(2)
-box()
-
-plot(mplot4[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot4),max(mplot4)))
-for (i in 2:ncol(mplot4))
-{  
-  lines(mplot4[,i],col=colo[i])
-}
-abline(h=0)
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
-#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
-#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
-#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
-#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-axis(1,at=1:nrow(mplot4),labels=-max_lag-1+1:(nrow(mplot4)))
-axis(2)
-box()
-
-
-mat_cor_vec<-round(cbind(cor_vec_1,cor_vec_2),2)
-
-# Must use a special proceeding when utilizing greek letters in column or rownames
-
-rownames(mat_cor_vec) <- c("$\\alpha_0=0.9$","$\\alpha_0=0.45$","$\\alpha_0=0.22$","$\\alpha_0=0.1$","$\\alpha_0=0$")
-colnames(mat_cor_vec) <- c(" $\\textrm{Process 1: CCF }\\delta=0$","$\\delta=5$","$\\textrm{Process 2: } \\delta=0$","$\\delta=5$")
-
-mat_cor_vec
-
-
-if (F)
-{
-  tbl <- xtable(mat_cor_vec)
-  caption(tbl)<-paste("CCFs of the DFP predictors for the first process (columns 1–2) and the second process (columns 3–4) evaluated at $\\delta=0$ (columns 1 and 3) and at $\\delta=h=5$ (columns 2 and 4), shown for multiple values of the decoupling parameter $\\alpha_0$. Note that $\\alpha_0$ generally differs from the CCF at $\\delta=0$ except in the case of complete decoupling (columns 1 and 3, last row).")
-  label(tbl)<-"ar3_decoupling"
-  
-  print.xtable(tbl, sanitize.text.function = function(x) x)
-}
-
-
-
-
-
-##########################################################################################################
-
-# The above example continued
-
-
-
-L<-50
-h<-3
-# Long forecast horizon
-htilde<-20
-# First AR(3)
-lambda1<-0.3
-lambda2<-0.8
-lambda3<-0.2
-ar1<-ar11<-lambda1+lambda2+lambda3
-ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
-ar3<-ar31<-lambda1*lambda2*lambda3
-
-# Compute long sequence: need more values than L for MSE forecasts below
-gamma<-ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000)
-
-ts.plot(gamma[1:L])
-
-gamma0<-gamma[1:L]
-# MSE: last entries are vanishing (we could also insert the longer MA-expansion but this would not be the MSe estimate in the finite length MA case)
-gammah<-c(gamma[h+(1:(L-h))],rep(0,h))
-# Long forecast horizon
-gammahtilde<-c(gamma[htilde+(1:(L-htilde))],rep(0,htilde))
-
-# Select lead over MSE
-lead<--2
-
-# Compute shifts at frequency zero
-if (F)
-{
-# Old code  
-  tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
-  tauh<-sum((0:(L-1))*gammah)/sum(gammah)
-  tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
-  
-  # MSE is slightly leading
-  tau0
-  tauh
-  tau<-lead
-  # Formula for lambda0
-  lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
-  # Compute b
-  b<-gammah+lambda0*gamma0
-  
-}
-tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
-
-dfp_obj<-dfp_from_tau_func(gamma0,gammah,lead)
-tau0=dfp_obj$tau0
-tauh=dfp_obj$tauh
-lambda0=dfp_obj$lambda0
-b=dfp_obj$b
-
-
-# Unitary DFP
-b_opt<-b/as.double(sqrt(b%*%b))
-
-# Check 1: verify lead
-taub<-sum((0:(L-1))*b_opt)/sum(b_opt)
-# Should equal lead (or tau): this is an exact result
-taub-tauh
-
-# Compute alpha0
-alpha0<-as.double(t(gamma0)%*%(gammah+lambda0*gamma0))#/sqrt(t(gammah+lambda0*gamma0)%*%(gammah+lambda0*gamma0)))
-
-# Check 2
-# Compute lambda from alpha0: Proposition 1
-if (F)
-{
-# old code
-  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  # Compute b: Proposition 1
-  b<-gammah+lambda*gamma0
-  
-}
-dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0)
-lambda<-dfp_obj$lambda
-b<-dfp_obj$b
-scale<-as.double(1/sqrt(t(b)%*%b))
-b0<-scale*b
-# Check: should vanish
-max(abs(b_opt-b0))
-
-# Compute DFP complete decoupling
-alpha0_cd<-0
-if (F)
-{
-  lambda_cd<-as.double((alpha0_cd-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  b_cd<-gammah+lambda_cd*gamma0
-  
-}
-
-# Compute b: Proposition 1
-
-dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0_cd)
-
-lambda_cd<-dfp_obj$lambda
-b_cd<-dfp_obj$b
-scale<-as.double(1/sqrt(t(b_cd)%*%b_cd))
-b_cd<-scale*b_cd
-# Check: should vanish
-t(b_cd)%*%gamma0
-# Note: b_cd is subject to phase reversal: Gamma(0)<0
-sum(b_cd)
-# Therefore time-shift at frequency zero is ill-defined. We can still compute that number, though
-# Compute time-shift: this is shift of sign-reverted predictor.
-tau_cd<-sum((0:(L-1))*b_cd)/sum(b_cd)
-tau_cd
-
-# Compute roots to check minimum-phase property
-abs(polyroot(b_opt[L:1]))
-abs(polyroot(b_cd[L:1]))
-
-
-# Table with time shifts, transfer functions at omega=0 (,i.e., sum of filter weights), lambda and alpha0
-
-mat_perf<-matrix(nrow=4, ncol=4)
-
-colnames(mat_perf) <- c("$\\tau(0)$","$\\Gamma(0)$","$\\lambda$","$\\alpha_0$")
-rownames(mat_perf) <- c(paste("MSE(",h,")",sep=""),paste("MSE(",htilde,")",sep=""),"DFP-shifted","DFP full dec.")
-mat_perf[1,1:2]<-c(-tauh,sum(gammah)/as.double(sqrt(t(gammah)%*%gammah)))
-mat_perf[2,1:2]<-c(-tauhtilde,sum(gammahtilde)/as.double(sqrt(t(gammahtilde)%*%gammahtilde)))
-mat_perf[3,]<-c(-taub,sum(b_opt),lambda0,alpha0)
-mat_perf[4,]<-c(NA,sum(b_cd),lambda_cd,alpha0_cd)
-
-
-#--------------------------------------------------------
-# Plots
-
-
-layout(matrix(c(1,2,3,3), 2, 2, byrow = T)) 
-colo<-c("black","green","blue","red")
-
-mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-col_names<-c("AR(3)",paste("MSE ",h,"-step"),"DFP-shift","DFP-full-decouple")
-colnames(mplot)<-col_names
-apply(mplot^2,2,sum)
-plot(mplot[,1],main="Scaled Predictors",axes=F,type="l",xlab="Lags",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
-mtext(colnames(mplot)[1],col=colo[1],line=-1)
-for (i in 2:ncol(mplot))
-{  
-  lines(mplot[,i],col=colo[i],type="l")
-  mtext(colnames(mplot)[i],col=colo[i],line=-i)
-}  
-lines(mplot[,2],col=colo[2])
-axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
-axis(2)
-box()
-
-mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
-colnames(mplot)<-col_names[2:length(col_names)]
-
-plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
-for (i in 1:ncol(mplot))
-{  
-  lines(mplot[,i],col=colo[1+i])
-}
-#mtext("MSE",line=-1,col=colo[1+1])
-#mtext("DFP",line=-2,col=colo[2+1])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-abline(h=0)
-axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
-axis(2)
-box()
-
-
-# Scale filters to unit variance (scaled b_cd is still phase reverting at omega=0)   
-filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
-
-set.seed(345)
-len<-10000
-
-
-x<-rnorm(len)
-y_out_mat<-filter(x,filter_mat[,1],side=1)
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-colnames(y_out_mat)<-col_names
-
-#ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-#abline(h=0)
-
-ts.plot(y_out_mat[300:350,],main="Predictor Outputs",col=colo,xlab="",ylab="")
-abline(h=0)
-
-
-
-
-# The following plot also shows amplitudes, shifts and output of filters when applied to linear trend
-if (F)
-{
-  par(mfrow=c(3,2))
-  
-  colo<-c("black","green","blue","red")
-  
-  mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-  col_names<-c("Nowcast",paste("MSE ",h,"-step"),"DFP-shift","DFP-decouple")
-  colnames(mplot)<-col_names
-  apply(mplot^2,2,sum)
-  plot(mplot[,1],main="Scaled Filters",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
-  mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  lines(mplot[,2],col=colo[2])
-  axis(1,at=1:nrow(mplot),labels=0:(nrow(mplot)-1))
-  axis(2)
-  box()
-  
-  mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
-  colnames(mplot)<-col_names[2:length(col_names)]
-  
-  plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
-  for (i in 1:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[1+i])
-  }
-  #mtext("MSE",line=-1,col=colo[1+1])
-  #mtext("DFP",line=-2,col=colo[2+1])
-  abline(v=max_lag+1,lty=1)
-  abline(v=max_lag+1+h,lty=2)
-  abline(h=0)
-  axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
-  axis(2)
-  box()
-  
-  
-  K<-600
-  mplot<-scale(cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-  colnames(mplot)<-col_names
-  
-  apply(mplot^2,2,sum)
-  shift_mat<-amp_mat<-matrix(ncol=ncol(mplot),nrow=K+1)
-  colnames(shift_mat)<-colnames(amp_mat)<-colnames(mplot)
-  for (i in 1:ncol(mplot))
-  {  
-    filt_obj<-amp_shift_func(K,mplot[,i],F)
-    shift_mat[,i]<-apply(cbind(rep(0,K+1),filt_obj$shift),1,max)
-    shift_mat[,i]<-filt_obj$shift
-    amp_mat[,i]<-filt_obj$amp
-  }  
-  
-  
-  mplot<-amp_mat
-  plot(mplot[,1],ylim=c(0,max(mplot)),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Amplitude of Scaled Filters")
-  #mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    #  mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  abline(h=0)
-  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
-  axis(2)
-  box()
-  
-  # Positive numbers signify left shift
-  mplot<-cbind(shift_mat[,1]-shift_mat[,1],shift_mat[,2]-shift_mat[,1],shift_mat[,3]-shift_mat[,1],shift_mat[,4]-shift_mat[,1])
-  plot(mplot[,1],axes=F,col=colo[1],type="l",xlab="",ylab="",main="Leads over nowcast",ylim=c(max(-4,min(mplot)),max(mplot)))
-  mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  abline(h=0)
-  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
-  axis(2)
-  box()
-  
-  
-  # 1. Linear trend: note that full decoupling filter has a phase reversal at frequency zero, i.e., transfer function is negative
-  len<-10000
-  x<--L:len
-  # Scale all filters such that they sum up to one (not unit variance)
-  # !!!!!!
-  # Since Fully decoupled DFP is subject to phase reversal, we invert its sign when scaling by sum(b_cd)!!!!  
-  filter_mat<-cbind(gamma0/sum(gamma0),gammah/sum(gammah),b_opt/sum(b_opt),b_cd/sum(b_cd))
-  # Check unit variance
-  apply(filter_mat^2,2,sum)
-  y_out_mat<-filter(x,filter_mat[,1],side=1)
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-  colnames(y_out_mat)<-col_names
-  
-  anf<-L
-  enf<-L+20
-  #  ts.plot(y_out_mat[anf:enf,]-(anf-tau0-1),col=colo,main="Linear trend",xlab="",ylab="")
-  ts.plot(y_out_mat[anf:enf,],col=colo,main="Linear trend",xlab="",ylab="")
-  #mtext("Nowcast",line=-1,col=colo[1])
-  #mtext("MSE",line=-2,col=colo[2])
-  #mtext("DFP",line=-3,col=colo[3])
-  abline(h=0)
-  
-  set.seed(345)
-  
-  x<-rnorm(len)
-  # Scale so that variance = 1: here we preserve sign of b_cd, i.e., scaled b_cd is phase reverting at omega=0   
-  filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
-  
-  y_out_mat<-filter(x,filter_mat[,1],side=1)
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-  colnames(y_out_mat)<-col_names
-  
-  #ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-  #abline(h=0)
-  
-  #ts.plot(scale(y_out_mat[300:350,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-  #abline(h=0)
-  
-  ts.plot(y_out_mat[300:350,],main="AR(3)",col=colo,xlab="",ylab="")
-  abline(h=0)
-  
-}  
 
 
 

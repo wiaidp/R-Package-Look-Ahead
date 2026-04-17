@@ -51,7 +51,7 @@ compute_acf_at_lags_zero_delta_func<-function(max_lag,h,b,gamma)
 # Lags
   if (max_lag>0)
   {
-    for (i in 1:(max_lag))#i<-1
+    for (i in 1:(min(L-1,max_lag)))#i<-1
       cor_vec_lag<-c(cor_vec_lag,b[(i+1):L]%*%gamma[1:((L)-i)]/(sqrt(b%*%b)*sqrt(gamma%*%gamma)))
   }
   if (F)
