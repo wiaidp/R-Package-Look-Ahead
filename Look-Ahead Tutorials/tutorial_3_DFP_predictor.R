@@ -675,14 +675,19 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 
 #-------------------------------------------------------------
 
-# Exercise 2 AR-form 
+
+# Exercise 2: MSE DFP
+
+# AR and ARMA: MSE DFP
+
+
+
 
 # Exercise 3 Complete decoupling and limit to look ahead
 # Intuitively difficult since latest observation most important.
 
-# Exercise 4: MSE DFP
 
-# AR and ARMA: MSE DFP
+# Exercise 4 AR-form?  
 
 
 # Exercise 5
