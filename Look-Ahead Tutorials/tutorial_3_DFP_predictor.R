@@ -1421,7 +1421,7 @@ abline(h=0)
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 3: ARMA(3,2)
+# Exercise 4: ARMA(3,2)
 # ════════════════════════════════════════════════════════════════════
 # Second process: ARMA(3,2)
 # AR-coefficients
@@ -1681,16 +1681,14 @@ if (F)
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 4: Complete decoupling and limit to look ahead
+# Exercise 5: Complete decoupling and limit to look ahead
 # ════════════════════════════════════════════════════════════════════
-
-# Exercise 4 Complete decoupling and limit to look ahead
 # Intuitively difficult since latest observation most important.
 
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 5: Leading indicator DFP
+# Exercise 6: Leading indicator DFP
 # ════════════════════════════════════════════════════════════════════
 
 
