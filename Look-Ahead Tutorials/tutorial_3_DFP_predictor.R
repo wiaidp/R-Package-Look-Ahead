@@ -239,6 +239,8 @@ cat("Correlation of MSE predictor with nowcast (present):", round(cor_mse_now, 4
 # ─────────────────────────────────────────────────────────────────────
 # 1.3 DFP Predictor 
 # ─────────────────────────────────────────────────────────────────────
+# Assumption: gamma0 and gammah are not collinear
+
 # The UNIT-LENGTH DFP predictor b0 is a constrained linear combination of
 # the nowcast (gamma0) and the MSE predictor (gammah):
 #
@@ -541,7 +543,9 @@ box()
 # This figure (reproduced from Wildi 2026) depicts the geometry of the 
 # unit-length DFP solution in the plane spanned by gamma0 (nowcast) and 
 # gammah (MSE predictor).
-#
+
+# Assumption: gamma0 and gammah are not collinear
+
 # The solution is determined by two constraints:
 #   - Unit-length constraint: b0 lies on the unit sphere (blue arc).
 #   - DFP constraint: b0 lies on the cone with axis gamma0 and semi-angle
@@ -675,6 +679,9 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 # EXERCISE 2: MSE-DFP 
 # ════════════════════════════════════════════════════════════════════
 # This exercise introduces three novelties relative to Exercise 1:
+
+# Assumption: gamma0 and gammah are not collinear
+
 #
 # A) THE MSE-DFP CRITERION (Equation 9, Wildi 2026)
 #    Like the unit-length DFP, the MSE-DFP predictor lies in the plane
@@ -1088,14 +1095,18 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 # the MSE-DFP solution in the plane spanned by gamma0 (nowcast) and
 # gammah (MSE predictor).
 
-# Here     b0 = gammah + lambda * gamma0, i.e. the weight on gammah is one
+# Assumption: gamma0 and gammah are not colinear
 
-#
 # The solution lies on the affine hyperplane defined by the decoupling
 # constraint gamma0' * b = alpha0. By the least-squares optimality
 # principle, it is the orthogonal projection of gammah onto this
-# hyperplane (see Proposition 1 in Wildi 2026). The solution is uniquely
-# determined by a linear equation system.
+# hyperplane (see Proposition 1 in Wildi 2026): 
+
+#  b0 = gammah + lambda * gamma0, i.e. the weight on gammah is one.
+
+# where lambda is chosen such that gamma0' * b(lambda) = alpha0. This 
+# equation is linear in lambda: the solution is given in closed-form 
+# and the optimum is unique. 
 #
 # Intuition: decoupling b0 from gamma0 requires a negative weight on
 # gamma0 (lambda < 0). We subtract the nowcast direction from the MSE
