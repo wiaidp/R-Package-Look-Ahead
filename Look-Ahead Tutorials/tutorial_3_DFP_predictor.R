@@ -536,7 +536,7 @@ box()
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.10 Geometry of the DFP Predictor
+# 1.10 Geometry of the Unit-Length DFP Predictor
 # ─────────────────────────────────────────────────────────────────────
 # This figure (reproduced from Wildi 2026) depicts the geometry of the DFP
 # solution in the plane spanned by gamma0 (nowcast) and gammah (MSE predictor).
@@ -671,7 +671,7 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: MSE-DFP
+# Exercise 2: MSE-DFP in MA Form
 # ════════════════════════════════════════════════════════════════════
 # Two novelties: 
 # A) MSE-DFP predictor
@@ -773,6 +773,12 @@ cor_vec_mat<-compute_ccf_func(gammah,gamma0)[L:(2*L-1)]
 # We provide a whole sequence of alpha0 and derive MSE DFP predictors for each element
 alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
 
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.3 Run MSE-DFP: compute_mse_dfp()
+# ─────────────────────────────────────────────────────────────────────
+
+
 # Initialize matrices
 b_mat<-lambda_vec1<-a_mat<-NULL
 cor_vec_1<-matrix(ncol=2,nrow=length(alpha0_vec))
@@ -815,6 +821,9 @@ cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gam
 
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.4 Plots and Performances
+# ─────────────────────────────────────────────────────────────────────
 
 
 par(mfrow=c(1,2))
@@ -870,8 +879,144 @@ mat_cor_vec<-round(cor_vec_1,2)
 mat_cor_vec
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.5 Apply Predictors (Filters) to Data
+# ─────────────────────────────────────────────────────────────────────
+
+set.seed(345)
+len<-10000
 
 
+x<-rnorm(len)
+y_out_mat<-NULL
+for (i in 1:ncol(b_mat))
+  y_out_mat<-cbind(y_out_mat,filter(x,b_mat[,i],side=1))
+
+#ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
+#abline(h=0)
+
+par(mfrow=c(1,1))
+ts.plot(y_out_mat[300:350,],main="Predictor Outputs",col=colo,xlab="",ylab="")
+abline(h=0)
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.6 Geometry of the MSE-DFP Predictor
+# ─────────────────────────────────────────────────────────────────────
+
+
+
+# Specify gamma0 and gammah
+gamma0<-c(3,0.5)*3.5/4
+gammah<-c(1.5,1)*2/1.5
+
+# Specify lambda0
+lambda0<-0.5
+# Lengths
+l0<-sqrt(sum(gamma0^2))
+lh<-sqrt(sum(gammah^2))
+
+# Angle between gammah and gamma0: gammah is above (larger angle)
+beta0h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
+# Angle between gammah and b
+beta <- atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])-atan2(gammah[2], gammah[1])
+
+# Set up plot limits with some padding
+x_min<-min(0,min(c(gamma0[1],gammah[1]))-1)
+x_max<-max(c(gamma0[1],gammah[1]))+0.5
+y_min<-min(c(gamma0[2],gammah[2]))-1
+y_min<-0
+y_max<-max(c(gamma0[2],gammah[2]))+1
+y_max<-max(c(gamma0[2],gammah[2]))+0.2
+plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
+     asp=1.5,xlab = "", ylab = "", axes = TRUE)
+# Axes
+abline(h = 0, v = 0, col = "gray85")
+# gamma0
+arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
+text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
+# gammah
+arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "red")
+text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
+# gammah-lambda0*gamma0
+arrows(gammah[1],gammah[2],gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2], length = 0.12, lwd=1, col = "red")
+#  text(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2]+0.2, labels = expression(tilde(b)==gamma[h]+lambda[1]*gamma[0]), col = "red", cex = 1.2)
+text(gammah[1]-lambda0*gamma0[1]-0.4,gammah[2]-lambda0*gamma0[2], labels = expression(b==gamma[h]+lambda*gamma[0]), col = "black", cex = 1.2)
+text(gammah[1]-lambda0*gamma0[1]+0.4,gammah[2]-lambda0*gamma0[2]+0.15, labels = expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
+
+expression("E" *  "|" ~ Y)
+
+# Insert unit length b0
+b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
+lb0<-sqrt(sum(b0^2))
+#  arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
+arrows(0,0,b0[1],b0[2], length = 0.12, lwd=1, col = "red")
+#  text(b0[1]/lb0-0.1,b0[2]/lb0+0.1, labels = expression(b), col = "red", cex = 1.2)
+text(b0[1]/lb0-0.3,b0[2]/lb0-0.2, labels = expression(c==~"|"~gamma[h]+lambda*gamma[0]~"|"), col = "red", cex = 1)
+#  segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
+
+# Draw the angle beta0h (between gammah and gamma0)
+r <- 0.3   # arc radius
+th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, beta0h, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
+
+th_mid <-  atan2(gamma0[2], gamma0[1])+beta0h / 2
+text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
+     labels = expression(theta[0*h]), col = "black", cex = 1.2)
+
+# Draw the angle beta between gammah and b 
+r <- 0.35   # arc radius
+th_seq <- -beta0h+atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])+seq(0, beta, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "red", lwd=1)
+
+th_mid <-  th_seq[50]
+text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
+     labels = expression(beta), col = "red", cex = 1.2)
+
+
+# Draw the angle theta (between b0 and gamma0)
+theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+r <- 0.5  # arc radius
+th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
+
+th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
+text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid)-0.1,
+     labels = expression(theta[0*b]), col = "black", cex = 1.2)
+
+# Add side naming for side a  
+text(1.2 * r * cos(th_mid)+0.5, 1.15 * r * sin(th_mid)+0.3,
+     labels = expression(a==~"|"~gamma[h]~"|"), col = "red", cex = 1)
+
+# Draw the angle gamma from the apex gammah
+r <- 0.35   # arc radius
+th_seq <- seq(pi+0.15, pi+0.6, length.out = 100)
+lines(gammah[1]+r * cos(th_seq), gammah[2]+r * sin(th_seq), col = "red", lwd=1)
+
+th_mid <-  th_seq[50]
+text(gammah[1]+1.4 * r * cos(th_mid)+0.15, gammah[2]+1.15 * r * sin(th_mid),
+     labels = expression(gamma==theta[0*h]), col = "red", cex = 1.2)
+
+# Draw the angle alpha from the apex b
+r <- 0.1   # arc radius
+th_seq <- seq(-pi/2-0.4, pi/8-0.2, length.out = 100)
+lines(gammah[1]-lambda0*gamma0[1]+r * cos(th_seq), gammah[2]-lambda0*gamma0[2]+r * sin(th_seq), col = "red", lwd=1)
+
+th_mid <-  th_seq[50]
+text(gammah[1]-lambda0*gamma0[1]+1.4 * r * cos(th_mid)+0.05, gammah[2]-lambda0*gamma0[2]+1.15 * r * sin(th_mid),
+     labels = expression(alpha), col = "red", cex = 1.2)
+
+
+
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# Exercise 3: MSE-DFP in AR-Form
+# ════════════════════════════════════════════════════════════════════
 
 
 #--------------
@@ -992,367 +1137,9 @@ mtext(paste("DFP, alpha0=",alpha0_vec[k],sep=""),col="blue",line=-2)
 
 
 
-#-----------------------------
-# Second process: ARMA(3,2)
-# AR-coefficients
-ar1<-0.4
-ar2<-0.3
-ar3<-0.2
-b1<-0.5
-b2<-0.4
-
-ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=100))
-
-
-# Roots of characteristic polynomial
-1/(Arg(polyroot(c(-ar3,-ar2,-ar1,1)))/pi)
-abs(polyroot(c(-ar3,-ar2,-ar1,1)))
-
-# MA inversion
-# Compute long sequence: need more values than L for MSE forecasts below
-gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=1000))
-ts.plot(gamma[1:20])
-# L-length now- and MSE forecast
-gamma0<-gamma[1:L]
-gammah<-gamma[h+(1:L)]
-
-
-# Compute MSE-DFP
-cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
-alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
-#alpha0_vec<-5*c(0.9,0.45,0.22,0.1,0)
-b_mat<-b_mat_unscaled<-a_mat<-lambda_vec2<-NULL
-cor_vec_2<-matrix(ncol=2,nrow=length(alpha0_vec))
-
-for (i in 1:length(alpha0_vec))#i<-1
-{
-  alpha0<-alpha0_vec[i]
-  # Function for deriving b0  
-  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
-  # This is the same as 
-  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  b0_simpler<-gammah+lambda*gamma0
-  max(abs(b0-b0_simpler))
-  b_mat_unscaled<-cbind(b_mat_unscaled,b0)
-  
-  lambda_vec2<-lambda
-  # MSE scaling is not used anymore (closed-form solution is already MSE optimal)  
-  if (F)
-  {
-    scale<-as.double(t(b0)%*%gammah/(t(b0)%*%b0))
-    b0<-scale*b0
-  }
-  # Compute minimum phase DFP  
-  if (use_min_phase)
-  {
-    # Compute roots      
-    roots<-polyroot(b0)
-    # Invert unstable roots      
-    roots[which(abs(roots)>1)]<-1/roots[which(abs(roots)>1)]
-    # Compute coefficients from roots: minimum phase version of DFP      
-    b_min_phase<-Re(rev(poly_from_roots(roots)))
-    # Check lag-one ACF: the same
-    b0[1:(length(b0)-1)]%*%b0[2:length(b0)]/t(b0)%*%b0-b_min_phase[1:(length(b_min_phase)-1)]%*%b_min_phase[2:length(b_min_phase)]/b_min_phase%*%b_min_phase
-    b0<-b_min_phase
-  }
-  # Use either solution
-  b_mat<-cbind(b_mat,b0)
-  # AR-inversion (problem: b0 is not always invertible)  
-  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b0[2:L]/b0[1],lag.max=L))
-  
-  # Compute CCF  
-  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,ncol(b_mat)],gamma0)$cor_vec
-  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
-  # Extract CCF at lead 0 and h  
-  cor_vec_2[i,1]<-cor_vec[1]
-  cor_vec_2[i,2]<-cor_vec[1+h]
-}
-
-# Check DFP constraint: should vanish
-# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
-t(b_mat)%*%gamma0-alpha0_vec
-# Alternative check DFP constraint: should vanish
-# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
-cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
-# Check AR-inversion: the max absolute deviations should vanish (all designs are non-invertible and therefore one observes numerical cancellation effects, i.e., absolute deviations do not vanish exactly)
-for (i in  1:length(alpha0_vec))#i<-1
-{
-  b0<-b_mat[,i]
-  ar_vec<-a_mat[,i]
-  print(max(abs(c(1,ARMAtoMA(ar=ar_vec,lag.max=L-1))-b0/b0[1])))
-}
-
-
-
-mplot3<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
-#mplot3<-cbind(gammah,b_mat)
-
-mplot4<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
-
-#--------------
-# AR-inversion of DFP: we rely on possibility B described above
-# Solution B: compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
-# 1. Compute AR-inversion of ARMA
-ar_inv<-c(1,ARMAtoMA(ar=-c(b1,b2),ma=-c(ar1,ar2,ar3),lag.max=L))
-# 1.1 check: the following should give an identity
-filt1<-ar_inv
-filt2<-gamma
-conv_two_filt_func(filt1,filt2)$conv[1:10]
-
-# 2. Compute AR weights of MSE and DFP predictors
-# a. MSE
-filt2<-gammah
-ar_mse_arma32<-conv_two_filt_func(filt1,filt2)$conv
-# b. DFP
-ar_dfp_arma32_mat<-NULL
-for (i in 1:length(alpha0_vec))
-{
-  # Use original (unscaled) MSE-DFP
-  filt2<-b_mat_unscaled[,i]
-  ar_dfp_arma32_mat<-cbind(ar_dfp_arma32_mat,conv_two_filt_func(filt1,filt2)$conv)
-  
-}
-ts.plot(cbind(ar_mse_arma32,ar_dfp_arma32_mat)[1:L,],col=rainbow(ncol(a_mat)),main="Method B: MSE and DFP predictors AR-inverted")
-lines(ar_mse_arma32,lwd=2)
-
-# Check: apply filters to MA and AR representations
-set.seed(1)
-len<-1000
-x<-eps<-rnorm(len)
-for (i in 4:len)
-{
-  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]+b1*eps[i-1]+b2*eps[i-2]
-}
-
-y_dfp_ar32<-y_dfp_ma32<-rep(NA,len)
-# Select DFP design
-k<-2
-for (i in L:len)
-{
-  y_dfp_ma32[i]<-b_mat_unscaled[,k]%*%eps[i:(i-L+1)]
-  y_dfp_ar32[i]<-ar_dfp_arma32_mat[1:L,k]%*%x[i:(i-L+1)]
-}
-# Both series are identical up to negligible finite MA/AR inversion errors
-ts.plot(cbind(y_dfp_ma32,y_dfp_ar32)[1:200,])
-# Maximal error is negligible (due to finite length MA/AR inversions)
-max(na.exclude(abs(y_dfp_ma32-y_dfp_ar32)[1:200]))
-
-
-#-------------------------------------------------
-# Plot
-
-
-par(mfrow=c(2,2))
-
-#ts.plot(gammah1,main=paste("MSE first process: h=",h,sep=""),col="green",xlab="",ylab="")
-
-#ts.plot(gammah,main="Second process",col="green",xlab="",ylab="")
-
-
-colo<-c("green","brown","orange","blue","violet","red")
-# Scale filters
-ts.plot(mplot1,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
-mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
-#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
-#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
-#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
-#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
-mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
-mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
-mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
-mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
-mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
-abline(h=0)
-
-cor_vec_1
-
-
-ts.plot(mplot3,main="ARMA(3,2)",col=colo,xlab="",ylab="")
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("    ",alpha[0],"=0.9, ",rho,"=",0.99)),line=-2,col=colo[2])
-#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.96)),line=-3,col=colo[3])
-#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.84)),line=-4,col=colo[4])
-#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.58)),line=-5,col=colo[5])
-#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
-abline(h=0)
-
-plot(mplot2[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot2),max(mplot2)))
-for (i in 2:ncol(mplot2))
-{  
-  lines(mplot2[,i],col=colo[i])
-}
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
-#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
-#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
-#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
-#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-abline(h=0)
-axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
-axis(2)
-box()
-
-plot(mplot4[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot4),max(mplot4)))
-for (i in 2:ncol(mplot4))
-{  
-  lines(mplot4[,i],col=colo[i])
-}
-abline(h=0)
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
-#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
-#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
-#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
-#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-axis(1,at=1:nrow(mplot4),labels=-max_lag-1+1:(nrow(mplot4)))
-axis(2)
-box()
-
-
-mat_cor_vec<-round(cbind(cor_vec_1,cor_vec_2),2)
-
-# Must use a special proceeding when utilizing greek letters in column or rownames
-
-rownames(mat_cor_vec) <- c("$\\alpha_0=0.9$","$\\alpha_0=0.45$","$\\alpha_0=0.22$","$\\alpha_0=0.1$","$\\alpha_0=0$")
-colnames(mat_cor_vec) <- c(" $\\textrm{Process 1: CCF }\\delta=0$","$\\delta=5$","$\\textrm{Process 2: } \\delta=0$","$\\delta=5$")
-
-mat_cor_vec
-
-
-if (F)
-{
-  tbl <- xtable(mat_cor_vec)
-  caption(tbl)<-paste("CCFs of the DFP predictors for the first process (columns 1–2) and the second process (columns 3–4) evaluated at $\\delta=0$ (columns 1 and 3) and at $\\delta=h=5$ (columns 2 and 4), shown for multiple values of the decoupling parameter $\\alpha_0$. Note that $\\alpha_0$ generally differs from the CCF at $\\delta=0$ except in the case of complete decoupling (columns 1 and 3, last row).")
-  label(tbl)<-"ar3_decoupling"
-  
-  print.xtable(tbl, sanitize.text.function = function(x) x)
-}
-
-
-
-
-
-
- 
-
-# ─────────────────────────────────────────────────────────────────────
-# 2.??? Geometry of the DFP Predictor
-# ─────────────────────────────────────────────────────────────────────
-
-
-
-# Specify gamma0 and gammah
-gamma0<-c(3,0.5)*3.5/4
-gammah<-c(1.5,1)*2/1.5
-
-# Specify lambda0
-lambda0<-0.5
-# Lengths
-l0<-sqrt(sum(gamma0^2))
-lh<-sqrt(sum(gammah^2))
-
-# Angle between gammah and gamma0: gammah is above (larger angle)
-beta0h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
-# Angle between gammah and b
-beta <- atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])-atan2(gammah[2], gammah[1])
-
-# Set up plot limits with some padding
-x_min<-min(0,min(c(gamma0[1],gammah[1]))-1)
-x_max<-max(c(gamma0[1],gammah[1]))+0.5
-y_min<-min(c(gamma0[2],gammah[2]))-1
-y_min<-0
-y_max<-max(c(gamma0[2],gammah[2]))+1
-y_max<-max(c(gamma0[2],gammah[2]))+0.2
-plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
-     asp=1.5,xlab = "", ylab = "", axes = TRUE)
-# Axes
-abline(h = 0, v = 0, col = "gray85")
-# gamma0
-arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
-text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
-# gammah
-arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "red")
-text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
-# gammah-lambda0*gamma0
-arrows(gammah[1],gammah[2],gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2], length = 0.12, lwd=1, col = "red")
-#  text(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2]+0.2, labels = expression(tilde(b)==gamma[h]+lambda[1]*gamma[0]), col = "red", cex = 1.2)
-text(gammah[1]-lambda0*gamma0[1]-0.4,gammah[2]-lambda0*gamma0[2], labels = expression(b==gamma[h]+lambda*gamma[0]), col = "black", cex = 1.2)
-text(gammah[1]-lambda0*gamma0[1]+0.4,gammah[2]-lambda0*gamma0[2]+0.15, labels = expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
-
-expression("E" *  "|" ~ Y)
-
-# Insert unit length b0
-b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
-lb0<-sqrt(sum(b0^2))
-#  arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
-arrows(0,0,b0[1],b0[2], length = 0.12, lwd=1, col = "red")
-#  text(b0[1]/lb0-0.1,b0[2]/lb0+0.1, labels = expression(b), col = "red", cex = 1.2)
-text(b0[1]/lb0-0.3,b0[2]/lb0-0.2, labels = expression(c==~"|"~gamma[h]+lambda*gamma[0]~"|"), col = "red", cex = 1)
-#  segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
-
-# Draw the angle beta0h (between gammah and gamma0)
-r <- 0.3   # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, beta0h, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
-
-th_mid <-  atan2(gamma0[2], gamma0[1])+beta0h / 2
-text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
-     labels = expression(theta[0*h]), col = "black", cex = 1.2)
-
-# Draw the angle beta between gammah and b 
-r <- 0.35   # arc radius
-th_seq <- -beta0h+atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])+seq(0, beta, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "red", lwd=1)
-
-th_mid <-  th_seq[50]
-text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
-     labels = expression(beta), col = "red", cex = 1.2)
-
-
-# Draw the angle theta (between b0 and gamma0)
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
-r <- 0.5  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
-
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
-text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid)-0.1,
-     labels = expression(theta[0*b]), col = "black", cex = 1.2)
-
-# Add side naming for side a  
-text(1.2 * r * cos(th_mid)+0.5, 1.15 * r * sin(th_mid)+0.3,
-     labels = expression(a==~"|"~gamma[h]~"|"), col = "red", cex = 1)
-
-# Draw the angle gamma from the apex gammah
-r <- 0.35   # arc radius
-th_seq <- seq(pi+0.15, pi+0.6, length.out = 100)
-lines(gammah[1]+r * cos(th_seq), gammah[2]+r * sin(th_seq), col = "red", lwd=1)
-
-th_mid <-  th_seq[50]
-text(gammah[1]+1.4 * r * cos(th_mid)+0.15, gammah[2]+1.15 * r * sin(th_mid),
-     labels = expression(gamma==theta[0*h]), col = "red", cex = 1.2)
-
-# Draw the angle alpha from the apex b
-r <- 0.1   # arc radius
-th_seq <- seq(-pi/2-0.4, pi/8-0.2, length.out = 100)
-lines(gammah[1]-lambda0*gamma0[1]+r * cos(th_seq), gammah[2]-lambda0*gamma0[2]+r * sin(th_seq), col = "red", lwd=1)
-
-th_mid <-  th_seq[50]
-text(gammah[1]-lambda0*gamma0[1]+1.4 * r * cos(th_mid)+0.05, gammah[2]-lambda0*gamma0[2]+1.15 * r * sin(th_mid),
-     labels = expression(alpha), col = "red", cex = 1.2)
-
-
-
-
-
-
-
-
+# ════════════════════════════════════════════════════════════════════
+# Exercise 4: MSE-DFP with Time-Shift DFP Constraint
+# ════════════════════════════════════════════════════════════════════
 
 # The above example continued
 
@@ -1678,6 +1465,263 @@ if (F)
   abline(h=0)
   
 } 
+
+
+
+
+
+
+
+#-----------------------------
+# Second process: ARMA(3,2)
+# AR-coefficients
+ar1<-0.4
+ar2<-0.3
+ar3<-0.2
+b1<-0.5
+b2<-0.4
+
+ts.plot(ARMAacf(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=100))
+
+
+# Roots of characteristic polynomial
+1/(Arg(polyroot(c(-ar3,-ar2,-ar1,1)))/pi)
+abs(polyroot(c(-ar3,-ar2,-ar1,1)))
+
+# MA inversion
+# Compute long sequence: need more values than L for MSE forecasts below
+gamma<-c(1,ARMAtoMA(ar=c(ar1,ar2,ar3),ma=c(b1,b2),lag.max=1000))
+ts.plot(gamma[1:20])
+# L-length now- and MSE forecast
+gamma0<-gamma[1:L]
+gammah<-gamma[h+(1:L)]
+
+
+# Compute MSE-DFP
+cor_vec_mat<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
+alpha0_vec<-c(0.9,0.45,0.22,0.1,0)
+#alpha0_vec<-5*c(0.9,0.45,0.22,0.1,0)
+b_mat<-b_mat_unscaled<-a_mat<-lambda_vec2<-NULL
+cor_vec_2<-matrix(ncol=2,nrow=length(alpha0_vec))
+
+for (i in 1:length(alpha0_vec))#i<-1
+{
+  alpha0<-alpha0_vec[i]
+  # Function for deriving b0  
+  b0<-compute_mse_dfp(alpha0,gamma0,gammah)$b0
+  # This is the same as 
+  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+  b0_simpler<-gammah+lambda*gamma0
+  max(abs(b0-b0_simpler))
+  b_mat_unscaled<-cbind(b_mat_unscaled,b0)
+  
+  lambda_vec2<-lambda
+  # MSE scaling is not used anymore (closed-form solution is already MSE optimal)  
+  if (F)
+  {
+    scale<-as.double(t(b0)%*%gammah/(t(b0)%*%b0))
+    b0<-scale*b0
+  }
+  # Compute minimum phase DFP  
+  if (use_min_phase)
+  {
+    # Compute roots      
+    roots<-polyroot(b0)
+    # Invert unstable roots      
+    roots[which(abs(roots)>1)]<-1/roots[which(abs(roots)>1)]
+    # Compute coefficients from roots: minimum phase version of DFP      
+    b_min_phase<-Re(rev(poly_from_roots(roots)))
+    # Check lag-one ACF: the same
+    b0[1:(length(b0)-1)]%*%b0[2:length(b0)]/t(b0)%*%b0-b_min_phase[1:(length(b_min_phase)-1)]%*%b_min_phase[2:length(b_min_phase)]/b_min_phase%*%b_min_phase
+    b0<-b_min_phase
+  }
+  # Use either solution
+  b_mat<-cbind(b_mat,b0)
+  # AR-inversion (problem: b0 is not always invertible)  
+  a_mat<-cbind(a_mat,-ARMAtoMA(ar=-b0[2:L]/b0[1],lag.max=L))
+  
+  # Compute CCF  
+  cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,ncol(b_mat)],gamma0)$cor_vec
+  cor_vec_mat<-cbind(cor_vec_mat,cor_vec)
+  # Extract CCF at lead 0 and h  
+  cor_vec_2[i,1]<-cor_vec[1]
+  cor_vec_2[i,2]<-cor_vec[1+h]
+}
+
+# Check DFP constraint: should vanish
+# Note: neither b_mat nor gamma0 are scaled to unit length and therefore alpha0_vec is not a correlation
+t(b_mat)%*%gamma0-alpha0_vec
+# Alternative check DFP constraint: should vanish
+# Note: since cor_vec is the CCF we have to scale alpha0_vec by inverse lengths of gamma0 and b
+cor_vec_1[,1]-alpha0_vec/sqrt(diag((t(b_mat)%*%b_mat))*as.double(t(gamma0)%*%gamma0))
+# Check AR-inversion: the max absolute deviations should vanish (all designs are non-invertible and therefore one observes numerical cancellation effects, i.e., absolute deviations do not vanish exactly)
+for (i in  1:length(alpha0_vec))#i<-1
+{
+  b0<-b_mat[,i]
+  ar_vec<-a_mat[,i]
+  print(max(abs(c(1,ARMAtoMA(ar=ar_vec,lag.max=L-1))-b0/b0[1])))
+}
+
+
+
+mplot3<-scale(cbind(gammah,b_mat),center=F,scale=T)/sqrt(L-1)
+#mplot3<-cbind(gammah,b_mat)
+
+mplot4<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
+
+#--------------
+# AR-inversion of DFP: we rely on possibility B described above
+# Solution B: compute DFP AR-weights by convolution of original AR weights with DFP (MA inversion)
+# 1. Compute AR-inversion of ARMA
+ar_inv<-c(1,ARMAtoMA(ar=-c(b1,b2),ma=-c(ar1,ar2,ar3),lag.max=L))
+# 1.1 check: the following should give an identity
+filt1<-ar_inv
+filt2<-gamma
+conv_two_filt_func(filt1,filt2)$conv[1:10]
+
+# 2. Compute AR weights of MSE and DFP predictors
+# a. MSE
+filt2<-gammah
+ar_mse_arma32<-conv_two_filt_func(filt1,filt2)$conv
+# b. DFP
+ar_dfp_arma32_mat<-NULL
+for (i in 1:length(alpha0_vec))
+{
+  # Use original (unscaled) MSE-DFP
+  filt2<-b_mat_unscaled[,i]
+  ar_dfp_arma32_mat<-cbind(ar_dfp_arma32_mat,conv_two_filt_func(filt1,filt2)$conv)
+  
+}
+ts.plot(cbind(ar_mse_arma32,ar_dfp_arma32_mat)[1:L,],col=rainbow(ncol(a_mat)),main="Method B: MSE and DFP predictors AR-inverted")
+lines(ar_mse_arma32,lwd=2)
+
+# Check: apply filters to MA and AR representations
+set.seed(1)
+len<-1000
+x<-eps<-rnorm(len)
+for (i in 4:len)
+{
+  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]+b1*eps[i-1]+b2*eps[i-2]
+}
+
+y_dfp_ar32<-y_dfp_ma32<-rep(NA,len)
+# Select DFP design
+k<-2
+for (i in L:len)
+{
+  y_dfp_ma32[i]<-b_mat_unscaled[,k]%*%eps[i:(i-L+1)]
+  y_dfp_ar32[i]<-ar_dfp_arma32_mat[1:L,k]%*%x[i:(i-L+1)]
+}
+# Both series are identical up to negligible finite MA/AR inversion errors
+ts.plot(cbind(y_dfp_ma32,y_dfp_ar32)[1:200,])
+# Maximal error is negligible (due to finite length MA/AR inversions)
+max(na.exclude(abs(y_dfp_ma32-y_dfp_ar32)[1:200]))
+
+
+#-------------------------------------------------
+# Plot
+
+
+par(mfrow=c(2,2))
+
+#ts.plot(gammah1,main=paste("MSE first process: h=",h,sep=""),col="green",xlab="",ylab="")
+
+#ts.plot(gammah,main="Second process",col="green",xlab="",ylab="")
+
+
+colo<-c("green","brown","orange","blue","violet","red")
+# Scale filters
+ts.plot(mplot1,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
+mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
+#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
+#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
+#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
+#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
+mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
+mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
+mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
+mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
+mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
+abline(h=0)
+
+cor_vec_1
+
+
+ts.plot(mplot3,main="ARMA(3,2)",col=colo,xlab="",ylab="")
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("    ",alpha[0],"=0.9, ",rho,"=",0.99)),line=-2,col=colo[2])
+#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.96)),line=-3,col=colo[3])
+#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.84)),line=-4,col=colo[4])
+#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.58)),line=-5,col=colo[5])
+#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
+abline(h=0)
+
+plot(mplot2[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot2),max(mplot2)))
+for (i in 2:ncol(mplot2))
+{  
+  lines(mplot2[,i],col=colo[i])
+}
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
+#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
+#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
+#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
+#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+abline(h=0)
+axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
+axis(2)
+box()
+
+plot(mplot4[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot4),max(mplot4)))
+for (i in 2:ncol(mplot4))
+{  
+  lines(mplot4[,i],col=colo[i])
+}
+abline(h=0)
+#mtext("MSE",line=-1,col=colo[1])
+#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
+#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
+#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
+#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
+#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
+abline(v=max_lag+1,lty=1)
+abline(v=max_lag+1+h,lty=2)
+axis(1,at=1:nrow(mplot4),labels=-max_lag-1+1:(nrow(mplot4)))
+axis(2)
+box()
+
+
+mat_cor_vec<-round(cbind(cor_vec_1,cor_vec_2),2)
+
+# Must use a special proceeding when utilizing greek letters in column or rownames
+
+rownames(mat_cor_vec) <- c("$\\alpha_0=0.9$","$\\alpha_0=0.45$","$\\alpha_0=0.22$","$\\alpha_0=0.1$","$\\alpha_0=0$")
+colnames(mat_cor_vec) <- c(" $\\textrm{Process 1: CCF }\\delta=0$","$\\delta=5$","$\\textrm{Process 2: } \\delta=0$","$\\delta=5$")
+
+mat_cor_vec
+
+
+if (F)
+{
+  tbl <- xtable(mat_cor_vec)
+  caption(tbl)<-paste("CCFs of the DFP predictors for the first process (columns 1–2) and the second process (columns 3–4) evaluated at $\\delta=0$ (columns 1 and 3) and at $\\delta=h=5$ (columns 2 and 4), shown for multiple values of the decoupling parameter $\\alpha_0$. Note that $\\alpha_0$ generally differs from the CCF at $\\delta=0$ except in the case of complete decoupling (columns 1 and 3, last row).")
+  label(tbl)<-"ar3_decoupling"
+  
+  print.xtable(tbl, sanitize.text.function = function(x) x)
+}
+
+
+
+
+
+
+ 
+
+
+
 
 
 
