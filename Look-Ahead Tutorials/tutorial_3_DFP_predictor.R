@@ -1234,11 +1234,10 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
      labels = expression(alpha), col = "red", cex = 1.2)
 
 
-
-
 # ════════════════════════════════════════════════════════════════════
 # Exercise 3: MSE-DFP with Time-Shift DFP Constraint
 # ════════════════════════════════════════════════════════════════════
+
 # ─────────────────────────────────────────────────────────────────────
 # Relating the DFP Constraint to a Frequency-Zero Time-Shift
 # ─────────────────────────────────────────────────────────────────────
@@ -1246,7 +1245,8 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 # Without a unit-length constraint on the filter, the parameter alpha0 in the
 # MSE-DFP formulation lacks a straightforward interpretation: its effect on the
 # predictor cannot easily be expressed in terms of an observable or intuitive
-# quantity (like the correlation in the case of the unit-length DFP in exercise 1).
+# quantity (unlike the correlation-based interpretation available for the
+# unit-length DFP in Exercise 1).
 #
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
 # the time-shift (phase delay) at frequency zero — the trend frequency —
@@ -1260,198 +1260,314 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 #   tau > 0  →  the DFP output anticipates the MSE predictor by tau periods
 #               at the trend frequency
 #
-# The following section derives and illustrates this frequency-zero DFP
+# The following sections derive and illustrate this frequency-zero DFP
 # formulation.
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 AR(3) and DFP Settings
 # ─────────────────────────────────────────────────────────────────────
-# For illustration, the example is based on the AR(3) process of exercise 2.
+# The illustration reuses the AR(3) process from Exercise 2.
+# Two forecast horizons are considered:
+#   h      — the primary (short) horizon used for the MSE-DFP predictor
+#   htilde — a longer horizon used as an additional reference
 
-L<-50
-h<-3
-# Long forecast horizon
-htilde<-20
-# First AR(3)
-lambda1<-0.3
-lambda2<-0.8
-lambda3<-0.2
-ar1<-ar11<-lambda1+lambda2+lambda3
-ar2<-ar21<--lambda1*lambda2-lambda1*lambda3-lambda2*lambda3
-ar3<-ar31<-lambda1*lambda2*lambda3
+L <- 50   # filter length (number of MA coefficients retained)
+h <- 3    # primary forecast horizon (steps ahead)
 
-# Compute long sequence: need more values than L for MSE forecasts below
-gamma<-ARMAtoMA(ar=c(ar1,ar2,ar3),lag.max=1000)
+# Longer forecast horizon used as a reference benchmark
+htilde <- 20
 
+# AR(3) roots (lambda1, lambda2, lambda3) and the corresponding AR coefficients
+# obtained by expanding (1 - lambda1*B)(1 - lambda2*B)(1 - lambda3*B)
+lambda1 <- 0.3
+lambda2 <- 0.8
+lambda3 <- 0.2
+
+ar1 <- ar11 <- lambda1 + lambda2 + lambda3
+ar2 <- ar21 <- -lambda1*lambda2 - lambda1*lambda3 - lambda2*lambda3
+ar3 <- ar31 <-  lambda1*lambda2*lambda3
+
+# Compute a long MA(∞) expansion of the AR(3) process.
+# More than L terms are needed to accurately construct the MSE forecast 
+# filters below.
+gamma <- ARMAtoMA(ar = c(ar1, ar2, ar3), lag.max = 1000)
+
+# Inspect the first L MA coefficients
 ts.plot(gamma[1:L])
 
-gamma0<-gamma[1:L]
-# MSE: last entries are vanishing (we could also insert the longer MA-expansion but this would not be the MSe estimate in the finite length MA case)
-gammah<-c(gamma[h+(1:(L-h))],rep(0,h))
-# Long forecast horizon
-gammahtilde<-c(gamma[htilde+(1:(L-htilde))],rep(0,htilde))
+# Truncate the MA expansion to length L for the nowcast/MSE filter (gamma0)
+gamma0 <- gamma[1:L]
 
-# Select lead of DFP over MSE at frequency zero:
-lead<--2
+# h-step-ahead cross-correlation vector (gammah):
+# shift gamma by h positions and pad with zeros at the end.
+# The trailing zeros reflect the fact that MA coefficients beyond index L
+# are negligible for a finite-length filter of length L.
+gammah <- c(gamma[h + (1:(L - h))], rep(0, h))
+
+# Analogous cross-correlation vector for the longer horizon htilde
+gammahtilde <- c(gamma[htilde + (1:(L - htilde))], rep(0, htilde))
+
+# Desired lead of the DFP predictor over the MSE predictor at frequency zero
+# (negative value = the DFP output leads by |lead| time steps)
+lead <- -2
+
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.2 Run Time-Shift MSE DFP
+# 3.2 Run Time-Shift MSE-DFP
 # ─────────────────────────────────────────────────────────────────────
 
-tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
+# Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
+tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
 
-dfp_obj<-dfp_from_tau_func(gamma0,gammah,lead)
-tau0=dfp_obj$tau0
-tauh=dfp_obj$tauh
-lambda0=dfp_obj$lambda0
-b=dfp_obj$b
-# Unitary DFP
-b_opt<-b/as.double(sqrt(b%*%b))
+# Call the dedicated function to compute the DFP filter for a specified lead
+# (see dfp_from_tau_func for the derivation based on Theorem 2, Wildi 2026)
+dfp_obj <- dfp_from_tau_func(gamma0, gammah, lead)
+
+# Extract the components returned by the function
+tau0    <- dfp_obj$tau0     # frequency-zero time-shift of gamma0
+tauh    <- dfp_obj$tauh     # frequency-zero time-shift of gammah
+lambda0 <- dfp_obj$lambda0  # DFP regularisation weight on gamma0
+b       <- dfp_obj$b        # raw DFP filter coefficients
+
+# Normalise b to unit length to obtain the unitary DFP filter
+b_opt <- b / as.double(sqrt(b %*% b))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.3 Time-Shifts at Frequency Zero
 # ─────────────────────────────────────────────────────────────────────
+# The frequency-zero time-shift of a filter with coefficients c is defined as
+#   tau_c = sum_{k=0}^{L-1} k * c_k  /  sum_{k=0}^{L-1} c_k
+# This is the weighted-average lag, which equals the phase delay at omega = 0.
+# See Theorem 2 (equation 34) in Wildi (2026) for the explicit formula linking
+# lambda0 to the desired lead tau.
 
-# Explicite formula linking lambda0 (the weight on gamma0) to tau, see 
-# Theorem 2 (equation 34) in Wildi 2026.
-  
-# Shifts at frequency zero  
-tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
-tauh<-sum((0:(L-1))*gammah)/sum(gammah)
-tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
-  
-# MSE is slightly leading
+# Frequency-zero time-shifts of the three filters
+tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)       # nowcast filter
+tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)       # h-step MSE filter
+tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon filter
+
+# Display tau0 and tauh (the MSE filter leads slightly at frequency zero)
 tau0
 tauh
-tau<-lead
-# Formula for lambda0
-lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
-# Compute b
-b<-gammah+lambda0*gamma0
-  
+
+# Desired lead of the DFP over the MSE predictor at frequency zero
+tau <- lead
+
+# Compute lambda0 from the closed-form expression (Theorem 2, equation 34):
+#   lambda0 = -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
+lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
+
+# Construct the raw DFP filter as a regularised combination of gammah and gamma0
+b <- gammah + lambda0 * gamma0
+
+
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Verifications and Checks
 # ─────────────────────────────────────────────────────────────────────
 
-# Check 1: verify lead
-taub<-sum((0:(L-1))*b_opt)/sum(b_opt)
-# Lead of DFP over MSE at frequency zero
-lead_dfp_mse<-(taub-tauh)
-# Difference should vanish
-lead_dfp_mse-lead
+# --- Check 1: verify that the achieved lead matches the specified lead ---
+taub <- sum((0:(L-1)) * b_opt) / sum(b_opt)  # frequency-zero shift of the DFP filter
 
-# Compute alpha0
-alpha0<-as.double(t(gamma0)%*%b)
+# Actual lead of the DFP over the MSE predictor at frequency zero
+lead_dfp_mse <- taub - tauh
 
-# Check 2
-# Compute lambda from alpha0: Proposition 1
-lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-# Check: difference should vanish  
-lambda-lambda0
-# Same DFP as above (Proposition 1)
-b<-gammah+lambda*gamma0
-  
-# Check 3:
-dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0)
-lambda<-dfp_obj$lambda
-b<-dfp_obj$b
-scale<-as.double(1/sqrt(t(b)%*%b))
-b0<-scale*b
-# Check: should vanish
-max(abs(b_opt-b0))
+# This difference should be (numerically) zero
+lead_dfp_mse - lead
+
+# --- Check 2: round-trip via alpha0 (Proposition 1) ---
+# Compute alpha0 = <gamma0, b> (inner product of gamma0 and the DFP filter)
+alpha0 <- as.double(t(gamma0) %*% b)
+
+# Recover lambda0 from alpha0 using the formula in Proposition 1:
+#   lambda = (alpha0 - <gamma0, gammah>) / <gamma0, gamma0>
+lambda <- as.double((alpha0 - t(gamma0) %*% gammah) / (t(gamma0) %*% gamma0))
+
+# Difference between recovered and original lambda0 should vanish
+lambda - lambda0
+
+# Reconstruct the DFP filter from the recovered lambda (should match b above)
+b <- gammah + lambda * gamma0
+
+# --- Check 3: consistency with dfp_from_alpha0_func ---
+# Verify that computing the DFP directly from alpha0 reproduces b_opt
+dfp_obj <- dfp_from_alpha0_func(gamma0, gammah, alpha0)
+lambda   <- dfp_obj$lambda
+b        <- dfp_obj$b
+
+# Normalise to unit length for comparison with b_opt
+scale <- as.double(1 / sqrt(t(b) %*% b))
+b0    <- scale * b
+
+# Maximum absolute deviation from b_opt should be negligible
+max(abs(b_opt - b0))
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5 Compute Complete Decoupling for Additional Reference
 # ─────────────────────────────────────────────────────────────────────
+# The completely decoupled DFP corresponds to alpha0 = 0, i.e. the DFP filter
+# is orthogonal to gamma0. This serves as a reference benchmark alongside the
+# time-shift DFP computed above.
 
-# Compute DFP complete decoupling
-alpha0_cd<-0
-if (F)
-{
-  lambda_cd<-as.double((alpha0_cd-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  b_cd<-gammah+lambda_cd*gamma0
-  
+alpha0_cd <- 0  # complete decoupling: <gamma0, b_cd> = 0
+
+# Disabled inline computation (kept for reference; superseded by the function call below)
+if (F) {
+  lambda_cd <- as.double((alpha0_cd - t(gamma0) %*% gammah) / 
+                           (t(gamma0) %*% gamma0))
+  b_cd      <- gammah + lambda_cd * gamma0
 }
 
-# Compute b: Proposition 1
+# Compute the completely decoupled DFP filter via Proposition 1
+dfp_obj  <- dfp_from_alpha0_func(gamma0, gammah, alpha0_cd)
+lambda_cd <- dfp_obj$lambda
+b_cd      <- dfp_obj$b
 
-dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0_cd)
+# Normalise to unit length so that b_cd is comparable to b_opt
+scale <- as.double(1 / sqrt(t(b_cd) %*% b_cd))
+b_cd  <- scale * b_cd
 
-lambda_cd<-dfp_obj$lambda
-b_cd<-dfp_obj$b
-scale<-as.double(1/sqrt(t(b_cd)%*%b_cd))
-b_cd<-scale*b_cd
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.6 Checks Complete Decoupling DFP
+# 3.6 Checks: Complete Decoupling DFP
 # ─────────────────────────────────────────────────────────────────────
 
-# Check: should vanish
-t(b_cd)%*%gamma0
-# Note: b_cd is subject to phase reversal: Gamma(0)<0
+# Verify orthogonality: <b_cd, gamma0> should be (numerically) zero,
+# confirming that the completely decoupled filter is orthogonal to gamma0
+t(b_cd) %*% gamma0
+
+# Note on phase reversal:
+# The completely decoupled filter b_cd has a negative gain at frequency zero,
+# i.e. Gamma(0) = sum(b_cd) < 0, which means it phase-reverses (inverts) the
+# trend component of the input. As a consequence, the frequency-zero time-shift
+# tau = -sum(k * b_cd) / sum(b_cd) is formally ill-defined in the usual sense
+# (a negative denominator implies the filter is inverting, not delaying).
 sum(b_cd)
-# Therefore time-shift at frequency zero is ill-defined. We can still compute that number, though
-# Compute time-shift: this is shift of sign-reverted predictor.
-tau_cd<-sum((0:(L-1))*b_cd)/sum(b_cd)
+
+# We can still compute the numerical value of the time-shift formula.
+# The result should be interpreted as the shift of the sign-reverted predictor
+# (-b_cd), which does have a positive gain at frequency zero.
+tau_cd <- sum((0:(L-1)) * b_cd) / sum(b_cd)
 tau_cd
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.7 Performances
+# 3.7 Performance Table
 # ─────────────────────────────────────────────────────────────────────
+# Summarise four key performance metrics for each predictor:
+#   tau(0)    — frequency-zero time-shift (negative = leads the target)
+#   Gamma(0)  — gain at frequency zero (sum of filter weights, unit-normalised)
+#   lambda    — DFP regularisation weight on gamma0
+#   alpha0    — inner product <gamma0, b> (DFP constraint value)
+#
+# Rows correspond to:
+#   MSE(h)       — h-step MSE predictor
+#   MSE(htilde)  — long-horizon MSE predictor (reference)
+#   DFP-shifted  — time-shift DFP with specified lead
+#   DFP full dec.— completely decoupled DFP (alpha0 = 0)
 
-# Table with time shifts, transfer functions at omega=0 (,i.e., sum of filter weights), lambda and alpha0
+mat_perf <- matrix(nrow = 4, ncol = 4)
 
-mat_perf<-matrix(nrow=4, ncol=4)
+colnames(mat_perf) <- c("$\\tau(0)$", "$\\Gamma(0)$", "$\\lambda$", "$\\alpha_0$")
+rownames(mat_perf) <- c(paste("MSE(", h,      ")", sep = ""),
+                        paste("MSE(", htilde, ")", sep = ""),
+                        "DFP-shifted",
+                        "DFP full dec.")
 
-colnames(mat_perf) <- c("$\\tau(0)$","$\\Gamma(0)$","$\\lambda$","$\\alpha_0$")
-rownames(mat_perf) <- c(paste("MSE(",h,")",sep=""),paste("MSE(",htilde,")",sep=""),"DFP-shifted","DFP full dec.")
-mat_perf[1,1:2]<-c(-tauh,sum(gammah)/as.double(sqrt(t(gammah)%*%gammah)))
-mat_perf[2,1:2]<-c(-tauhtilde,sum(gammahtilde)/as.double(sqrt(t(gammahtilde)%*%gammahtilde)))
-mat_perf[3,]<-c(-taub,sum(b_opt),lambda0,alpha0)
-mat_perf[4,]<-c(NA,sum(b_cd),lambda_cd,alpha0_cd)
+# MSE h-step: time-shift and unit-normalised gain; lambda and alpha0 not applicable
+mat_perf[1, 1:2] <- c(-tauh,
+                      sum(gammah) / as.double(sqrt(t(gammah) %*% gammah)))
+
+# Long-horizon MSE: same metrics for htilde
+mat_perf[2, 1:2] <- c(-tauhtilde,
+                      sum(gammahtilde) / as.double(sqrt(t(gammahtilde) %*% gammahtilde)))
+
+# Time-shift DFP: all four metrics available
+mat_perf[3, ] <- c(-taub, sum(b_opt), lambda0, alpha0)
+
+# Completely decoupled DFP: time-shift is NA (ill-defined due to phase reversal)
+mat_perf[4, ] <- c(NA, sum(b_cd), lambda_cd, alpha0_cd)
 
 mat_perf
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.8 Plot Predictor Filters
 # ─────────────────────────────────────────────────────────────────────
 
+# Layout: two plots in the top row (filter coefficients, CCF),
+# and a third plot spanning the full bottom row (predictor outputs, Section 3.9)
+layout(matrix(c(1, 2, 3, 3), 2, 2, byrow = TRUE))
 
-layout(matrix(c(1,2,3,3), 2, 2, byrow = T)) 
-colo<-c("black","green","blue","red")
+colo <- c("black", "green", "blue", "red")
 
-mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-col_names<-c("AR(3)",paste("MSE ",h,"-step"),"DFP-shift","DFP-full-decouple")
-colnames(mplot)<-col_names
-apply(mplot^2,2,sum)
-plot(mplot[,1],main="Scaled Predictors",axes=F,type="l",xlab="Lags",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
-mtext(colnames(mplot)[1],col=colo[1],line=-1)
-for (i in 2:ncol(mplot))
-{  
-  lines(mplot[,i],col=colo[i],type="l")
-  mtext(colnames(mplot)[i],col=colo[i],line=-i)
-}  
-lines(mplot[,2],col=colo[2])
-axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
+# Collect all four filters into a matrix (no scaling applied)
+# Columns: AR(3) nowcast, h-step MSE, time-shift DFP, fully decoupled DFP
+mplot     <- scale(cbind(gamma0, gammah, b_opt, b_cd), center = F, scale = F)
+col_names <- c("AR(3)", paste("MSE ", h, "-step"), "DFP-shift", "DFP-full-decouple")
+colnames(mplot) <- col_names
+
+# Diagnostic: sum of squared coefficients per filter (proxy for filter energy)
+apply(mplot^2, 2, sum)
+
+# --- Top-left panel: filter coefficient profiles ---
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters and add colour-coded labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i], type = "l")
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
+     labels = c(0, (1:(nrow(mplot)/10)) * 10))
 axis(2)
 box()
 
-mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
-colnames(mplot)<-col_names[2:length(col_names)]
+# --- Top-right panel: cross-correlation functions (CCF) ---
+# Compute the CCF between each predictor and the AR(3) process at lags
+# surrounding lag 0 and the h-step-ahead lag
+mplot <- cbind(
+  compute_acf_at_lags_zero_delta_func(max_lag, h, gammah, gamma0)$cor_vec,
+  compute_acf_at_lags_zero_delta_func(max_lag, h, b_opt,  gamma0)$cor_vec,
+  compute_acf_at_lags_zero_delta_func(max_lag, h, b_cd,   gamma0)$cor_vec
+)
+colnames(mplot) <- col_names[2:length(col_names)]
 
-plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
-for (i in 1:ncol(mplot))
-{  
-  lines(mplot[,i],col=colo[1+i])
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[2], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+
+# Overlay CCFs for DFP-shifted and fully decoupled DFP
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[1 + i])
 }
-#mtext("MSE",line=-1,col=colo[1+1])
-#mtext("DFP",line=-2,col=colo[2+1])
-abline(v=max_lag+1,lty=1)
-abline(v=max_lag+1+h,lty=2)
-abline(h=0)
-axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
+
+# Disabled in-plot legend (filters identified by colour above)
+# mtext("MSE", line=-1, col=colo[1+1])
+# mtext("DFP", line=-2, col=colo[2+1])
+
+# Vertical reference lines:
+#   solid  → lag 0 (current observation, index = max_lag + 1)
+#   dashed → h-step-ahead lag
+abline(v = max_lag + 1,     lty = 1)
+abline(v = max_lag + 1 + h, lty = 2)
+abline(h = 0)
+
+axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
+     labels = c(0, (1:(nrow(mplot)/10)) * 10))
 axis(2)
 box()
 
@@ -1460,26 +1576,44 @@ box()
 # 3.9 Apply Predictors to Data
 # ─────────────────────────────────────────────────────────────────────
 
+# Assemble the filter matrix, normalising gamma0 and gammah to unit L2-norm
+# so that all four filters are on a comparable amplitude scale.
+# Note: b_cd remains phase-reversing at frequency zero even after normalisation.
+filter_mat <- cbind(
+  gamma0  / sqrt(t(gamma0)  %*% gamma0),   # unit-normalised nowcast filter
+  gammah  / sqrt(t(gammah)  %*% gammah),   # unit-normalised h-step MSE filter
+  b_opt,                                    # time-shift DFP (already unit-length)
+  b_cd                                      # completely decoupled DFP (unit-length)
+)
 
-# Scale filters to unit variance (scaled b_cd is still phase reverting at omega=0)   
-filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
-
+# Fix the random seed and generate a long white-noise input series
 set.seed(345)
-len<-10000
+len <- 10000
+x   <- rnorm(len)
+
+# Apply each filter to x using one-sided (causal) convolution
+y_out_mat <- filter(x, filter_mat[, 1], side = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+colnames(y_out_mat) <- col_names
+
+# Disabled earlier diagnostic plot (shorter window, scaled outputs)
+# ts.plot(scale(y_out_mat[270:305,], center=F, scale=T),
+#         main="AR(3)", col=colo, xlab="", ylab="")
+# abline(h=0)
+
+# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
+ts.plot(y_out_mat[300:350, ],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "")
+abline(h = 0)
 
 
-x<-rnorm(len)
-y_out_mat<-filter(x,filter_mat[,1],side=1)
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-colnames(y_out_mat)<-col_names
 
-#ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-#abline(h=0)
 
-ts.plot(y_out_mat[300:350,],main="Predictor Outputs",col=colo,xlab="",ylab="")
-abline(h=0)
+
+
+
 
 
 
