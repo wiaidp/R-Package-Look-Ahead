@@ -578,17 +578,17 @@ box()
 
 vx <- 3
 vy <- 2
-# Specify gamma0 and gammah
-gamma0<-c(3,0.5)*3/3.5
-gammah<-c(1.5,1)*2/1.5
+# Specify gamma0 (gamma0_plot)and gammah (gammah_plot)
+gamma0_plot<-c(3,0.5)*3/3.5
+gammah_plot<-c(1.5,1)*2/1.5
 # Specify lambda0
 lambda0<-0.3
 # Lengths
-l0<-sqrt(sum(gamma0^2))
-lh<-sqrt(sum(gammah^2))
+l0<-sqrt(sum(gamma0_plot^2))
+lh<-sqrt(sum(gammah_plot^2))
 
-# Angle between gammah and gamma0: gammah is above (larger angle)
-theta_h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
+# Angle between gammah_plot and gamma0_plot: gammah_plot is above (larger angle)
+theta_h <- atan2(gammah_plot[2], gammah_plot[1])-atan2(gamma0_plot[2], gamma0_plot[1])
 
 # Set up plot limits with some padding
 x_min<--0.5
@@ -600,66 +600,66 @@ plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
      asp = 1, xlab = "", ylab = "", axes = TRUE)
 # Axes
 abline(h = 0, v = 0, col = "gray85")
-# gamma0
-arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
-text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", 
+# gamma0_plot
+arrows(0, 0,gamma0_plot[1],gamma0_plot[2], length = 0.12, lwd=1, col = "black")
+text(gamma0_plot[1]+0.1,gamma0_plot[2], labels = expression(gamma[0]), col = "black", 
      cex = 1.2)
-# gammah
-arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "black")
-text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", 
+# gammah_plot
+arrows(0, 0,gammah_plot[1],gammah_plot[2], length = 0.12, lwd=1, col = "black")
+text(gammah_plot[1]+0.1,gammah_plot[2], labels = expression(gamma[h]), col = "black", 
      cex = 1.2)
 # Insert unit length b0
-b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
+b0<-c(gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-lambda0*gamma0_plot[2])
 lb0<-sqrt(sum(b0^2))
 arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
 text(b0[1]/lb0-0.5,b0[2]/lb0+0.1, labels = expression(b==lambda[1]*gamma[h]+
                     lambda[2]*gamma[0]), col = "red", cex = 1.2)
-segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),
-         1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
+segments(0,0,1.5*(gammah_plot[1]-lambda0*gamma0_plot[1]),
+         1.5*(gammah_plot[2]-lambda0*gamma0_plot[2]),  lwd = 1,lty=2, col = "red")
 
 text(b0[1]/lb0,b0[2]/lb0+0.5, "Intersection of cone with plane", 
      col = "red", cex = 1)
 
-# Draw the angle theta_h (between gammah and gamma0)
+# Draw the angle theta_h (between gammah_plot and gamma0_plot)
 r <- 0.25 * lh  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta_h, length.out = 100)
+th_seq <- atan2(gamma0_plot[2], gamma0_plot[1])+seq(0, theta_h, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
 
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta_h / 2
+th_mid <-  atan2(gamma0_plot[2], gamma0_plot[1])+theta_h / 2
 text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
      labels = expression(theta[0*h]), col = "black", cex = 1.2)
-# Draw the angle theta (between b0 and gamma0)
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+# Draw the angle theta (between b0 and gamma0_plot)
+theta <- atan2(b0[2], b0[1])-atan2(gamma0_plot[2], gamma0_plot[1])
 
 r <- 1  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
+th_seq <- atan2(gamma0_plot[2], gamma0_plot[1])+seq(0, theta, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1)
 
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
+th_mid <-  atan2(gamma0_plot[2], gamma0_plot[1])+theta / 2
 text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
      labels = expression(+theta[0*b]), col = "blue", cex = 1.2)
 
-# Draw arrow from gammah to b0
+# Draw arrow from gammah_plot to b0
 final_b0<-c(r * cos(th_seq[length(th_seq)]), r * sin(th_seq[length(th_seq)]))
 lamb<-0.176
-from_gammah<-(final_b0+lamb*gamma0)
-arrows(from_gammah[1],from_gammah[2],final_b0[1],final_b0[2], length = 0.12, 
+from_gammah_plot<-(final_b0+lamb*gamma0_plot)
+arrows(from_gammah_plot[1],from_gammah_plot[2],final_b0[1],final_b0[2], length = 0.12, 
        lwd=1, col = "black")
-text(from_gammah[1],from_gammah[2]+0.1, labels = expression(lambda[1]*gamma[h]), 
+text(from_gammah_plot[1],from_gammah_plot[2]+0.1, labels = expression(lambda[1]*gamma[h]), 
      col = "black", cex = 1.2)
 # Draw second intersection of cone at -theta
-angle_from_x_axis<--(th_seq[length(th_seq)]-2*atan2(gamma0[2],gamma0[1]))
+angle_from_x_axis<--(th_seq[length(th_seq)]-2*atan2(gamma0_plot[2],gamma0_plot[1]))
 segments(0,0,1.5*cos(angle_from_x_axis),1.5*sin(angle_from_x_axis),  lwd = 1,
          lty=2, col = "red")
 
 # Draw the angle -theta 
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+theta <- atan2(b0[2], b0[1])-atan2(gamma0_plot[2], gamma0_plot[1])
 
 r <- 1 # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, -theta, length.out = 100)
+th_seq <- atan2(gamma0_plot[2], gamma0_plot[1])+seq(0, -theta, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1,lty=2)
 
-th_mid <-  atan2(gamma0[2], gamma0[1])-theta / 2
+th_mid <-  atan2(gamma0_plot[2], gamma0_plot[1])-theta / 2
 text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
      labels = expression(-theta[0*b]), col = "blue", cex = 1.2)
 
@@ -688,7 +688,7 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 #    By emphasising the MSE objective (rather than target correlation as
 #    in Equation 2), the unit-norm constraint can be dropped entirely.
 #
-#    Advantages over unit-length DFP:
+#    Advantages over unit-length DFP in exercise 1:
 #      - Reduces to a linear problem with a single globally optimal
 #        solution.
 #      - The predictor is naturally scaled to minimise MSE rather than
@@ -697,6 +697,9 @@ text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 #      - The hyperparameter alpha0 can no longer be interpreted directly
 #        as the correlation between the DFP predictor and the nowcast.
 #        Its value depends on the scale of gamma0 (and hence gammah).
+#      - Except for alpha0=0 (complete decoupling) this might challenge 
+#        sensible a priori selection of the DFP constraint parameter.
+#      - See however exercise 4 below for an alternative selection criterion.
 #
 # B) AR FORM OF THE PREDICTORS
 #    In addition to the MA form, we derive the AR form of each predictor.
@@ -861,7 +864,7 @@ colo <- c("green", "brown", "orange", "blue", "violet", "red")
 mplot <- scale(cbind(gammah, b_mat), center = F, scale = T) / sqrt(L - 1)
 
 
-ts.plot(mplot,main="Predictors: AR(3)",col=colo,xlab="",ylab="")
+ts.plot(mplot,main="Unit-scaled predictors: AR(3)",col=colo,xlab="",ylab="")
 mtext("MSE",line=-1,col=colo[1])
 #mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
 #mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
@@ -907,28 +910,67 @@ mat_cor_vec
 # ─────────────────────────────────────────────────────────────────────
 
 # Fix the random seed for reproducibility
-set.seed(345)
+# (set.seed(45) overridden below; set.seed(17) is the active seed)
+set.seed(45)
+set.seed(17)
 len <- 10000
 
 # Generate a white-noise (standard normal) input series of length `len`
 x <- rnorm(len)
 
-# Apply each DFP/MSE filter column in b_mat to x (one-sided, causal filtering)
-# and collect all filtered outputs as columns of y_out_mat
+# Apply each DFP/MSE filter column in b_mat to x using one-sided (causal)
+# convolution, and collect all filtered outputs as columns of y_out_mat.
+# Each column of b_mat corresponds to one predictor (MSE or a DFP variant).
 y_out_mat <- NULL
 for (i in 1:ncol(b_mat))
   y_out_mat <- cbind(y_out_mat, filter(x, b_mat[, i], side = 1))
 
-# Disabled earlier diagnostic plot (shorter window, scaled outputs)
-# ts.plot(scale(y_out_mat[270:305,], center=F, scale=T),
-#         main="AR(3)", col=colo, xlab="", ylab="")
-# abline(h=0)
 
-# Reset to single-panel layout and plot a representative excerpt of the outputs
+# Reset to single-panel layout and plot a representative excerpt (obs. 300–350)
+# of the filtered outputs to visually compare predictor behaviours
 par(mfrow = c(1, 1))
 ts.plot(y_out_mat[300:350, ],
         main = "Predictor Outputs", col = colo, xlab = "", ylab = "")
 abline(h = 0)
+for (i in 1:length(alpha0_vec))
+  mtext(paste("alpha0=", alpha0_vec[i], sep = ""), col = colo[i], line = -i)
+
+# --- Interpretation of the plot ---
+# The plot illustrates the practical effect of the DFP regularisation parameter alpha0:
+#
+#  - High-frequency, short-term noise fluctuations are unpredictable by any of the
+#    filters; all predictors follow the series closely at that time-scale.
+#
+#  - Stronger decoupling (smaller alpha0) causes the predictor to anticipate
+#    mean reversion over 'mid-term' dynamics — visible as longer connected
+#    intervals where the DFP output stays above or below the zero line relative
+#    to the MSE predictor.
+#
+#  - Note: alpha0 does not have a simple closed-form interpretation in general;
+#    its meaning is transparent only at the extreme alpha0 = 0
+#    (zero correlation).
+
+
+# --- Remark on complete decoupling (alpha0 = 0) ---
+# Complete decoupling enforces zero correlation between the predictor output
+# and x_t (the most recent observation). Since x_t is conventionally regarded
+# as highly informative, one might ask: does zero correlation conflict with its
+# importance?
+#
+# The answer is no. Zero correlation does NOT imply that the filter weight
+# assigned to x_t is zero. Rather, the decoupling constraint reshapes the
+# overall filter dynamics so that the predictor output is structurally
+# orthogonal to x_t — while x_t itself may still receive a substantial weight.
+#
+# Indeed, as the plot below confirms, x_t receives the LARGEST filter weight
+# among all lags in the completely decoupled DFP (alpha0 = 0). The decoupling
+# is therefore achieved through the interplay of all filter coefficients
+# collectively, not by suppressing the weight on x_t.
+
+ts.plot(b_mat[, ncol(b_mat)],
+        main = "Complete decoupling: the largest weight is assigned to x_t",
+        xlab = "Lag",
+        ylab = "Completely decoupled DFP")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1028,10 +1070,14 @@ y_dfp_ar<-filter(x,ar_dfp_ar3_mat[, k])
 
 # Both outputs should be numerically identical up to negligible errors
 # arising from finite-length MA/AR truncation.
-ts.plot(cbind(y_dfp_ma, y_dfp_ar)[1:200, ])
+ts.plot(cbind(y_dfp_ma, y_dfp_ar)[1:200, ],main="AR- and MA-forms overlap exactly")
 
 # Confirm: the maximum absolute difference is negligible.
 max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
+# Note on approximation accuracy:
+# Any residual discrepancy arises because the filters gamma0 and gammah are
+# truncated to a finite length L. As L increases, the difference between the 
+# MA and AR implementations vanishes asymptotically.
 
 
 
@@ -1064,66 +1110,64 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 
 # Specify gamma0 and gammah.
 
-gamma0<-c(3,0.5)*3.5/4
-gammah<-c(1.5,1)*2/1.5
+gamma0_plot<-c(3,0.5)*3.5/4
+gammah_plot<-c(1.5,1)*2/1.5
 
 # Specify lambda0
 lambda0<-0.5
 # Lengths
-l0<-sqrt(sum(gamma0^2))
-lh<-sqrt(sum(gammah^2))
+l0<-sqrt(sum(gamma0_plot^2))
+lh<-sqrt(sum(gammah_plot^2))
 
-# Angle between gammah and gamma0: gammah is above (larger angle)
-beta0h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
-# Angle between gammah and b
-beta <- atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])-atan2(gammah[2], gammah[1])
+# Angle between gammah_plot and gamma0_plot: gammah_plot is above (larger angle)
+beta0h <- atan2(gammah_plot[2], gammah_plot[1])-atan2(gamma0_plot[2], gamma0_plot[1])
+# Angle between gammah_plot and b
+beta <- atan2(gammah_plot[2]-lambda0*gamma0_plot[2], gammah_plot[1]-lambda0*gamma0_plot[1])-atan2(gammah_plot[2], gammah_plot[1])
 
 # Set up plot limits with some padding
-x_min<-min(0,min(c(gamma0[1],gammah[1]))-1)
-x_max<-max(c(gamma0[1],gammah[1]))+0.5
-y_min<-min(c(gamma0[2],gammah[2]))-1
+x_min<-min(0,min(c(gamma0_plot[1],gammah_plot[1]))-1)
+x_max<-max(c(gamma0_plot[1],gammah_plot[1]))+0.5
+y_min<-min(c(gamma0_plot[2],gammah_plot[2]))-1
 y_min<-0
-y_max<-max(c(gamma0[2],gammah[2]))+1
-y_max<-max(c(gamma0[2],gammah[2]))+0.2
+y_max<-max(c(gamma0_plot[2],gammah_plot[2]))+1
+y_max<-max(c(gamma0_plot[2],gammah_plot[2]))+0.2
 plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
      asp=1.5,xlab = "", ylab = "", axes = TRUE)
 # Axes
 abline(h = 0, v = 0, col = "gray85")
-# gamma0
-arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
-text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
-# gammah
-arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "red")
-text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
-# gammah-lambda0*gamma0
-arrows(gammah[1],gammah[2],gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2], length = 0.12, lwd=1, col = "red")
-#  text(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2]+0.2, labels = expression(tilde(b)==gamma[h]+lambda[1]*gamma[0]), col = "red", cex = 1.2)
-text(gammah[1]-lambda0*gamma0[1]-0.4,gammah[2]-lambda0*gamma0[2], labels = expression(b==gamma[h]+lambda*gamma[0]), col = "black", cex = 1.2)
-text(gammah[1]-lambda0*gamma0[1]+0.4,gammah[2]-lambda0*gamma0[2]+0.15, labels = expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
+# gamma0_plot
+arrows(0, 0,gamma0_plot[1],gamma0_plot[2], length = 0.12, lwd=1, col = "black")
+text(gamma0_plot[1]+0.1,gamma0_plot[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
+# gammah_plot
+arrows(0, 0,gammah_plot[1],gammah_plot[2], length = 0.12, lwd=1, col = "red")
+text(gammah_plot[1]+0.1,gammah_plot[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
+# gammah_plot-lambda0*gamma0_plot
+arrows(gammah_plot[1],gammah_plot[2],gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-lambda0*gamma0_plot[2], length = 0.12, lwd=1, col = "red")
+text(gammah_plot[1]-lambda0*gamma0_plot[1]-0.4,gammah_plot[2]-lambda0*gamma0_plot[2], labels = expression(b==gamma[h]+lambda*gamma[0]), col = "black", cex = 1.2)
+text(gammah_plot[1]-lambda0*gamma0_plot[1]+0.4,gammah_plot[2]-lambda0*gamma0_plot[2]+0.15, labels = expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
 
 expression("E" *  "|" ~ Y)
 
 # Insert unit length b0
-b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
+b0<-c(gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-lambda0*gamma0_plot[2])
 lb0<-sqrt(sum(b0^2))
 #  arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
 arrows(0,0,b0[1],b0[2], length = 0.12, lwd=1, col = "red")
 #  text(b0[1]/lb0-0.1,b0[2]/lb0+0.1, labels = expression(b), col = "red", cex = 1.2)
 text(b0[1]/lb0-0.3,b0[2]/lb0-0.2, labels = expression(c==~"|"~gamma[h]+lambda*gamma[0]~"|"), col = "red", cex = 1)
-#  segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
 
-# Draw the angle beta0h (between gammah and gamma0)
+# Draw the angle beta0h (between gammah_plot and gamma0_plot)
 r <- 0.3   # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, beta0h, length.out = 100)
+th_seq <- atan2(gamma0_plot[2], gamma0_plot[1])+seq(0, beta0h, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
 
-th_mid <-  atan2(gamma0[2], gamma0[1])+beta0h / 2
+th_mid <-  atan2(gamma0_plot[2], gamma0_plot[1])+beta0h / 2
 text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
      labels = expression(theta[0*h]), col = "black", cex = 1.2)
 
-# Draw the angle beta between gammah and b 
+# Draw the angle beta between gammah_plot and b 
 r <- 0.35   # arc radius
-th_seq <- -beta0h+atan2(gammah[2]-lambda0*gamma0[2], gammah[1]-lambda0*gamma0[1])+seq(0, beta, length.out = 100)
+th_seq <- -beta0h+atan2(gammah_plot[2]-lambda0*gamma0_plot[2], gammah_plot[1]-lambda0*gamma0_plot[1])+seq(0, beta, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
@@ -1131,13 +1175,13 @@ text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
      labels = expression(beta), col = "red", cex = 1.2)
 
 
-# Draw the angle theta (between b0 and gamma0)
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+# Draw the angle theta (between b0 and gamma0_plot)
+theta <- atan2(b0[2], b0[1])-atan2(gamma0_plot[2], gamma0_plot[1])
 r <- 0.5  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
+th_seq <- atan2(gamma0_plot[2], gamma0_plot[1])+seq(0, theta, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
 
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
+th_mid <-  atan2(gamma0_plot[2], gamma0_plot[1])+theta / 2
 text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid)-0.1,
      labels = expression(theta[0*b]), col = "black", cex = 1.2)
 
@@ -1145,34 +1189,23 @@ text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid)-0.1,
 text(1.2 * r * cos(th_mid)+0.5, 1.15 * r * sin(th_mid)+0.3,
      labels = expression(a==~"|"~gamma[h]~"|"), col = "red", cex = 1)
 
-# Draw the angle gamma from the apex gammah
+# Draw the angle gamma from the apex gammah_plot
 r <- 0.35   # arc radius
 th_seq <- seq(pi+0.15, pi+0.6, length.out = 100)
-lines(gammah[1]+r * cos(th_seq), gammah[2]+r * sin(th_seq), col = "red", lwd=1)
+lines(gammah_plot[1]+r * cos(th_seq), gammah_plot[2]+r * sin(th_seq), col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
-text(gammah[1]+1.4 * r * cos(th_mid)+0.15, gammah[2]+1.15 * r * sin(th_mid),
+text(gammah_plot[1]+1.4 * r * cos(th_mid)+0.15, gammah_plot[2]+1.15 * r * sin(th_mid),
      labels = expression(gamma==theta[0*h]), col = "red", cex = 1.2)
 
 # Draw the angle alpha from the apex b
 r <- 0.1   # arc radius
 th_seq <- seq(-pi/2-0.4, pi/8-0.2, length.out = 100)
-lines(gammah[1]-lambda0*gamma0[1]+r * cos(th_seq), gammah[2]-lambda0*gamma0[2]+r * sin(th_seq), col = "red", lwd=1)
+lines(gammah_plot[1]-lambda0*gamma0_plot[1]+r * cos(th_seq), gammah_plot[2]-lambda0*gamma0_plot[2]+r * sin(th_seq), col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
-text(gammah[1]-lambda0*gamma0[1]+1.4 * r * cos(th_mid)+0.05, gammah[2]-lambda0*gamma0[2]+1.15 * r * sin(th_mid),
+text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05, gammah_plot[2]-lambda0*gamma0_plot[2]+1.15 * r * sin(th_mid),
      labels = expression(alpha), col = "red", cex = 1.2)
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1380,137 +1413,6 @@ abline(h=0)
 
 
 
-# The following plot also shows amplitudes, shifts and output of filters when applied to linear trend
-if (F)
-{
-  par(mfrow=c(3,2))
-  
-  colo<-c("black","green","blue","red")
-  
-  mplot<-scale(cbind(gamma0,gammah,b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-  col_names<-c("Nowcast",paste("MSE ",h,"-step"),"DFP-shift","DFP-decouple")
-  colnames(mplot)<-col_names
-  apply(mplot^2,2,sum)
-  plot(mplot[,1],main="Scaled Filters",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
-  mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  lines(mplot[,2],col=colo[2])
-  axis(1,at=1:nrow(mplot),labels=0:(nrow(mplot)-1))
-  axis(2)
-  box()
-  
-  mplot<-cbind(compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_opt,gamma0)$cor_vec,compute_acf_at_lags_zero_delta_func(max_lag,h,b_cd,gamma0)$cor_vec)
-  colnames(mplot)<-col_names[2:length(col_names)]
-  
-  plot(mplot[,1],main="CCF",axes=F,type="l",xlab="",ylab="",col=colo[1+1],lwd=1,ylim=c(min(mplot),max(mplot)))
-  for (i in 1:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[1+i])
-  }
-  #mtext("MSE",line=-1,col=colo[1+1])
-  #mtext("DFP",line=-2,col=colo[2+1])
-  abline(v=max_lag+1,lty=1)
-  abline(v=max_lag+1+h,lty=2)
-  abline(h=0)
-  axis(1,at=1:nrow(mplot2),labels=-max_lag-1+1:(nrow(mplot2)))
-  axis(2)
-  box()
-  
-  
-  K<-600
-  mplot<-scale(cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd),center=F,scale=F)#/sqrt((L-1))
-  colnames(mplot)<-col_names
-  
-  apply(mplot^2,2,sum)
-  shift_mat<-amp_mat<-matrix(ncol=ncol(mplot),nrow=K+1)
-  colnames(shift_mat)<-colnames(amp_mat)<-colnames(mplot)
-  for (i in 1:ncol(mplot))
-  {  
-    filt_obj<-amp_shift_func(K,mplot[,i],F)
-    shift_mat[,i]<-apply(cbind(rep(0,K+1),filt_obj$shift),1,max)
-    shift_mat[,i]<-filt_obj$shift
-    amp_mat[,i]<-filt_obj$amp
-  }  
-  
-  
-  mplot<-amp_mat
-  plot(mplot[,1],ylim=c(0,max(mplot)),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Amplitude of Scaled Filters")
-  #mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    #  mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  abline(h=0)
-  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
-  axis(2)
-  box()
-  
-  # Positive numbers signify left shift
-  mplot<-cbind(shift_mat[,1]-shift_mat[,1],shift_mat[,2]-shift_mat[,1],shift_mat[,3]-shift_mat[,1],shift_mat[,4]-shift_mat[,1])
-  plot(mplot[,1],axes=F,col=colo[1],type="l",xlab="",ylab="",main="Leads over nowcast",ylim=c(max(-4,min(mplot)),max(mplot)))
-  mtext(colnames(mplot)[1],col=colo[1],line=-1)
-  for (i in 2:ncol(mplot))
-  {  
-    lines(mplot[,i],col=colo[i],type="l")
-    mtext(colnames(mplot)[i],col=colo[i],line=-i)
-  }  
-  abline(h=0)
-  axis(1,at=1+0:6*K/6,labels=c("0","pi/6","2pi/6","3pi/6","4pi/6","5pi/6","pi"))
-  axis(2)
-  box()
-  
-  
-  # 1. Linear trend: note that full decoupling filter has a phase reversal at frequency zero, i.e., transfer function is negative
-  len<-10000
-  x<--L:len
-  # Scale all filters such that they sum up to one (not unit variance)
-  # !!!!!!
-  # Since Fully decoupled DFP is subject to phase reversal, we invert its sign when scaling by sum(b_cd)!!!!  
-  filter_mat<-cbind(gamma0/sum(gamma0),gammah/sum(gammah),b_opt/sum(b_opt),b_cd/sum(b_cd))
-  # Check unit variance
-  apply(filter_mat^2,2,sum)
-  y_out_mat<-filter(x,filter_mat[,1],side=1)
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-  colnames(y_out_mat)<-col_names
-  
-  anf<-L
-  enf<-L+20
-  #  ts.plot(y_out_mat[anf:enf,]-(anf-tau0-1),col=colo,main="Linear trend",xlab="",ylab="")
-  ts.plot(y_out_mat[anf:enf,],col=colo,main="Linear trend",xlab="",ylab="")
-  #mtext("Nowcast",line=-1,col=colo[1])
-  #mtext("MSE",line=-2,col=colo[2])
-  #mtext("DFP",line=-3,col=colo[3])
-  abline(h=0)
-  
-  set.seed(345)
-  
-  x<-rnorm(len)
-  # Scale so that variance = 1: here we preserve sign of b_cd, i.e., scaled b_cd is phase reverting at omega=0   
-  filter_mat<-cbind(gamma0/sqrt(t(gamma0)%*%gamma0),gammah/sqrt(t(gammah)%*%gammah),b_opt,b_cd)
-  
-  y_out_mat<-filter(x,filter_mat[,1],side=1)
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,2],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,3],side=1))
-  y_out_mat<-cbind(y_out_mat,filter(x,filter_mat[,4],side=1))
-  colnames(y_out_mat)<-col_names
-  
-  #ts.plot(scale(y_out_mat[270:305,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-  #abline(h=0)
-  
-  #ts.plot(scale(y_out_mat[300:350,],center=F,scale=T),main="AR(3)",col=colo,xlab="",ylab="")
-  #abline(h=0)
-  
-  ts.plot(y_out_mat[300:350,],main="AR(3)",col=colo,xlab="",ylab="")
-  abline(h=0)
-  
-} 
 
 
 
