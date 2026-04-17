@@ -1131,9 +1131,11 @@ l0<-sqrt(sum(gamma0_plot^2))
 lh<-sqrt(sum(gammah_plot^2))
 
 # Angle between gammah_plot and gamma0_plot: gammah_plot is above (larger angle)
-beta0h <- atan2(gammah_plot[2], gammah_plot[1])-atan2(gamma0_plot[2], gamma0_plot[1])
+beta0h <- atan2(gammah_plot[2], gammah_plot[1])-atan2(gamma0_plot[2], 
+                                                      gamma0_plot[1])
 # Angle between gammah_plot and b
-beta <- atan2(gammah_plot[2]-lambda0*gamma0_plot[2], gammah_plot[1]-lambda0*gamma0_plot[1])-atan2(gammah_plot[2], gammah_plot[1])
+beta <- atan2(gammah_plot[2]-lambda0*gamma0_plot[2], gammah_plot[1]-
+                lambda0*gamma0_plot[1])-atan2(gammah_plot[2], gammah_plot[1])
 
 # Set up plot limits with some padding
 x_min<-min(0,min(c(gamma0_plot[1],gammah_plot[1]))-1)
@@ -1148,24 +1150,32 @@ plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
 abline(h = 0, v = 0, col = "gray85")
 # gamma0_plot
 arrows(0, 0,gamma0_plot[1],gamma0_plot[2], length = 0.12, lwd=1, col = "black")
-text(gamma0_plot[1]+0.1,gamma0_plot[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
+text(gamma0_plot[1]+0.1,gamma0_plot[2], labels = expression(gamma[0]), 
+     col = "black", cex = 1.2)
 # gammah_plot
 arrows(0, 0,gammah_plot[1],gammah_plot[2], length = 0.12, lwd=1, col = "red")
-text(gammah_plot[1]+0.1,gammah_plot[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
+text(gammah_plot[1]+0.1,gammah_plot[2], labels = expression(gamma[h]), 
+     col = "black", cex = 1.2)
 # gammah_plot-lambda0*gamma0_plot
-arrows(gammah_plot[1],gammah_plot[2],gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-lambda0*gamma0_plot[2], length = 0.12, lwd=1, col = "red")
-text(gammah_plot[1]-lambda0*gamma0_plot[1]-0.4,gammah_plot[2]-lambda0*gamma0_plot[2], labels = expression(b==gamma[h]+lambda*gamma[0]), col = "black", cex = 1.2)
-text(gammah_plot[1]-lambda0*gamma0_plot[1]+0.4,gammah_plot[2]-lambda0*gamma0_plot[2]+0.15, labels = expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
+arrows(gammah_plot[1],gammah_plot[2],gammah_plot[1]-lambda0*gamma0_plot[1],
+      gammah_plot[2]-lambda0*gamma0_plot[2], length = 0.12, lwd=1, col = "red")
+text(gammah_plot[1]-lambda0*gamma0_plot[1]-0.4,gammah_plot[2]-
+       lambda0*gamma0_plot[2], labels = expression(b==gamma[h]+
+       lambda*gamma[0]), col = "black", cex = 1.2)
+text(gammah_plot[1]-lambda0*gamma0_plot[1]+0.4,gammah_plot[2]-
+       lambda0*gamma0_plot[2]+0.15, labels = 
+       expression(b==~"|"~lambda*gamma[0]~"|"), col = "red", cex = 1)
 
 expression("E" *  "|" ~ Y)
 
 # Insert unit length b0
-b0<-c(gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-lambda0*gamma0_plot[2])
+b0<-c(gammah_plot[1]-lambda0*gamma0_plot[1],gammah_plot[2]-
+        lambda0*gamma0_plot[2])
 lb0<-sqrt(sum(b0^2))
 #  arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
 arrows(0,0,b0[1],b0[2], length = 0.12, lwd=1, col = "red")
-#  text(b0[1]/lb0-0.1,b0[2]/lb0+0.1, labels = expression(b), col = "red", cex = 1.2)
-text(b0[1]/lb0-0.3,b0[2]/lb0-0.2, labels = expression(c==~"|"~gamma[h]+lambda*gamma[0]~"|"), col = "red", cex = 1)
+text(b0[1]/lb0-0.3,b0[2]/lb0-0.2, labels = expression(c==~"|"~gamma[h]+
+                          lambda*gamma[0]~"|"), col = "red", cex = 1)
 
 # Draw the angle beta0h (between gammah_plot and gamma0_plot)
 r <- 0.3   # arc radius
@@ -1178,7 +1188,8 @@ text(1.4 * r * cos(th_mid), 1.15 * r * sin(th_mid),
 
 # Draw the angle beta between gammah_plot and b 
 r <- 0.35   # arc radius
-th_seq <- -beta0h+atan2(gammah_plot[2]-lambda0*gamma0_plot[2], gammah_plot[1]-lambda0*gamma0_plot[1])+seq(0, beta, length.out = 100)
+th_seq <- -beta0h+atan2(gammah_plot[2]-lambda0*gamma0_plot[2], 
+  gammah_plot[1]-lambda0*gamma0_plot[1])+seq(0, beta, length.out = 100)
 lines(r * cos(th_seq), r * sin(th_seq), col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
@@ -1203,26 +1214,24 @@ text(1.2 * r * cos(th_mid)+0.5, 1.15 * r * sin(th_mid)+0.3,
 # Draw the angle gamma from the apex gammah_plot
 r <- 0.35   # arc radius
 th_seq <- seq(pi+0.15, pi+0.6, length.out = 100)
-lines(gammah_plot[1]+r * cos(th_seq), gammah_plot[2]+r * sin(th_seq), col = "red", lwd=1)
+lines(gammah_plot[1]+r * cos(th_seq), gammah_plot[2]+r * sin(th_seq), 
+      col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
-text(gammah_plot[1]+1.4 * r * cos(th_mid)+0.15, gammah_plot[2]+1.15 * r * sin(th_mid),
+text(gammah_plot[1]+1.4 * r * cos(th_mid)+0.15, gammah_plot[2]+
+       1.15 * r * sin(th_mid),
      labels = expression(gamma==theta[0*h]), col = "red", cex = 1.2)
 
 # Draw the angle alpha from the apex b
 r <- 0.1   # arc radius
 th_seq <- seq(-pi/2-0.4, pi/8-0.2, length.out = 100)
-lines(gammah_plot[1]-lambda0*gamma0_plot[1]+r * cos(th_seq), gammah_plot[2]-lambda0*gamma0_plot[2]+r * sin(th_seq), col = "red", lwd=1)
+lines(gammah_plot[1]-lambda0*gamma0_plot[1]+r * cos(th_seq), gammah_plot[2]-
+        lambda0*gamma0_plot[2]+r * sin(th_seq), col = "red", lwd=1)
 
 th_mid <-  th_seq[50]
-text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05, gammah_plot[2]-lambda0*gamma0_plot[2]+1.15 * r * sin(th_mid),
+text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05, 
+     gammah_plot[2]-lambda0*gamma0_plot[2]+1.15 * r * sin(th_mid),
      labels = expression(alpha), col = "red", cex = 1.2)
-
-
-
-
-
-
 
 
 
@@ -1230,10 +1239,34 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05, gammah_pl
 # ════════════════════════════════════════════════════════════════════
 # Exercise 3: MSE-DFP with Time-Shift DFP Constraint
 # ════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────
+# Relating the DFP Constraint to a Frequency-Zero Time-Shift
+# ─────────────────────────────────────────────────────────────────────
+#
+# Without a unit-length constraint on the filter, the parameter alpha0 in the
+# MSE-DFP formulation lacks a straightforward interpretation: its effect on the
+# predictor cannot easily be expressed in terms of an observable or intuitive
+# quantity (like the correlation in the case of the unit-length DFP in exercise 1).
+#
+# To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
+# the time-shift (phase delay) at frequency zero — the trend frequency —
+# as introduced in Tutorial 2.
+#
+# Concretely, the re-parameterised DFP predictor is designed so that its
+# output LEADS the MSE predictor by a pre-specified number of time steps, tau,
+# at frequency zero. This gives alpha0 a clear and interpretable meaning:
+#
+#   tau = 0  →  no lead relative to the MSE predictor (recovers MSE)
+#   tau > 0  →  the DFP output anticipates the MSE predictor by tau periods
+#               at the trend frequency
+#
+# The following section derives and illustrates this frequency-zero DFP
+# formulation.
 
-# The above example continued
-
-
+# ─────────────────────────────────────────────────────────────────────
+# 3.1 AR(3) and DFP Settings
+# ─────────────────────────────────────────────────────────────────────
+# For illustration, the example is based on the AR(3) process of exercise 2.
 
 L<-50
 h<-3
@@ -1258,27 +1291,13 @@ gammah<-c(gamma[h+(1:(L-h))],rep(0,h))
 # Long forecast horizon
 gammahtilde<-c(gamma[htilde+(1:(L-htilde))],rep(0,htilde))
 
-# Select lead over MSE
+# Select lead of DFP over MSE at frequency zero:
 lead<--2
 
-# Compute shifts at frequency zero
-if (F)
-{
-  # Old code  
-  tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
-  tauh<-sum((0:(L-1))*gammah)/sum(gammah)
-  tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
-  
-  # MSE is slightly leading
-  tau0
-  tauh
-  tau<-lead
-  # Formula for lambda0
-  lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
-  # Compute b
-  b<-gammah+lambda0*gamma0
-  
-}
+# ─────────────────────────────────────────────────────────────────────
+# 3.2 Run Time-Shift MSE DFP
+# ─────────────────────────────────────────────────────────────────────
+
 tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
 
 dfp_obj<-dfp_from_tau_func(gamma0,gammah,lead)
@@ -1286,29 +1305,54 @@ tau0=dfp_obj$tau0
 tauh=dfp_obj$tauh
 lambda0=dfp_obj$lambda0
 b=dfp_obj$b
-
-
 # Unitary DFP
 b_opt<-b/as.double(sqrt(b%*%b))
 
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.3 Time-Shifts at Frequency Zero
+# ─────────────────────────────────────────────────────────────────────
+
+# Explicite formula linking lambda0 (the weight on gamma0) to tau, see 
+# Theorem 2 (equation 34) in Wildi 2026.
+  
+# Shifts at frequency zero  
+tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
+tauh<-sum((0:(L-1))*gammah)/sum(gammah)
+tauhtilde<-sum((0:(L-1))*gammahtilde)/sum(gammahtilde)
+  
+# MSE is slightly leading
+tau0
+tauh
+tau<-lead
+# Formula for lambda0
+lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+# Compute b
+b<-gammah+lambda0*gamma0
+  
+# ─────────────────────────────────────────────────────────────────────
+# 3.4 Verifications and Checks
+# ─────────────────────────────────────────────────────────────────────
+
 # Check 1: verify lead
 taub<-sum((0:(L-1))*b_opt)/sum(b_opt)
-# Should equal lead (or tau): this is an exact result
-taub-tauh
+# Lead of DFP over MSE at frequency zero
+lead_dfp_mse<-(taub-tauh)
+# Difference should vanish
+lead_dfp_mse-lead
 
 # Compute alpha0
-alpha0<-as.double(t(gamma0)%*%(gammah+lambda0*gamma0))#/sqrt(t(gammah+lambda0*gamma0)%*%(gammah+lambda0*gamma0)))
+alpha0<-as.double(t(gamma0)%*%b)
 
 # Check 2
 # Compute lambda from alpha0: Proposition 1
-if (F)
-{
-  # old code
-  lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
-  # Compute b: Proposition 1
-  b<-gammah+lambda*gamma0
+lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
+# Check: difference should vanish  
+lambda-lambda0
+# Same DFP as above (Proposition 1)
+b<-gammah+lambda*gamma0
   
-}
+# Check 3:
 dfp_obj<-dfp_from_alpha0_func(gamma0,gammah,alpha0)
 lambda<-dfp_obj$lambda
 b<-dfp_obj$b
@@ -1316,6 +1360,10 @@ scale<-as.double(1/sqrt(t(b)%*%b))
 b0<-scale*b
 # Check: should vanish
 max(abs(b_opt-b0))
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.5 Compute Complete Decoupling for Additional Reference
+# ─────────────────────────────────────────────────────────────────────
 
 # Compute DFP complete decoupling
 alpha0_cd<-0
@@ -1334,6 +1382,11 @@ lambda_cd<-dfp_obj$lambda
 b_cd<-dfp_obj$b
 scale<-as.double(1/sqrt(t(b_cd)%*%b_cd))
 b_cd<-scale*b_cd
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.6 Checks Complete Decoupling DFP
+# ─────────────────────────────────────────────────────────────────────
+
 # Check: should vanish
 t(b_cd)%*%gamma0
 # Note: b_cd is subject to phase reversal: Gamma(0)<0
@@ -1343,10 +1396,10 @@ sum(b_cd)
 tau_cd<-sum((0:(L-1))*b_cd)/sum(b_cd)
 tau_cd
 
-# Compute roots to check minimum-phase property
-abs(polyroot(b_opt[L:1]))
-abs(polyroot(b_cd[L:1]))
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.7 Performances
+# ─────────────────────────────────────────────────────────────────────
 
 # Table with time shifts, transfer functions at omega=0 (,i.e., sum of filter weights), lambda and alpha0
 
@@ -1359,9 +1412,11 @@ mat_perf[2,1:2]<-c(-tauhtilde,sum(gammahtilde)/as.double(sqrt(t(gammahtilde)%*%g
 mat_perf[3,]<-c(-taub,sum(b_opt),lambda0,alpha0)
 mat_perf[4,]<-c(NA,sum(b_cd),lambda_cd,alpha0_cd)
 
+mat_perf
 
-#--------------------------------------------------------
-# Plots
+# ─────────────────────────────────────────────────────────────────────
+# 3.8 Plot Predictor Filters
+# ─────────────────────────────────────────────────────────────────────
 
 
 layout(matrix(c(1,2,3,3), 2, 2, byrow = T)) 
@@ -1399,6 +1454,11 @@ abline(h=0)
 axis(1,at=c(0,(1:(nrow(mplot)/10))*10),labels=c(0,(1:(nrow(mplot)/10))*10))
 axis(2)
 box()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.9 Apply Predictors to Data
+# ─────────────────────────────────────────────────────────────────────
 
 
 # Scale filters to unit variance (scaled b_cd is still phase reverting at omega=0)   
