@@ -177,7 +177,9 @@ source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = 
 # ════════════════════════════════════════════════════════════════════
 
 
-# ── 1.1 Data-Generating Process (DGP) ────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 Data-Generating Process (DGP) 
+# ─────────────────────────────────────────────────────────────────────
 # We reuse the MA(9) process from Tutorial 1:
 #   x_t = sum_{k=0}^{9} gamma_k * epsilon_{t-k},   gamma_k = 0.9^k
 #
@@ -204,7 +206,9 @@ ts.plot(x,   main = "One realisation of the MA(9) process", xlab = "")
 acf(na.exclude(x), main = "ACF — significant lags up to order q = 9 in long samples")
 
 
-# ── 1.2 MSE Predictor ────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 MSE Predictor 
+# ─────────────────────────────────────────────────────────────────────
 # Forecast horizon (must satisfy h <= q; otherwise the optimal forecast is 0)
 h <- 5
 
@@ -232,7 +236,9 @@ cor_mse_now <- t(gamma0) %*% gammah / sqrt(t(gamma0 %*% gamma0) * t(gammah %*% g
 cat("Correlation of MSE predictor with nowcast (present):", round(cor_mse_now, 4), "\n")
 
 
-# ── 1.3 DFP Predictor ────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.3 DFP Predictor 
+# ─────────────────────────────────────────────────────────────────────
 # The UNIT-LENGTH DFP predictor b0 is a constrained linear combination of
 # the nowcast (gamma0) and the MSE predictor (gammah):
 #
@@ -280,7 +286,9 @@ axis(2); box()
 # perspective.
 
 
-# ── 1.4 Verification Checks ──────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.4 Verification Checks 
+# ─────────────────────────────────────────────────────────────────────
 # Confirm that the computed DFP solution satisfies all theoretical properties.
 
 # Check 1: b0 is a normalised linear combination of gamma0 and gammah
@@ -298,7 +306,9 @@ cat("Check 3 — decoupling constraint residual:",
     cor_dfp_now - alpha0, "\n")         # should be zero
 
 
-# ── 1.5 Accuracy–Timeliness (AT) Dilemma ─────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.5 Accuracy–Timeliness (AT) Dilemma 
+# ─────────────────────────────────────────────────────────────────────
 # The decoupling constraint is not free: by reducing correlation with x_t,
 # the DFP predictor also sacrifices some correlation with the future target
 # x_{t+h}. This is the AT dilemma in action.
@@ -337,7 +347,9 @@ print(round(perf_mat, 3))
 #          minimised by DFP's optimal weighting of gamma0 and gammah.
 
 
-# ── 1.6 Apply Predictors to the Simulated Data ───────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.6 Apply Predictors to the Simulated Data 
+# ─────────────────────────────────────────────────────────────────────
 # Filter the innovation sequence with each predictor to obtain time series
 # of h-step-ahead forecasts, then compare visually.
 
@@ -366,7 +378,9 @@ axis(2); box()
 # We now verify this assertion.
 
 
-# ── 1.7 Sample CCF ────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.7 Sample CCF 
+# ─────────────────────────────────────────────────────────────────────
 # Estimate the cross-correlation between x and each predictor from the
 # simulated data. The CCF peak location indicates how far ahead (or behind)
 # each predictor is relative to x_t.
@@ -405,7 +419,9 @@ axis(2); box()
 # We now verify the above right-shift (lead) of the DFP by computing sample 
 # independent true CCFs.
 
-# ── 1.8 True (Population) CCF ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.8 True (Population) CCF
+# ─────────────────────────────────────────────────────────────────────
 # The population CCF is computed analytically from the filter coefficients,
 # avoiding the noise inherent in sample-based estimates.
 # This provides a clean, sample-independent comparison of the two predictors.
@@ -434,7 +450,7 @@ axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
 axis(2); box()
 
 # ──────────────────────────────────────────────────────────────────────────
-# REMARKABLE: THE PEAK OF THE CCF SHIFTED FROM k=0 (PRESENT) to k=h (FUTURE)
+# REMARKABLY, THE PEAK OF THE CCF SHIFTED FROM k=0 (PRESENT) to k=h (FUTURE)
 # ──────────────────────────────────────────────────────────────────────────
 # Interpretation:
 # The true CCF strenghtens the previous findings:
@@ -445,7 +461,10 @@ axis(2); box()
 #   - The DFP optimization principle minimzes the loss in CCF at k=h (blue vertical line). 
 # This connects the DFP to the AT-dilemma, tracing the resulting efficient frontier.
 
-# ── 1.9 Amplitude and Time-Shift ─────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.9 Amplitude and Time-Shift 
+# ─────────────────────────────────────────────────────────────────────
 # For a linear filter applied to a sinusoid at frequency omega, the output is
 # again a sinusoid at the same frequency, but scaled by the filter's AMPLITUDE
 # (gain) and delayed by the filter's TIME-SHIFT (phase delay).
@@ -516,6 +535,143 @@ box()
 # (Accuracy–Timeliness–Smoothness). See the MDFA tutorial for background.
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 1.10 Geometry of the DFP Predictor
+# ─────────────────────────────────────────────────────────────────────
+# This figure (reproduced from Wildi 2026) depicts the geometry of the DFP
+# solution in the plane spanned by gamma0 (nowcast) and gammah (MSE predictor).
+#
+# The solution is determined by two constraints:
+#   - Unit-length constraint: b0 lies on the unit sphere (blue arc).
+#   - DFP constraint: b0 lies on the cone with axis gamma0 and semi-angle
+#     arccos(alpha0), i.e. the prescribed correlation with the nowcast
+#     (red lines).
+#
+# The intersection of the cone with the unit sphere in this plane yields
+# TWO candidate solutions, corresponding to the two branches of the cone:
+#   - Solution 1 (shown): lambda1 > 0, lambda2 < 0 — upper branch.
+#   - Solution 2 (not shown): lambda1 < 0, lambda2 > 0 — lower branch.
+#
+# The two solutions arise because the DFP constraint
+#   alpha0 = b0 %*% gamma0 = ||gamma0|| * ||b0|| * cos(theta_{0b})
+# depends only on cos(theta_{0b}) and is therefore indifferent to the
+# SIGN of the angle theta_{0b} between b0 and gamma0.
+#
+# The sign of theta_{0b} determines whether the predictor leads or lags:
+#   - theta_{0b} > theta_{0h}: b0 is rotated past gammah away from gamma0
+#                               → DFP predictor leads x_t  (desired).
+#   - theta_{0b} < 0:          b0 lies on the opposite side of gamma0
+#                               → DFP predictor lags x_t (undesired).
+# The first solution is therefore selected as the operative DFP predictor.
+
+# Intuitively, decoupling b0 from gamma0 requires a negative weight on
+# gamma0 (lambda2 < 0): we subtract the nowcast direction from the MSE
+# predictor, thereby removing the "present-anchoring" component of gammah
+# and retaining only its forward-looking portion.
+
+# Note: for illustration, gamma0 and gammah are drawn as vectors in a
+# two-dimensional plane. In general, both vectors live in L-dimensional
+# space (where L is the filter length), and the relevant geometry —
+# the unit sphere, the cone, and their intersection — is defined within
+# the 2-dimensional subspace spanned by gamma0 and gammah in R^L.
+
+vx <- 3
+vy <- 2
+# Specify gamma0 and gammah
+gamma0<-c(3,0.5)*3/3.5
+gammah<-c(1.5,1)*2/1.5
+# Specify lambda0
+lambda0<-0.3
+# Lengths
+l0<-sqrt(sum(gamma0^2))
+lh<-sqrt(sum(gammah^2))
+
+# Angle between gammah and gamma0: gammah is above (larger angle)
+theta_h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
+
+# Set up plot limits with some padding
+x_min<--0.5
+x_max<-3
+y_min<--0.5
+y_max<-1.5
+lim <- 1.2 * max(1, abs(c(vx, vy))+0.5)
+plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
+     asp = 1, xlab = "", ylab = "", axes = TRUE)
+# Axes
+abline(h = 0, v = 0, col = "gray85")
+# gamma0
+arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
+text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", 
+     cex = 1.2)
+# gammah
+arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "black")
+text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", 
+     cex = 1.2)
+# Insert unit length b0
+b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
+lb0<-sqrt(sum(b0^2))
+arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
+text(b0[1]/lb0-0.5,b0[2]/lb0+0.1, labels = expression(b==lambda[1]*gamma[h]+
+                    lambda[2]*gamma[0]), col = "red", cex = 1.2)
+segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),
+         1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
+
+text(b0[1]/lb0,b0[2]/lb0+0.5, "Intersection of cone with plane", 
+     col = "red", cex = 1)
+
+# Draw the angle theta_h (between gammah and gamma0)
+r <- 0.25 * lh  # arc radius
+th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta_h, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
+
+th_mid <-  atan2(gamma0[2], gamma0[1])+theta_h / 2
+text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
+     labels = expression(theta[0*h]), col = "black", cex = 1.2)
+# Draw the angle theta (between b0 and gamma0)
+theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+
+r <- 1  # arc radius
+th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1)
+
+th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
+text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
+     labels = expression(+theta[0*b]), col = "blue", cex = 1.2)
+
+# Draw arrow from gammah to b0
+final_b0<-c(r * cos(th_seq[length(th_seq)]), r * sin(th_seq[length(th_seq)]))
+lamb<-0.176
+from_gammah<-(final_b0+lamb*gamma0)
+arrows(from_gammah[1],from_gammah[2],final_b0[1],final_b0[2], length = 0.12, 
+       lwd=1, col = "black")
+text(from_gammah[1],from_gammah[2]+0.1, labels = expression(lambda[1]*gamma[h]), 
+     col = "black", cex = 1.2)
+# Draw second intersection of cone at -theta
+angle_from_x_axis<--(th_seq[length(th_seq)]-2*atan2(gamma0[2],gamma0[1]))
+segments(0,0,1.5*cos(angle_from_x_axis),1.5*sin(angle_from_x_axis),  lwd = 1,
+         lty=2, col = "red")
+
+# Draw the angle -theta 
+theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
+
+r <- 1 # arc radius
+th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, -theta, length.out = 100)
+lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1,lty=2)
+
+th_mid <-  atan2(gamma0[2], gamma0[1])-theta / 2
+text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
+     labels = expression(-theta[0*b]), col = "blue", cex = 1.2)
+
+text(1.15 * r * cos(th_mid)+0.9, 1.15 * r * sin(th_mid)-0.4,
+     "Intersection of cone with plane", col = "red", cex = 1)
+
+text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
+
+
+
+
+
+
 
 #-------------------------------------------------------------
 
@@ -552,94 +708,6 @@ box()
 
 
 
-
-
-
-# Vector components (edit these)
-vx <- 3
-vy <- 2
-
-
-# Specify gamma0 and gammah
-gamma0<-c(3,0.5)*3/3.5
-gammah<-c(1.5,1)*2/1.5
-# Specify lambda0
-lambda0<-0.3
-# Lengths
-l0<-sqrt(sum(gamma0^2))
-lh<-sqrt(sum(gammah^2))
-
-# Angle between gammah and gamma0: gammah is above (larger angle)
-theta_h <- atan2(gammah[2], gammah[1])-atan2(gamma0[2], gamma0[1])
-
-# Set up plot limits with some padding
-x_min<--0.5
-x_max<-3
-y_min<--0.5
-y_max<-1.5
-lim <- 1.2 * max(1, abs(c(vx, vy))+0.5)
-plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
-     asp = 1, xlab = "", ylab = "", axes = TRUE)
-# Axes
-abline(h = 0, v = 0, col = "gray85")
-# gamma0
-arrows(0, 0,gamma0[1],gamma0[2], length = 0.12, lwd=1, col = "black")
-text(gamma0[1]+0.1,gamma0[2], labels = expression(gamma[0]), col = "black", cex = 1.2)
-# gammah
-arrows(0, 0,gammah[1],gammah[2], length = 0.12, lwd=1, col = "black")
-text(gammah[1]+0.1,gammah[2], labels = expression(gamma[h]), col = "black", cex = 1.2)
-# Insert unit length b0
-b0<-c(gammah[1]-lambda0*gamma0[1],gammah[2]-lambda0*gamma0[2])
-lb0<-sqrt(sum(b0^2))
-arrows(0,0,b0[1]/lb0,b0[2]/lb0, length = 0.12, lwd=1, col = "red")
-text(b0[1]/lb0-0.5,b0[2]/lb0+0.1, labels = expression(b==lambda[1]*gamma[h]+lambda[2]*gamma[0]), col = "red", cex = 1.2)
-segments(0,0,1.5*(gammah[1]-lambda0*gamma0[1]),1.5*(gammah[2]-lambda0*gamma0[2]),  lwd = 1,lty=2, col = "red")
-
-text(b0[1]/lb0,b0[2]/lb0+0.5, "Intersection of cone with plane", col = "red", cex = 1)
-
-# Draw the angle theta_h (between gammah and gamma0)
-r <- 0.25 * lh  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta_h, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "black", lwd=1)
-
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta_h / 2
-text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
-     labels = expression(theta[0*h]), col = "black", cex = 1.2)
-# Draw the angle theta (between b0 and gamma0)
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
-
-r <- 1  # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, theta, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1)
-
-th_mid <-  atan2(gamma0[2], gamma0[1])+theta / 2
-text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
-     labels = expression(+theta[0*b]), col = "blue", cex = 1.2)
-
-# Draw arrow from gammah to b0
-final_b0<-c(r * cos(th_seq[length(th_seq)]), r * sin(th_seq[length(th_seq)]))
-lamb<-0.176
-from_gammah<-(final_b0+lamb*gamma0)
-arrows(from_gammah[1],from_gammah[2],final_b0[1],final_b0[2], length = 0.12, lwd=1, col = "black")
-text(from_gammah[1],from_gammah[2]+0.1, labels = expression(lambda[1]*gamma[h]), col = "black", cex = 1.2)
-# Draw second intersection of cone at -theta
-angle_from_x_axis<--(th_seq[length(th_seq)]-2*atan2(gamma0[2],gamma0[1]))
-segments(0,0,1.5*cos(angle_from_x_axis),1.5*sin(angle_from_x_axis),  lwd = 1,lty=2, col = "red")
-
-# Draw the angle -theta 
-theta <- atan2(b0[2], b0[1])-atan2(gamma0[2], gamma0[1])
-
-r <- 1 # arc radius
-th_seq <- atan2(gamma0[2], gamma0[1])+seq(0, -theta, length.out = 100)
-lines(r * cos(th_seq), r * sin(th_seq), col = "blue", lwd=1,lty=2)
-
-th_mid <-  atan2(gamma0[2], gamma0[1])-theta / 2
-text(1.15 * r * cos(th_mid), 1.15 * r * sin(th_mid),
-     labels = expression(-theta[0*b]), col = "blue", cex = 1.2)
-
-text(1.15 * r * cos(th_mid)+0.9, 1.15 * r * sin(th_mid)-0.4,"Intersection of cone with plane", col = "red", cex = 1)
-
-text(2.,0.05,"Unit sphere (intersection with plane)", col = "blue", cex = 1)
 
 
 
