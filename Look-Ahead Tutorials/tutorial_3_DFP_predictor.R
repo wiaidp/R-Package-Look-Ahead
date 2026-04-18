@@ -1400,7 +1400,7 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 # predictor cannot easily be expressed in terms of an observable or intuitive
 # quantity (unlike the correlation-based interpretation available for the
 # unit-length DFP in Exercise 1). Moreover, as discussed above, it is unclear 
-# how the neccessary decoupling from the present x_t also addresses sufficient
+# how the necessary decoupling from the present x_t also addresses 
 # look-ahead behaviour in terms of a lead over the MSE benchmark.
 #
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
@@ -1765,6 +1765,9 @@ abline(h = 0)
 
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.10 Apply Predictors to Linear Trend
+# ─────────────────────────────────────────────────────────────────────
 
 
 
