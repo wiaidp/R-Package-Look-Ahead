@@ -1122,7 +1122,9 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 #    Despite the clean AR-form structure, the DFP constraint does not directly
 #    reveal its look-ahead behaviour. While alpha0 controls the degree of
 #    decoupling, it is not immediately obvious how decoupling translates into
-#    an interpretable lead of the predictor (over the MSE benchmark).
+#    an interpretable lead of the predictor (over the MSE benchmark). In fact, 
+#    one of the two solutions of the unit-length DFP (exercise 1) is 
+#    effectively lagging.
 #
 #    To make this precise: a useful predictor must satisfy two conditions:
 #      - NECESSARY condition:  the predictor must be decoupled from the
@@ -1155,54 +1157,81 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 #
 #      - As a consequence of this specific `look ahead' constraint, the PCS 
 #        effect generally spreads across all AR lags rather than being
-#        confined to the first coefficient as in the DFP. The filter (predictor)
-#        structure is therefore more complex.
+#        confined to the first coefficient as in the above DFP. The filter 
+#        (predictor) structure is therefore more complex.
 #
-#    In summary, the two approaches present an interpretability-complexity
-#    trade-off:
+#    In summary, the two look ahead approaches present an 
+#    interpretability-complexity trade-off:
 #
-#      DFP — simpler filter/predictor structure (only the first AR coefficient is
-#            affected); seemingly easy to interpret (decrease weight on x_t),
-#            but the resulting look-ahead effect, while necessary, is less 
-#            straightforward to evaluate in terms of sufficiency.
+#      DFP — simpler filter/predictor structure (only the first AR coefficient 
+#            is affected); seemingly easy to interpret (decrease weight on x_t),
+#            but the resulting look-ahead effect is less straightforward to 
+#            control.
 #
 #      PCS — more complex filter/predictor structure (all coefficients of the 
 #            AR form are affected), but the look-ahead effect is directly 
-#            interpretable as an aggregate lead. 
-
+#            interpretable as a classic (aggregate/overall) lead. 
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.7 Geometry of the MSE-DFP Predictor
 # ─────────────────────────────────────────────────────────────────────
-# This figure (reproduced from Wildi 2026) illustrates the geometry of
-# the MSE-DFP solution in the plane spanned by gamma0 (nowcast) and
-# gammah (MSE predictor).
-
-# Assumption: gamma0 and gammah are not colinear
-
-# The solution lies on the affine hyperplane defined by the decoupling
-# constraint gamma0' * b = alpha0. By the least-squares optimality
-# principle, it is the orthogonal projection of gammah onto this
-# hyperplane (see Proposition 1 in Wildi 2026): 
-
-#  b0 = gammah + lambda * gamma0, i.e. the weight on gammah is one.
-
-# where lambda is chosen such that gamma0' * b(lambda) = alpha0. This 
-# equation is linear in lambda: the solution is given in closed-form 
-# and the optimum is unique. 
+# The following figure (reproduced from Wildi 2026) illustrates the geometry of
+# the MSE-DFP solution in the plane spanned by gamma0 (nowcast filter)
+# and gammah (h-step MSE predictor).
+#
+# Assumption: gamma0 and gammah are linearly independent (not collinear);
+# see Wildi (2026) for the degenerate case.
+#
+# --- Geometric simplification relative to the unit-length DFP ---
+#
+# The MSE-DFP is geometrically simpler than the unit-length DFP of Exercise 1:
+#
+#   Unit-length DFP (Exercise 1):
+#     Two constraints are active simultaneously — the decoupling constraint
+#     AND the unit-length constraint. The DFP lies on the intersection of the 
+#     plane spanned by gammah and gamm0, a cone with axis gamma0 (nowcast), 
+#     and the unit sphere, see exercise 1.10. 
+#
+#   MSE-DFP (this exercise):
+#     Dropping the unit-length constraint removes the quadratic term entirely.
+#     Only the linear decoupling constraint remains, defining an affine
+#     hyperplane in R^L. The feasible set is flat (a hyperplane), and the
+#     optimisation reduces to a standard orthogonal projection problem.
+#
+# --- Optimality and closed-form solution ---
+#
+# By the least-squares optimality principle, the MSE-DFP solution b0 is the
+# orthogonal projection of gammah onto the affine hyperplane defined by:
+#
+#   gamma0' * b = alpha0      (decoupling constraint)
+#
+# This projection has the closed-form expression (Proposition 1, Wildi 2026):
+#
+#   b0 = gammah + lambda * gamma0
+#
+# where the weight on gammah is exactly one (gammah is the unconstrained
+# optimum), and lambda is the unique scalar satisfying:
+#
+#   gamma0' * b0(lambda) = alpha0
+#
+# Because this equation is linear in lambda, the solution is unique and
+# given in closed form.
+#
+# --- Intuition for the sign of lambda ---
 #
 # Intuition: decoupling b0 from gamma0 requires a negative weight on
 # gamma0 (lambda < 0). We subtract the nowcast direction from the MSE
 # predictor, thereby removing its 'present-anchoring' component and
 # retaining only the forward-looking portion.
 #
-# Note: for illustration, gamma0 and gammah are drawn as vectors in a
-# two-dimensional plane. In general, both vectors live in L-dimensional
-# space (where L is the filter length). The relevant geometry — the unit
-# sphere, the cone, and their intersection — is defined within the
-# two-dimensional subspace spanned by gamma0 and gammah in R^L.
+# Note on dimensionality:
+# For illustration purposes, gamma0 and gammah in the figure below are drawn
+# as vectors in a two-dimensional plane. In general, both vectors live in R^L,
+# where L is the filter length. This is without loss of generality.
 
+
+par(mfrow=c(1,1))
 # Specify gamma0 and gammah.
 
 gamma0_plot<-c(3,0.5)*3.5/4
@@ -1316,6 +1345,45 @@ th_mid <-  th_seq[50]
 text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05, 
      gammah_plot[2]-lambda0*gamma0_plot[2]+1.15 * r * sin(th_mid),
      labels = expression(alpha), col = "red", cex = 1.2)
+
+
+# Note on the geometry of the DFP solution:
+#
+# The figure illustrates that the DFP predictor b lies on the side of gammah
+# (the MSE predictor) that is OPPOSITE to gamma0 (the nowcast). Equivalently,
+# gammah lies between gamma0 and b, so the angle between gamma0 and b exceeds
+# the angle between gamma0 and gammah:
+#
+#   theta_{0b} > theta_{0h}
+#
+# This condition is termed (positive) "phase excess" in Wildi (2026). In the
+# standard case (typical applications), phase excess is sufficient to guarantee
+# that b leads gammah at the trend frequency (frequency zero):
+#
+#   - Proposition 2 establishes the phase-excess condition formally.
+#   - Theorem 2 derives the lead tau > 0 from a set of basic assumptions
+#     that include theta_{0b} > theta_{0h} as a key premise.
+#
+# Intuitively: if gammah already leads gamma0 at frequency zero,  the DFP 
+# predictor b accentuates this existing lead by rotating further away from 
+# gamma0 and beyond gammah, i.e. it does 'more of the same'. In doing so, 
+# b amplifies the phase advance that gammah has relative to gamma0, thereby 
+# acquiring an additional lead relative to gammah itself.
+#
+# However, in some non-standard cases, gammah does not lead gamma0 at frequency 
+# zero. This is discussed in Wildi (2026, Appendix A). In such a case, a
+# lead by the DFP predictor is obtained when either
+#
+#   (i)  b lies between gamma0 and gammah, or
+#
+#   (ii) b lies on the opposite side of gamma0 relative to gammah
+#        (gamma0 lies between gammah and b)
+#
+# Counterintuitively, in the non-standard case the objective function is
+# inverted in sign: rather than maximising the correlation with gammah
+# (the MSE predictor, as in the standard case), the DFP minimises it.
+# This highlights that designing predictors with genuine look-ahead
+# behaviour is more challenging and subtle than it may first appear.
 
 
 
