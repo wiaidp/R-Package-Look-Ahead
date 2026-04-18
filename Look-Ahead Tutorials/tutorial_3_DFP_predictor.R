@@ -1944,8 +1944,127 @@ taub - tauh
 
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.11 Apply Predictors to a (Business-) Cycle
+# ─────────────────────────────────────────────────────────────────────
+# Purpose:
+# Verify spillover of the shift to frequencies nearby trend zero.
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.11.1 Generate (Business-) Cycle
+# ─────────────────────────────────────────────────────────────────────
+# Apply all four filters to a cosine with periodicity of 5 years in 
+# in a monthly data framework.
+
+len <- 120
+# Five year periodicity:
+omega<-pi/(5*6)
+x   <- cos(omega*(1:len))
+
+# Apply each filter to x using one-sided (causal) filters and
+# collect outputs as columns of y_out_mat
+y_out_mat <- filter(x, filter_mat[, 1], side = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+colnames(y_out_mat) <- col_names
+
+par(mfrow = c(1, 1))
+# Plot all four trend outputs (unscaled) to reveal differences in
+# amplitude and timing across predictors
+ts.plot(y_out_mat,
+        main = "Cycle Outputs: Unscaled Predictors",
+        col  = colo, xlab = "", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
+
+# Observation: the completely decoupled DFP (red) INVERTS the phase.
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.11.2 Rescale to Unit Amplitude
+# ─────────────────────────────────────────────────────────────────────
+# Three modifications are applied for a verification of the time-shift 
+# constraint:
+#   1. Remove the completely decoupled DFP (trend-inverting; not meaningful
+#      as a look-ahead predictor for a linear trend).
+#   2. Rescale the remaining filters so that each has unit gain at
+#      frequency zero, i.e. divide each filter by its coefficient sum.
+#      This normalises out amplitude differences and isolates timing (lead)
+#      differences across predictors.
+#   3. Shorten the trend path (smaller len) for visual clarity.
+
+# Apply each of the three remaining filters, normalised to unit gain at omega=0.
+# Dividing by sum(filter) ensures Gamma(0) = 1 for each predictor.
+y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), side = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), side = 1))
+colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decoupled label
+
+# Shift all outputs downward so that the trend lines are separated vertically
+# for easier visual comparison (pure display adjustment, no analytical effect)
+mplot <- y_out_mat - min(y_out_mat, na.rm = T) - 5
+
+
+par(mfrow = c(1, 1))
+# Plot the rescaled trend outputs; horizontal leads between curves are now
+# directly interpretable as time-shifts at frequency zero
+ts.plot(na.exclude(mplot),
+        main = "Cycle Outputs: Unit-Amplitude Predictors",
+        col  = colo, xlab = "", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
+
+# The observed left-shifts reflect the time-shift differences: we now verify
+# that the observed empirical shifts match the theoretical expressions.
+
+# ─────────────────────────────────────────────────────────────────────
+# Verification checks
+# ─────────────────────────────────────────────────────────────────────
+
+# Check 1: lead of the MSE predictor (gammah) over the nowcast (gamma0)
+# -----------------------------------------------------------------------
+# Compute the effective lead from the trend outputs directly:
+# In constrast to the linear trend, the lead here is found be taking the distance between maxima or minima of the cycle
+find_max_mat<-head(na.exclude(cbind(y_out_mat[, col_names[1]] , y_out_mat[, col_names[1]])),20)
+# Maximum of nowcast
+max_now<-which(find_max_mat[,1]==max(find_max_mat[,1]))
+# Maximum of DFP-shift (shifted by tau=-2 at frequency zero)
+max_mse<-which(find_max_mat[,2]==max(find_max_mat[,2]))
+# Zero delay: the predictor is coincident with the nowcast (x_t):
+max_mse-max_now
+# Compare with the closed-form time-shift difference at frequency zero
+# (derived in Tutorial 2):
+tauh - tau0
+
+# The original lead at frequency zero of the MSE predictor has vanished
+# at frequency omega=pi/30. We now verify if the DFP (shifted by tau=-2 
+# at zero-frequency) can maintain part of its lead at omega=pi/30>0
+
+
+
+# Check 2: lead of the DFP predictor (b_opt) over the MSE predictor (gammah)
+# ---------------------------------------------------------------------------
+# Inspect column names to confirm ordering before differencing
+col_names
+
+# In constrast to the linear trend, the lead here is found be taking the distance between maxima or minima of the cycle
+find_max_mat<-head(na.exclude(cbind(y_out_mat[, col_names[2]] , y_out_mat[, col_names[3]])),20)
+# Maximum of MSE (gammah)
+max_dfp<-which(find_max_mat[,2]==max(find_max_mat[,2]))
+
+# Outcome: the empirical shift is still approximately 2 time units at omega=pi/30
+max_dfp-max_mse
+
+# Compare with the lead imposed via the DFP time-shift constraint:
+taub - tauh
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.12 Amplitude and Time-Shifts
+# ─────────────────────────────────────────────────────────────────────
 
 
 
