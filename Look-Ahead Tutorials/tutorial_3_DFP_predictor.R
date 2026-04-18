@@ -1812,7 +1812,12 @@ ccf(y_out_mat[,1],y_out_mat[,4],main="DFP-fully-decoupled vs. MSE",lag.max=10)
 #    suggesting that the fully decoupled DFP may be exploiting the natural
 #    mean-reversion tendency of gammah.
 #
-# 3. The CCF pattern of the fully decoupled DFP pushes to an extreme the
+# 3. With regrads to mean-revesrion, jsut doing the opposite of gammah is not a feasible strategy
+#   becuase the correlation with gammah must be `large'. Thus the DFP addresses 
+#   an internal consistency in a rationale optimization framework.
+
+#
+# 4. The CCF pattern of the fully decoupled DFP pushes to an extreme the
 #    asymmetry already introduced by the more mildly decoupled DFP time-shift
 #    predictor. This raises the question of interpretability and consistency
 #    of aggressive look-ahead designs.
