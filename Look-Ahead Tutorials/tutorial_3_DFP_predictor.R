@@ -1016,7 +1016,7 @@ ar_mse_ar3 <- conv_two_filt_func(filt1, filt2)$conv
 
 # b. DFP predictors: convolve AR(3) operator with each DFP filter.
 ar_dfp_ar3_mat <- NULL
-for (i in 1:length(alpha0_vec)) {
+for (i in 1:ncol(filter_mat)) {
   # Use the original (unscaled) DFP predictor.
   filt2          <- filter_mat[, i]
   ar_dfp_ar3_mat <- cbind(
@@ -1024,26 +1024,40 @@ for (i in 1:length(alpha0_vec)) {
     conv_two_filt_func(filt1, filt2)$conv
   )
 }
+colnames(ar_dfp_ar3_mat)<-colnames(filter_mat)
 
 # --------------------------------------------------------------------------
 # 2.6.3 Analysis and Plot of DFP Predictors in AR Form
 # --------------------------------------------------------------------------
-# Only the first coefficient of the AR-form DFP predictor varies across
-# designs; all higher-order coefficients are identical.
-# Theoretical explanation (Wildi 2026, Section 3.1, Equation 19):
-#   The DFP predictor is defined as b = gammah + lambda * gamma0.
-#   AR-inversion of gamma0 yields lambda * identity, so only the first
-#   AR weight is affected by lambda.
-#   Since gammah is fixed and convolution is linear, the first weight is
-#   the only one that differs across DFP designs.
-# Note: this simple structure no longer holds for the PCS predictor 
-# (Tutorial 4), where PCS = gammah + lambda * (gamma_{h-1} - gammah), 
-# which involves a more complex AR-inversion.
+# Key structural property of the DFP predictor in AR form:
+#
+# Only the FIRST AR coefficient varies across DFP designs; all higher-order
+# AR coefficients are identical regardless of the chosen lambda.
+#
+# Theoretical justification (Wildi 2026, Section 3.1, Equation 19):
+#   The DFP filter is defined as:
+#     b = gammah + lambda * gamma0
+#   When b is converted to AR form by inverting gamma0, the term
+#   lambda * gamma0 maps to lambda * identity (a pure scalar shift).
+#   Because gammah is fixed and convolution is linear, this scalar shift
+#   affects only the first AR coefficient, leaving all higher-order
+#   coefficients unchanged across DFP designs.
+
+# Assign colours: green for the baseline (MSE), rainbow for DFP variants
+colo <- c("green", rainbow(ncol(filter_mat) - 1))
+
+# Plot the first 5 AR coefficients of each DFP predictor to highlight
+# the structural invariance: only the first coefficient differs across designs
 ts.plot(
   ar_dfp_ar3_mat[1:5, ],
-  col  = rainbow(ncol(ar_dfp_ar3_mat)),
-  main = "Method B: DFP predictors in AR form"
+  col  = colo,
+  main = "Method B: DFP Predictors in AR Form"
 )
+
+# Add colour-coded in-plot labels for each predictor
+for (i in 1:ncol(ar_dfp_ar3_mat))
+  mtext(colnames(ar_dfp_ar3_mat)[i], col = colo[i], line = -i)
+
 
 # --------------------------------------------------------------------------
 # 2.6.4 Verification: Comparing MA and AR Forms
@@ -1086,11 +1100,81 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 # truncated to a finite length L. As L increases, the difference between the 
 # MA and AR implementations vanishes asymptotically.
 
+# ─────────────────────────────────────────────────────────────────────
+# --- Interpretation and Remarks on Exercise 2.6 (AR-Form DFP) ---
+# ─────────────────────────────────────────────────────────────────────
+#
+# 1. Structural simplicity of the DFP in AR form:
+#    The entire DFP effect is absorbed into a single AR
+#    coefficient — the weight on the most recent observation x_t. This makes
+#    the AR form compact and seemingly easy to interpret.
+#
+#    Interpretability — Part I (AR-form perspective):
+#      - Reducing the weight on x_t lowers the correlation between the
+#        predictor output and x_t, directly controlling the degree of
+#        decoupling.
+#      - Complete decoupling (alpha0 = 0) corresponds to the design where
+#        this correlation is driven to zero. Importantly, zero correlation
+#        does NOT imply that the weight on x_t vanishes — it is the
+#        interplay of all filter coefficients that achieves orthogonality.
+#
+# 2. The DFP as a Partial 'Black Box':
+#    Despite the clean AR-form structure, the DFP constraint does not directly
+#    reveal its look-ahead behaviour. While alpha0 controls the degree of
+#    decoupling, it is not immediately obvious how decoupling translates into
+#    an interpretable lead of the predictor (over the MSE benchmark).
+#
+#    To make this precise: a useful predictor must satisfy two conditions:
+#      - NECESSARY condition:  the predictor must be decoupled from the
+#                              current data x_t (low correlation with x_t),
+#                              so that it is not merely echoing the present, 
+#                              see tutorial 1.
+#      - SUFFICIENT condition: the predictor must genuinely anticipate future
+#                              values, i.e. it must lead the MSE predictor by a
+#                              meaningful and quantifiable amount.
+#
+#    The DFP constraint directly addresses the necessary condition (decoupling)
+#    via alpha0, but leaves the sufficient condition (actual lead behaviour)
+#    implicit. It is not guaranteed that a given alpha0 produces a predictor
+#    that leads the target by any specific or desirable amount. 
+#
+#    Exercise 3 below partly resolves this gap by re-parameterising alpha0 in terms
+#    of a pre-specified lead at the trend frequency (frequency zero), thereby
+#    making the sufficient condition explicit — at least for the trend component.
+#
+# 3. Interpretability — Part II: DFP vs. PCS (Tutorial 4):
+#    Even with the frequency-zero re-parameterisation of Exercise 3, the DFP
+#    concept remains less directly `look ahead' interpretable than the Peak 
+#    Correlation Shifting (PCS) predictor introduced in Tutorial 4. The key 
+#    distinction is the scope of the `lead' constraint:
+#
+#      - PCS addresses the lead of the predictor in an AGGREGATE sense,
+#        not only at the trend frequency omega = 0. This makes the PCS 
+#        constraint directly meaningful in terms of the predictor's overall 
+#        timing behaviour (the `sufficiency' part).
+#
+#      - As a consequence of this specific `look ahead' constraint, the PCS 
+#        effect generally spreads across all AR lags rather than being
+#        confined to the first coefficient as in the DFP. The filter (predictor)
+#        structure is therefore more complex.
+#
+#    In summary, the two approaches present an interpretability-complexity
+#    trade-off:
+#
+#      DFP — simpler filter/predictor structure (only the first AR coefficient is
+#            affected); seemingly easy to interpret (decrease weight on x_t),
+#            but the resulting look-ahead effect, while necessary, is less 
+#            straightforward to evaluate in terms of sufficiency.
+#
+#      PCS — more complex filter/predictor structure (all coefficients of the 
+#            AR form are affected), but the look-ahead effect is directly 
+#            interpretable as an aggregate lead. 
 
 
-# --------------------------------------------------------------------------
+
+# ─────────────────────────────────────────────────────────────────────
 # 2.7 Geometry of the MSE-DFP Predictor
-# --------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
 # This figure (reproduced from Wildi 2026) illustrates the geometry of
 # the MSE-DFP solution in the plane spanned by gamma0 (nowcast) and
 # gammah (MSE predictor).
@@ -1234,8 +1318,9 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
      labels = expression(alpha), col = "red", cex = 1.2)
 
 
+
 # ════════════════════════════════════════════════════════════════════
-# Exercise 3: MSE-DFP with Time-Shift DFP Constraint
+# Exercise 3: MSE-DFP: Interpretable Time-Shift DFP Constraint
 # ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1246,7 +1331,9 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 # MSE-DFP formulation lacks a straightforward interpretation: its effect on the
 # predictor cannot easily be expressed in terms of an observable or intuitive
 # quantity (unlike the correlation-based interpretation available for the
-# unit-length DFP in Exercise 1).
+# unit-length DFP in Exercise 1). Moreover, as discussed above, it is unclear 
+# how the neccessary decoupling from the present x_t also addresses sufficient
+# look-ahead behaviour in terms of a lead over the MSE benchmark.
 #
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
 # the time-shift (phase delay) at frequency zero — the trend frequency —
