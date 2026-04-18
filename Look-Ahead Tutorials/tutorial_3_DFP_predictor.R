@@ -2063,10 +2063,18 @@ taub - tauh
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.12 Amplitude and Time-Shifts
+# 3.12 Cycle + Noise
 # ─────────────────────────────────────────────────────────────────────
 
+# Outcome: the DFP cannot anticipate high-frequency noise. But we know from the previous
+# exercise that it can anticipate cyclical turing-points. So if the signal (the cycle) 
+# is stron enough, the DFP will lead the classic MSE predictor gammah at the cycle turning-points.
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.13 Amplitude and Time-Shifts
+# ─────────────────────────────────────────────────────────────────────
+
+# Include complete decoupling: complete decoupling emphasizes leads at higher frequencies!!!!
 
 
 
