@@ -226,7 +226,7 @@ h <- 5   # forecast horizon parameter passed to CCF utility
 # Expected peak: at lag = shift (= 1), confirming the one-period offset.
 max_lead <- 5
 
-compute_ccf_func(b2, b1, h, max_lead )
+compute_ccf_func(b2, b1 )
 
 
 # ── 2.3 Time-Shift Function ───────────────────────────────────────────
@@ -294,7 +294,7 @@ ts.plot(cbind(b1, b2),xlab="",ylab="",
 max_lag <- 5
 h <- 0   # forecast horizon parameter passed to CCF utility
 
-compute_ccf_func(b2, b1, h, max_lag, L)
+compute_ccf_func(b2, b1)
 # Note: CCF peaks at lag 0 — both filters respond at the same time point,
 #       though they differ in how they weight past observations.
 
@@ -455,10 +455,10 @@ y2_trend <- filter(x, b2, side = 1)
 # for normalised filters this is 1, but we read it from the computed object for
 # generality (stored at index 1, corresponding to omega = 0).
 amp1_trend <- as_obj1$amp[1]
-  amp2_trend <- as_obj2$amp[1]
+amp2_trend <- as_obj2$amp[1]
   
-  # Construct analytical predictions for the trend case
-  x_shift_amp_trend1 <- amp1_trend * (-shift1_trend + (1:len))
+# Construct analytical predictions for the trend case
+x_shift_amp_trend1 <- amp1_trend * (-shift1_trend + (1:len))
 x_shift_amp_trend2 <- amp2_trend * (-shift2_trend + (1:len))
 
 par(mfrow = c(2, 1))

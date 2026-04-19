@@ -1,4 +1,4 @@
-DFP_compute_lambda_alpha0_func<-function(gamma0,gammah,h,L,alpha0)
+unitary_DFP_func<-function(gamma0,gammah,alpha0)
 {
   # First case: gamma0 and gammah are not orthogonal  
   if (abs( t(gamma0)%*%gammah)>1.e-10)
@@ -85,7 +85,7 @@ compute_mse_dfp<-function(alpha0,gamma0,gammah,plot_T=F)
 }
 
 
-dfp_from_tau_func<-function(gamma0,gammah,lead)
+mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 {
   # Compute shifts at frequency zero
   tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
@@ -100,7 +100,7 @@ dfp_from_tau_func<-function(gamma0,gammah,lead)
 
 
 
-dfp_from_alpha0_func<-function(gamma0,gammah,alpha0)
+mse_dfp_from_alpha0_func<-function(gamma0,gammah,alpha0)
 {
   lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
   b<-gammah+lambda*gamma0
