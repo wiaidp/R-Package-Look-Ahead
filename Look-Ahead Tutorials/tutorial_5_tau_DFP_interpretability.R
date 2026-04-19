@@ -65,6 +65,11 @@ source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 # Load general DFP/PCS utility functions (amplitude, time-shift, CCF helpers)
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
+library(xts)
+
+# Load data from FRED using the alfred library (no API key required).
+install.packages("alfred")
+library(alfred)
 
 
 
@@ -917,13 +922,160 @@ for (i in 1:ncol(mplot))
 # 2.3.3 Amplitude and Time-Shifts
 # ─────────────────────────────────────────────────────────────────────
 
-# Include complete decoupling: complete decoupling emphasizes leads at higher frequencies!!!!
+K      <- 600      # number of frequency grid points
+plot_T <- FALSE    # suppress internal plotting; we build a custom plot below
+amp_mat<-shift_mat<-NULL
+for (i in 1:ncol(filter_mat))
+{
+  as_obj <- amp_shift_func(K, filter_mat[,i], plot_T)   # time-shift for lagged filter (b1)
+  amp_mat<-cbind(amp_mat,as_obj$amp)
+  shift_mat<-cbind(shift_mat,as_obj$shift)
+}
+colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
+
+
+# Plot time-shift functions for both filters across frequencies [0, π]
+par(mfrow = c(1, 2))
+colo <- c("black", "green", "blue", "red")
+mplot <- amp_mat
+
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Amplitude functions",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+
+mplot <- shift_mat
+mplot[which(mplot[,ncol(mplot)]<(-2)),ncol(mplot)]<-NA
+
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Time-shift functions",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
+#mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+#  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# Outcome:
+# 1. Amplitude:
+#   -All filters are lowpass. Only the fully-decoupled (red) does not have a monotonically decaying amplitude.
+#   -The MSE amplitude (green) is close to the process (black) illustrating the `stuck to present' problem.
+#   -The DFP amplitudes are smaller at lower frequencies and larger at higher frequencies: ATS trilemma.
+#     -They generate more high-frequency noise relative to low frequency signal.
+# 2. Time shifts
+#   -MSE (green) and process (black) are close: `stuck at present problem'.
+#   -The DFP (blue) time-shift is exactly tau=-2 smaller than MSE at frequency zero.
+#   -The frequency-domain shifts at frequency zero confirm the time-domain time-shifts computed in the performance table of 
+#    exercise 1.10: the MSE predictor lags a linear time trend by 4 time units.
+#   -The lead of DFP (blue) over MSE (green) is fairly stable in a vicinity of frequency zero: 
+#    this confirms the lead at business-cycles frequencies in exercise 2.2 and 2.3.
+#   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.4 Application to Monthly Macro Indicator: PAYEMS
 # ─────────────────────────────────────────────────────────────────────
 
 
+# Problem: should compute AR-form or transform PAYEMS in innovations???
+
+# Set reload_data = TRUE to download the latest vintage from FRED;
+# set to FALSE to load the previously saved local copy.
+reload_data <- FALSE
+
+if (reload_data) {
+  PAYEMS <- get_fred_series("PAYEMS", series_name = "GDP")
+  PAYEMS <- as.xts(PAYEMS)
+  save(PAYEMS, file = file.path(getwd(), "Data", "PAYEMS"))
+} else {
+  load(file = file.path(getwd(), "Data", "PAYEMS"))
+}
+
+# Inspect the series endpoints to confirm the loaded vintage.
+head(PAYEMS)
+tail(PAYEMS)
+
+# Extract the post-1990, pre-pandemic sub-sample in log-levels.
+y   <- as.double(log(PAYEMS["1990::2019"]))
+len <- length(y)
+names(y)<-index(PAYEMS["1990::2019"])
+plot(y,main = "Log(PAYEMS): 1990–2019",
+     type = "l", axes = F,
+     xlab = "", ylab = "")
+axis(1, at = 1:length(y),
+     labels = names(y))
+axis(2)
+box()
+
+x<-diff(y)
+# The dependence structure is similar to above AR(3): slowly monotonically 
+# decaying ACF: 
+acf(x)
+
+# We can fit a model to the data and run the code in exercise 1 or
+# we can apply the existing predictors, without data fitting.
+
+select_predictors<-1:3
+filter_payems<-filter_mat[,select_predictors]
+colnames(filter_payems)<-colnames(filter_mat)[select_predictors]
+coli<-colo[select_predictors]
+
+
+
+
+# Apply each filter to x using one-sided (causal) filters and
+# collect outputs as columns of y_out_mat
+y_out_mat<-NULL
+for (i in 1:ncol(filter_payems))
+  y_out_mat <- cbind(y_out_mat, filter(x, filter_payems[, i], side = 1))
+colnames(y_out_mat)<-colnames(filter_payems)
+rownames(y_out_mat)<-names(x)
+
+par(mfrow = c(1, 1))
+# Plot all four trend outputs (unscaled) to reveal differences in
+# amplitude and timing across predictors
+mplot<-y_out_mat
+plot(mplot[, 1], type = "l", axes = FALSE, xlab = "", ylab = "",
+     main = "MSE and DFP applied to log-diff PAYEMS",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = coli[1])
+mtext(colnames(mplot)[1], line = -1, col = coli[1])
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = coli[i])
+  mtext(colnames(mplot)[i], col = coli[i], line = -i)
+}
+abline(h=0)
+axis(1, at     = 1:nrow(mplot),
+     labels = rownames(mplot))
+axis(2)
+box()
+
+
+
+
+
+
+# Outcome: 
+# The DFP is left-shifted
 
 
 
