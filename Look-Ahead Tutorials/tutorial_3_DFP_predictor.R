@@ -2004,7 +2004,7 @@ colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decouple
 
 # Shift all outputs downward so that the trend lines are separated vertically
 # for easier visual comparison (pure display adjustment, no analytical effect)
-mplot <- y_out_mat - min(y_out_mat, na.rm = T) - 5
+mplot <- y_out_mat 
 
 
 par(mfrow = c(1, 1))
@@ -2066,9 +2066,74 @@ taub - tauh
 # 3.12 Cycle + Noise
 # ─────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.12.1 Generate (Business-) Cycle
+# ─────────────────────────────────────────────────────────────────────
+# Apply all four filters to a cosine with periodicity of 5 years in 
+# in a monthly data framework.
+
+len <- 240
+set.seed(1)
+eps<-rnorm(len)
+# Five year periodicity:
+omega<-pi/(5*6)
+# Cycle plus noise
+x   <- cos(omega*(1:len))+eps
+
+
+# Apply each filter to x using one-sided (causal) filters and
+# collect outputs as columns of y_out_mat
+y_out_mat <- filter(x, filter_mat[, 1], side = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+colnames(y_out_mat) <- col_names
+
+par(mfrow = c(1, 1))
+# Plot all four trend outputs (unscaled) to reveal differences in
+# amplitude and timing across predictors
+ts.plot(y_out_mat,
+        main = "Cycle Outputs: Unscaled Predictors",
+        col  = colo, xlab = "", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
+
+# Observation: the completely decoupled DFP (red) INVERTS the phase.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.12.2 Rescale to Unit Amplitude
+# ─────────────────────────────────────────────────────────────────────
+
+# Apply each of the three remaining filters, normalised to unit gain at omega=0.
+# Dividing by sum(filter) ensures Gamma(0) = 1 for each predictor.
+y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), side = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), side = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), side = 1))
+colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decoupled label
+
+# Shift all outputs downward so that the trend lines are separated vertically
+# for easier visual comparison (pure display adjustment, no analytical effect)
+mplot <- na.exclude(y_out_mat) 
+
+
+par(mfrow = c(1, 1))
+# Plot the rescaled trend outputs; horizontal leads between curves are now
+# directly interpretable as time-shifts at frequency zero
+ts.plot(mplot,
+        main = "Cycle Outputs: Unit-Amplitude Predictors",
+        col  = colo, xlab = "", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
+
+
 # Outcome: the DFP cannot anticipate high-frequency noise. But we know from the previous
-# exercise that it can anticipate cyclical turing-points. So if the signal (the cycle) 
-# is stron enough, the DFP will lead the classic MSE predictor gammah at the cycle turning-points.
+# exercise that it can anticipate cyclical turning-points. So if the signal (the cycle) 
+# is strong enough, the DFP will lead the classic MSE predictor gammah at the cycle turning-points.
+# The plot suggests that the DFp is left-shifted (leading). But the noise is stronger in 
+# relative terms. Amplitude and time-shifts will provide more insight.
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.13 Amplitude and Time-Shifts
