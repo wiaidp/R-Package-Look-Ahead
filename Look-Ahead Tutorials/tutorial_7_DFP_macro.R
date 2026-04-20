@@ -551,6 +551,139 @@ box()
 #   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Exercise 2 AR Form
+# ─────────────────────────────────────────────────────────────────────
+# We now convert the MA-form predictors to their AR equivalents by
+# convolving each predictor with the AR(3) operator. A similar proceeding
+# applies to the unitary DFP in tutorial 3.
+
+# --------------------------------------------------------------------------
+# 2.1 Validation of the Convolution Approach
+# --------------------------------------------------------------------------
+# Specify the predictor matrix: MSE filter and DFP filters.
+filter_mat          <- cbind(gammah, b_mat)
+colnames(filter_mat) <- c("MSE", colnames(b_mat))
+
+# Verify the approach via a known identity:
+# Convolving the AR(3) operator with its Wold (MA) decomposition must
+# yield the identity filter (i.e., the convolution output is 1 followed
+# by zeros).
+filt1 <- c(1, -ar1, -ar2, -ar3)  # AR(3) operator
+filt2 <- gamma                    # Wold (MA) decomposition of the AR(3)
+conv_two_filt_func(filt1, filt2)$conv[1:10]
+
+# Having confirmed the identity, we now convolve the AR(3) operator with
+# the MSE and DFP predictors (in MA form) to obtain their AR equivalents.
+
+# --------------------------------------------------------------------------
+# 2.2 Convolution of the AR(3) Operator with the Predictors
+# --------------------------------------------------------------------------
+
+# a. MSE predictor: convolve AR(3) operator with the MSE filter.
+filt1      <- c(1, -ar1, -ar2, -ar3)
+filt2      <- gammah
+ar_mse_ar3 <- conv_two_filt_func(filt1, filt2)$conv
+
+# b. DFP predictors: convolve AR(3) operator with each DFP filter.
+ar_dfp_ar3_mat <- NULL
+for (i in 1:ncol(filter_mat)) {
+  # Use the original (unscaled) DFP predictor.
+  filt2          <- filter_mat[, i]
+  ar_dfp_ar3_mat <- cbind(
+    ar_dfp_ar3_mat,
+    conv_two_filt_func(filt1, filt2)$conv
+  )
+}
+colnames(ar_dfp_ar3_mat)<-colnames(filter_mat)
+
+# --------------------------------------------------------------------------
+# 2.3 Analysis and Plot of DFP Predictors in AR Form
+# --------------------------------------------------------------------------
+# Key structural property of the DFP predictor in AR form:
+#
+# Only the FIRST AR coefficient varies across DFP designs; all higher-order
+# AR coefficients are identical regardless of the chosen lambda.
+#
+# Theoretical justification (Wildi 2026, Section 3.1, Equation 19):
+#   The DFP filter is defined as:
+#     b = gammah + lambda * gamma0
+#   When b is converted to AR form by inverting gamma0, the term
+#   lambda * gamma0 maps to lambda * identity (a pure scalar shift).
+#   Because gammah is fixed and convolution is linear, this scalar shift
+#   affects only the first AR coefficient, leaving all higher-order
+#   coefficients unchanged across DFP designs.
+
+# Assign colours: green for the baseline (MSE), rainbow for DFP variants
+colo <- c("green", rainbow(ncol(filter_mat) - 1))
+
+# Plot the first 5 AR coefficients of each DFP predictor to highlight
+# the structural invariance: only the first coefficient differs across designs
+ts.plot(
+  ar_dfp_ar3_mat[1:5, ],
+  col  = colo,
+  main = "Method B: DFP Predictors in AR Form"
+)
+
+# Add colour-coded in-plot labels for each predictor
+for (i in 1:ncol(ar_dfp_ar3_mat))
+  mtext(colnames(ar_dfp_ar3_mat)[i], col = colo[i], line = -i)
+
+
+# --------------------------------------------------------------------------
+# 2.4 Verification: Comparing MA and AR Forms
+# --------------------------------------------------------------------------
+# We verify that both forms produce numerically identical outputs when applied 
+# to their respective inputs:
+#   - AR form applied to observed data x.
+#   - MA form applied to white noise innovations eps.
+
+# Illustration: the convolution of an AR-form DFP filter with its MA-form
+# counterpart does NOT yield the identity.
+# Select any of the filters in filter_mat:
+k     <- 4
+# k cannot be larger than column dimension of filter_mat
+k<-min(k,ncol(filter_mat))
+
+# Simulate an AR(3) process to verify output equivalence.
+set.seed(1)
+len <- 1000
+x   <- eps <- rnorm(len)
+for (i in 4:len) {
+  x[i] <- ar1 * x[i-1] + ar2 * x[i-2] + ar3 * x[i-3] + eps[i]
+}
+
+y_dfp_ma <- y_dfp_ar <- rep(NA, len)
+
+# Apply the MA form to the innovations eps.
+y_dfp_ma<-filter(eps,filter_mat[, k])
+# Apply the AR form to the observed series x.
+y_dfp_ar<-filter(x,ar_dfp_ar3_mat[, k])
+
+# Both outputs should be numerically identical up to negligible errors
+# arising from finite-length MA/AR truncation.
+ts.plot(cbind(y_dfp_ma, y_dfp_ar)[1:200, ],main="AR- and MA-forms overlap exactly")
+
+# Confirm: the maximum absolute difference is negligible.
+max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
+# Note on approximation accuracy:
+# Any residual discrepancy arises because the filters gamma0 and gammah are
+# truncated to a finite length L. As L increases, the difference between the 
+# MA and AR implementations vanishes asymptotically.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1033,20 +1166,17 @@ axis(1, at = 1 + 0:6 * K / 6,
 axis(2)
 box()
 
-# Outcome:
-# 1. Amplitude:
-#   -All filters are lowpass. Only the fully-decoupled (red) does not have a monotonically decaying amplitude.
-#   -The MSE amplitude (green) is close to the process (black) illustrating the `stuck to present' problem.
-#   -The DFP amplitudes are smaller at lower frequencies and larger at higher frequencies: ATS trilemma.
-#     -They generate more high-frequency noise relative to low frequency signal.
-# 2. Time shifts
-#   -MSE (green) and process (black) are close: `stuck at present problem'.
-#   -The DFP (blue) time-shift is exactly tau=-2 smaller than MSE at frequency zero.
-#   -The frequency-domain shifts at frequency zero confirm the time-domain time-shifts computed in the performance table of 
-#    exercise 1.10: the MSE predictor lags a linear time trend by 4 time units.
-#   -The lead of DFP (blue) over MSE (green) is fairly stable in a vicinity of frequency zero: 
-#    this confirms the lead at business-cycles frequencies in exercise 2.2 and 2.3.
-#   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
 
+# Discussion
+# Decoupling from present is a necessary but not sufficient condition to induce a lead over the MSE predictor
+# Imposing a smaller time-shift at frequency zero works for a linear trend but 
+# we do not control how the lead also spills over to adjacent relevant freuencies (e.g., business-cycles).
+# Depending on the DGP model for PAYEMS, the DFP is effectively leading or lagging depending on the model.
+#  -In both cases the lead for a linear trend is the same.
+#   -but the lead does not spread equally to bsuiness-cycle frequencies.
+# Problem ARMA(1,1): peak at lag 0 in xi.
+
+
+# Need a more refined design which addresses aggregate lead (not only at frequency 0): PCS
 
 
