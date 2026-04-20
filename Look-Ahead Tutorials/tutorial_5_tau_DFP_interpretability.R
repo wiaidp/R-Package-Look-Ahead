@@ -3,7 +3,7 @@
 # PART 3: Time-Shift Constraint and Interpretability
 # ════════════════════════════════════════════════════════════════════
 
-# A brief overview is provided in tutorial_3_introduction.r
+# A brief overview on the DFP is provided in tutorial_3_introduction.r
 
 # ── TWO OPTIMISATION FORMS ────────────────────────────────────────────
 # DFP can be formulated in two equivalent but complementary ways:
@@ -267,7 +267,7 @@ t(bu)%*%gamma0/sqrt(t(gamma0)%*%gamma0)-alpha0
 t(b_tau)%*%gamma0-alpha0
 
 # Compare both DFP predictors
-ts.plot(cbind(bu,b0),col=c("red","blue"),xlab="",main="Unitary and MSE DFP for a given (the same) alpha0")
+ts.plot(cbind(bu,b_tau/sqrt(as.double(t(b_tau)%*%b_tau))),col=c("red","blue"),xlab="",main="Unitary and MSE DFP for a given (the same) alpha0")
 mtext("Unitary DFP",col="red",line=-1)
 mtext("MSE DFP",line=-2,col="blue")
 
@@ -940,7 +940,7 @@ colo <- c("black", "green", "blue", "red")
 mplot <- amp_mat
 
 plot(mplot[, 1], type = "l", axes = FALSE,
-     xlab = "Frequency", ylab = "Time shift (periods)",
+     xlab = "Frequency", ylab = "Amplitude",
      main = "Amplitude functions",
      ylim = c(min(mplot), max(mplot)), col = colo[1])
 mtext(colnames(mplot)[1], line = -1, col = colo[1])
@@ -995,9 +995,11 @@ box()
 # ─────────────────────────────────────────────────────────────────────
 # 2.4 Application to Monthly Macro Indicator: PAYEMS
 # ─────────────────────────────────────────────────────────────────────
+# This is a first incomplete and partly false application of DFP to the 
+# monthly US employment PAYEMS indicator.
 
-
-# Problem: should compute AR-form or transform PAYEMS in innovations???
+# A more refined complete and corrected application to the indicator is 
+# given in tutorial 7.
 
 # Set reload_data = TRUE to download the latest vintage from FRED;
 # set to FALSE to load the previously saved local copy.
@@ -1016,6 +1018,8 @@ head(PAYEMS)
 tail(PAYEMS)
 
 # Extract the post-1990, pre-pandemic sub-sample in log-levels.
+# Log transformation addresses non-stationarity in the variance as the level 
+# of the series evolves. 
 y   <- as.double(log(PAYEMS["1990::2019"]))
 len <- length(y)
 names(y)<-index(PAYEMS["1990::2019"])
@@ -1027,6 +1031,9 @@ axis(1, at = 1:length(y),
 axis(2)
 box()
 
+# We consider (stationary) first differences of the log-series:
+# The log stabilizes the variance.
+# The difference stabilizes the level.
 x<-diff(y)
 # The dependence structure is similar to above AR(3): slowly monotonically 
 # decaying ACF: 
@@ -1034,7 +1041,10 @@ acf(x)
 
 # We can fit a model to the data and run the code in exercise 1 or
 # we can apply the existing predictors, without data fitting.
-
+# Specifically, we select AR(3), MSE and DFP (shifted by tau) and compare
+# their effects on the data.
+# Given the above `cycle' analysis, we expect AR(3) and its 3-step MSE 
+# predictor to be coincident, while the DFP should lead. 
 select_predictors<-1:3
 filter_payems<-filter_mat[,select_predictors]
 colnames(filter_payems)<-colnames(filter_mat)[select_predictors]
@@ -1071,10 +1081,9 @@ box()
 
 
 
-
-
-
 # Outcome: 
-# The DFP is left-shifted
+# The DFP is left-shifted (leading) but the noise is stronger in relative terms.
+# This effect (worse signal to noise ratio) has been explained with the 
+# amplitude functions above.
 
 

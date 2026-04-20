@@ -18,6 +18,119 @@ conv_two_filt_func<-function(filt1,filt2)
 }
 
 
+
+
+# Multivariate convolution for M-SSA: 
+# Care: ordering of filters is relevant since matrix multiplication is generally not commutative
+#   -Ordering is irrelevant if one of the sequence is diagonal (so that matrix multiplication is commutative)
+# It is assumed that filters are transposed i.e. nrow=n and ncol=n*L
+M_conv_two_filt_func<-function(filt1,filt2)
+{
+  # filt1<-t(bk_mat)  filt2<-xi
+  n<-dim(filt1)[1]
+  if (n!=dim(filt2)[1])
+  {
+    print("Filter dimension n differ")
+    return()
+  }
+  if (ncol(filt1)!=ncol(filt2))
+  {
+    print("Filter lengths differ")
+    return()
+  }
+  # Filter length (for each series, i=1,...,n)  
+  L<-ncol(filt1)/n
+  # Initialize convolution as a corresponding matrix with zeroes  
+  conv<-0*filt1
+  for (i in 1:L)#i<-2
+  {
+    for (j in 1:i)#j<-2
+    {
+      conv[,i+(0:(n-1))*L]<-conv[,i+(0:(n-1))*L]+filt1[,j+(0:(n-1))*L]%*%filt2[,i+1-j+(0:(n-1))*L]
+      #        filt1[1:i]*filt2[i:1]
+    }
+  }  
+  return(list(conv=conv))
+}
+
+
+
+
+
+
+
+# Convolution with summation filter (unit-root assumption)
+conv_with_unitroot_func<-function(filt)
+{
+  conv<-filt
+  L<-length(filt)
+  for (i in 1:L)
+  {
+    conv[i]<-sum(filt[1:i])
+  }  
+  return(list(conv=conv))
+}
+
+# Deconvolute filt2 from filt1: filt1 is the convolution
+# See section 2 of JBCY paper
+deconvolute_func<-function(filt1,filt2)
+{
+  filt1<-as.vector(filt1)
+  filt2<-as.vector(filt2)
+  if (length(filt1)<length(filt2))
+    filt1<-c(filt1,rep(0,length(filt2)-length(filt1)))
+  if (length(filt2)<length(filt2))
+    filt2<-c(filt2,rep(0,length(filt1)-length(filt2)))
+  
+  # filt1<-as.vector(gammak_mse)    filt2<-as.vector(hp_mse)
+  L<-length(filt1)
+  dec_filt<-filt1
+  dec_filt[1]<-filt1[1]/filt2[1]
+  for (i in 2:L)
+  {
+    dec_filt[i]<-(filt1[i]-sum(dec_filt[1:(i-1)]*filt2[i:2]))/filt2[1]
+  }  
+  return(list(dec_filt=dec_filt))
+}
+
+
+# Multivariate deconvolution for M-SSA: ordering is relevant
+#   Deconvolute filt2 from filt1: filt1 is the convolution
+M_deconvolute_func<-function(filt1,filt2)
+{
+  # filt1<-t(bk_best)  gamma_target  filt1<-xi  filt2<-gamma_mse
+  n<-dim(filt1)[1]
+  if (n!=dim(filt2)[1])
+  {
+    print("Filter dimension n differ")
+    return()
+  }
+  if (ncol(filt1)!=ncol(filt2))
+  {
+    print("Filter lengths differ")
+    return()
+  }
+  # Filter length (for each series, i=1,...,n)  
+  L<-ncol(filt1)/n
+  # Initialize convolution as a corresponding matrix with zeroes  
+  deconv<-0*filt1
+  # Compute first element of deconvolution: ig filt2 ist MA-inversion xi then f2inv is just the identity 
+  f2inv<-solve(filt2[,1+(0:(n-1))*L])
+  deconv[,1+(0:(n-1))*L]<-filt1[,1+(0:(n-1))*L]%*%f2inv
+  for (i in 2:L)#i<-2
+  {
+    for (j in 1:(i-1))#j<-2
+    {
+      deconv[,i+(0:(n-1))*L]<-deconv[,i+(0:(n-1))*L]+deconv[,j+(0:(n-1))*L]%*%filt2[,i+1-j+(0:(n-1))*L]
+    }
+    deconv[,i+(0:(n-1))*L]<-(filt1[,i+(0:(n-1))*L]-deconv[,i+(0:(n-1))*L])%*%f2inv 
+  }  
+  return(list(deconv=deconv))
+}
+
+
+
+
 # Compute polynomial coefficients from roots: used when computing minimum phase DFP
 poly_from_roots <- function(roots, lead = 1, make_real = TRUE, tol = 1e-12) {
   roots <- as.vector(roots)
