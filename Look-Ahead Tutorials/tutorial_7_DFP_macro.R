@@ -594,6 +594,10 @@ ts.plot(theta, main = "AR inversion (Post-1990)")
 
 # a. MSE predictor: convolve the AR operator with the predictors.
 
+# Check: convolution of theta with gamma0 should be the identity: smaller 
+# deviations become vanishing with increasing L (length of finite MA and AR inversions)
+conv_two_filt_func(theta, gamma0)$conv
+
 filter_mat_ar<-NULL
 for (i in 1:ncol(filter_mat))
   filter_mat_ar<-cbind(filter_mat_ar,conv_two_filt_func(theta, filter_mat[,i])$conv)
@@ -636,10 +640,15 @@ ts.plot(
 for (i in 1:ncol(filter_mat_ar))
   mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
 
+# Note: in principle only the first weight of the DFP in AR form is affected, see exercise 2.3 tutorial 4.
+# But here we have scaled the predictors to unit-length. 
+# Therefore we can not see the simple structure in the above plot
+# Without normalization, only the first weight would be affected (at least for 
+# L sufficiently large).
 
-#----------------------------------------------------------------------
-# 2.4 Apply Predictors to data
-#----------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
+# 2.4 Compare Predictors
+# ─────────────────────────────────────────────────────────────────────
 
 #----------------------------------------------------------------------
 # 2.4.1  Apply Predictors to data
@@ -684,57 +693,6 @@ ts.plot(y_out_mat[200:250,],
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
-
-
-
-
-
-
-
-
-
-
-
-# --------------------------------------------------------------------------
-# 2.4 Verification: Comparing MA and AR Forms
-# --------------------------------------------------------------------------
-# We verify that both forms produce numerically identical outputs when applied 
-# to their respective inputs:
-#   - AR form applied to observed data x.
-#   - MA form applied to white noise innovations eps.
-
-# Illustration: the convolution of an AR-form DFP filter with its MA-form
-# counterpart does NOT yield the identity.
-# Select any of the filters in filter_mat:
-k     <- 4
-# k cannot be larger than column dimension of filter_mat
-k<-min(k,ncol(filter_mat))
-
-# Simulate an AR(3) process to verify output equivalence.
-set.seed(1)
-len <- 1000
-x   <- eps <- rnorm(len)
-for (i in 4:len) {
-  x[i] <- ar1 * x[i-1] + ar2 * x[i-2] + ar3 * x[i-3] + eps[i]
-}
-
-y_dfp_ma <- y_dfp_ar <- rep(NA, len)
-
-# Apply the MA form to the innovations eps.
-y_dfp_ma<-filter(eps,filter_mat[, k])
-# Apply the AR form to the observed series x.
-y_dfp_ar<-filter(x,ar_dfp_ar3_mat[, k])
-
-# Both outputs should be numerically identical up to negligible errors
-# arising from finite-length MA/AR truncation.
-ts.plot(cbind(y_dfp_ma, y_dfp_ar)[1:200, ],main="AR- and MA-forms overlap exactly")
-
-# Confirm: the maximum absolute difference is negligible.
-max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
-# Note on approximation accuracy:
-# Any residual discrepancy arises because the filters gamma0 and gammah are
-# truncated to a finite length L. As L increases, the difference between the 
-# MA and AR implementations vanishes asymptotically.
 
 
 
