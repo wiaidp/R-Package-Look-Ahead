@@ -495,15 +495,15 @@ colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
 # Plot time-shift functions for both filters across frequencies [0, π]
 par(mfrow = c(1, 2))
 mplot <- amp_mat
-
-plot(mplot[, 1], type = "l", axes = FALSE,
+lty_vec<-c(2,2,rep(1,ncol(filter_mat)-2))
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
      xlab = "Frequency", ylab = "Amplitude",
      main = "Amplitude functions",
      ylim = c(min(mplot), max(mplot)), col = colo[1])
 mtext(colnames(mplot)[1], line = -1, col = colo[1])
 
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i])
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
 # Label frequency axis from 0 to π in sixths
@@ -516,14 +516,14 @@ box()
 mplot <- shift_mat
 mplot[which(mplot[,ncol(mplot)]<(-2)),ncol(mplot)]<-NA
 
-plot(mplot[, 1], type = "l", axes = FALSE,
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
      xlab = "Frequency", ylab = "Time shift (periods)",
      main = "Time-shift functions",
      ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
 #mtext(colnames(mplot)[1], line = -1, col = colo[1])
 
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i])
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
   #  mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
 # Label frequency axis from 0 to π in sixths
@@ -717,10 +717,10 @@ for (i in 1:ncol(y_out_mat))
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: Same as Exercise 1 but a Diferent Model
+# Exercise 3: Same as Exercise 1 but a Different Model
 # ════════════════════════════════════════════════════════════════════
 # ─────────────────────────────────────────────────────────────────────
-# 2.1 Load the Data
+# 3.1 Load the Data
 # ─────────────────────────────────────────────────────────────────────
 
 # Set reload_data = TRUE to download the latest vintage from FRED;
@@ -766,7 +766,7 @@ ts.plot(x)
 acf(x)
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Model Fit
+# 3.2 Model Fit
 # ─────────────────────────────────────────────────────────────────────
 
 L <- 50   # filter length (number of MA coefficients retained)
@@ -815,7 +815,7 @@ if (F)
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.3 DFP Settings
+# 3.3 DFP Settings
 # ─────────────────────────────────────────────────────────────────────
 # Two forecast horizons are considered:
 #   h      — the primary (short) horizon used for the MSE-DFP predictor
@@ -845,7 +845,7 @@ lead_vec <- c(-2,-4,-6,-8,-10)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.4 Run Time-Shift MSE-DFP
+# 3.4 Run Time-Shift MSE-DFP
 # ─────────────────────────────────────────────────────────────────────
 
 # Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
@@ -880,7 +880,7 @@ for (i in 1:length(lead_vec))
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.5 Validation
+# 3.5 Validation
 # ─────────────────────────────────────────────────────────────────────
 
 # --- Check 1: verify that the achieved leads matches the specified leads ---
@@ -899,7 +899,7 @@ for (i in 1:length(lead_vec))
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.6 Compute Complete Decoupling for Additional Reference
+# 3.6 Compute Complete Decoupling for Additional Reference
 # ─────────────────────────────────────────────────────────────────────
 # The completely decoupled DFP corresponds to alpha0 = 0, i.e. the DFP filter
 # is orthogonal to gamma0. This serves as a reference benchmark alongside the
@@ -921,7 +921,7 @@ colnames(filter_mat)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"DFP FD")
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.7 Checks: Complete Decoupling DFP
+# 3.7 Checks: Complete Decoupling DFP
 # ─────────────────────────────────────────────────────────────────────
 
 # Verify orthogonality: <b_cd, gamma0> should be (numerically) zero,
@@ -943,7 +943,7 @@ tau_cd-tauh
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.8 Performance Table
+# 3.8 Performance Table
 # ─────────────────────────────────────────────────────────────────────
 # Summarise four key performance metrics for each predictor:
 #   tau(0)    — frequency-zero time-shift (positive = right-shift or lag when applied to linear trend)
@@ -1005,7 +1005,7 @@ mat_perf
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.9 Plot Predictor Filters
+# 3.9 Plot Predictor Filters
 # ─────────────────────────────────────────────────────────────────────
 
 # Layout: two plots in the top row (filter coefficients, CCF),
@@ -1083,10 +1083,10 @@ box()
 #     though it is still maximal subject to the imposed full decoupling.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.10 Compare Predictors
+# 3.10 Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 #----------------------------------------------------------------------
-# 2.10.1 Apply Predictors to data
+# 3.10.1 Apply Predictors to data
 #----------------------------------------------------------------------
 # Assemble the filter matrix, normalising gamma0 and gammah to unit L2-norm
 # so that all four filters are on a comparable amplitude scale.
@@ -1104,7 +1104,7 @@ for (i in 1:ncol(filter_mat))
 colnames(y_out_mat) <- col_names
 
 #----------------------------------------------------------------------
-# 2.10.2 Plot
+# 3.10.2 Plot
 #----------------------------------------------------------------------
 
 par(mfrow = c(1, 1))
@@ -1134,7 +1134,7 @@ for (i in 1:ncol(y_out_mat))
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.11 Amplitude and Time-Shifts
+# 3.11 Amplitude and Time-Shifts
 # ─────────────────────────────────────────────────────────────────────
 
 K      <- 600      # number of frequency grid points
@@ -1152,15 +1152,15 @@ colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
 # Plot time-shift functions for both filters across frequencies [0, π]
 par(mfrow = c(1, 2))
 mplot <- amp_mat
-
-plot(mplot[, 1], type = "l", axes = FALSE,
+lty_vec<-c(2,2,rep(1,ncol(filter_mat)-2))
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
      xlab = "Frequency", ylab = "Amplitude",
      main = "Amplitude functions",
      ylim = c(min(mplot), max(mplot)), col = colo[1])
 mtext(colnames(mplot)[1], line = -1, col = colo[1])
 
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i])
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
 # Label frequency axis from 0 to π in sixths
@@ -1173,14 +1173,14 @@ box()
 mplot <- shift_mat
 mplot[which(mplot[,ncol(mplot)]<(-2)),ncol(mplot)]<-NA
 
-plot(mplot[, 1], type = "l", axes = FALSE,
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
      xlab = "Frequency", ylab = "Time shift (periods)",
      main = "Time-shift functions",
      ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
 #mtext(colnames(mplot)[1], line = -1, col = colo[1])
 
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i])
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
   #  mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
 # Label frequency axis from 0 to π in sixths
