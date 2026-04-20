@@ -434,9 +434,6 @@ box()
 #----------------------------------------------------------------------
 # 1.10.1 Apply Predictors to data
 #----------------------------------------------------------------------
-# Assemble the filter matrix, normalising gamma0 and gammah to unit L2-norm
-# so that all four filters are on a comparable amplitude scale.
-# Note: b_cd remains phase-reversing at frequency zero even after normalisation.
 
 
 # All filters are defined in MA form (as applied to the einnovations eps_t in the Wold decomposition)
@@ -552,50 +549,61 @@ box()
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Exercise 2 AR Form
+# Exercise 2. AR Form
 # ─────────────────────────────────────────────────────────────────────
 # We now convert the MA-form predictors to their AR equivalents by
 # convolving each predictor with the AR(3) operator. A similar proceeding
 # applies to the unitary DFP in tutorial 3.
 
 # --------------------------------------------------------------------------
-# 2.1 Validation of the Convolution Approach
+# 2.1 AR inversion
 # --------------------------------------------------------------------------
-# Specify the predictor matrix: MSE filter and DFP filters.
-filter_mat          <- cbind(gammah, b_mat)
-colnames(filter_mat) <- c("MSE", colnames(b_mat))
+
+# MA inversion: Wold decomposition
+xi <- c(1, ARMAtoMA(
+  ar      = arima.obj$coef[1:ar_order],
+  ma      = arima.obj$coef[ar_order + 1:ma_order],
+  lag.max = L - 1
+))
+
+# AR inversion
+ar_inv <- -ARMAtoMA(ar = -arima.obj$coef[ar_order + 1:ma_order], ma = -arima.obj$coef[1:ar_order], lag.max = max_lag)
+# AR-filter
+theta<-c(1,-ar_inv)
+
 
 # Verify the approach via a known identity:
-# Convolving the AR(3) operator with its Wold (MA) decomposition must
+# Convolving the AR inversion with the Wold (MA) decomposition must
 # yield the identity filter (i.e., the convolution output is 1 followed
 # by zeros).
-filt1 <- c(1, -ar1, -ar2, -ar3)  # AR(3) operator
-filt2 <- gamma                    # Wold (MA) decomposition of the AR(3)
-conv_two_filt_func(filt1, filt2)$conv[1:10]
+conv_two_filt_func(xi, theta)$conv[1:10]
+
+
+# Visualise theta: the slow decay confirms the longer-memory character of the
+# post-1990 log-returns relative to the full post-WWII sample.
+par(mfrow = c(1, 1))
+ts.plot(theta, main = "AR inversion (Post-1990)")
+
 
 # Having confirmed the identity, we now convolve the AR(3) operator with
 # the MSE and DFP predictors (in MA form) to obtain their AR equivalents.
 
 # --------------------------------------------------------------------------
-# 2.2 Convolution of the AR(3) Operator with the Predictors
+# 2.2 Convolution of the AR inversion with the Predictors
 # --------------------------------------------------------------------------
 
-# a. MSE predictor: convolve AR(3) operator with the MSE filter.
-filt1      <- c(1, -ar1, -ar2, -ar3)
-filt2      <- gammah
-ar_mse_ar3 <- conv_two_filt_func(filt1, filt2)$conv
+# a. MSE predictor: convolve the AR operator with the predictors.
 
-# b. DFP predictors: convolve AR(3) operator with each DFP filter.
-ar_dfp_ar3_mat <- NULL
-for (i in 1:ncol(filter_mat)) {
-  # Use the original (unscaled) DFP predictor.
-  filt2          <- filter_mat[, i]
-  ar_dfp_ar3_mat <- cbind(
-    ar_dfp_ar3_mat,
-    conv_two_filt_func(filt1, filt2)$conv
-  )
-}
-colnames(ar_dfp_ar3_mat)<-colnames(filter_mat)
+filter_mat_ar<-NULL
+for (i in 1:ncol(filter_mat))
+  filter_mat_ar<-cbind(filter_mat_ar,conv_two_filt_func(theta, filter_mat[,i])$conv)
+
+colnames(filter_mat_ar)<-colnames(filter_mat)
+
+# Check: the first column (the nowcast) should be the identity
+# Deviations are due to the finite length MA and AR inversions: they 
+# vanish with increasing L.
+filter_mat_ar[,1]
 
 # --------------------------------------------------------------------------
 # 2.3 Analysis and Plot of DFP Predictors in AR Form
@@ -615,19 +623,76 @@ colnames(ar_dfp_ar3_mat)<-colnames(filter_mat)
 #   coefficients unchanged across DFP designs.
 
 # Assign colours: green for the baseline (MSE), rainbow for DFP variants
-colo <- c("green", rainbow(ncol(filter_mat) - 1))
+colo <- c("black","green", rainbow(ncol(filter_mat_ar) - 2))
 
-# Plot the first 5 AR coefficients of each DFP predictor to highlight
+first_lags<-10
+# Plot the first_lags AR coefficients of each DFP predictor to highlight
 # the structural invariance: only the first coefficient differs across designs
 ts.plot(
-  ar_dfp_ar3_mat[1:5, ],
+  filter_mat_ar[1:first_lags,],
   col  = colo,
   main = "Method B: DFP Predictors in AR Form"
 )
+for (i in 1:ncol(filter_mat_ar))
+  mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
 
-# Add colour-coded in-plot labels for each predictor
-for (i in 1:ncol(ar_dfp_ar3_mat))
-  mtext(colnames(ar_dfp_ar3_mat)[i], col = colo[i], line = -i)
+
+#----------------------------------------------------------------------
+# 2.4 Apply Predictors to data
+#----------------------------------------------------------------------
+
+#----------------------------------------------------------------------
+# 2.4.1  Apply Predictors to data
+#----------------------------------------------------------------------
+
+
+# All filters are defined in AR form (as applied to x_t)
+x_filt   <- x
+
+y_out_mat_ar<-NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat_ar<-cbind(y_out_mat_ar,filter(x_filt,filter_mat_ar[, i], side = 1))
+colnames(y_out_mat_ar) <- col_names
+
+
+#----------------------------------------------------------------------
+# 2.4.2 Plot
+#----------------------------------------------------------------------
+
+par(mfrow = c(1, 1))
+# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
+ts.plot(y_out_mat_ar,
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(y_out_mat_ar)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat_ar))
+  mtext(colnames(y_out_mat_ar)[i],col=colo[i],line=-i)
+
+# Compare predictors in MA form (y_out_mat) and in AR form (y_out_mat_ar)
+# 1. They are virtually identical up to an offset (the mean) which is ignored 
+# by the MA form.
+# 2. The small deviations after scaling can be made vanishingly small by increasing L
+# Select any of the columns in y_out_mat and y_out_mat and compare standardized series.
+# Standardization removes the mean offset.
+k<-4
+# k cannot be larger than the number of columns of y_out_mat
+k<-min(k,ncol(y_out_mat))
+ts.plot(scale(cbind(y_out_mat[,k],y_out_mat_ar[,k])))
+
+
+ts.plot(y_out_mat[200:250,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+
+
+
+
+
+
+
 
 
 # --------------------------------------------------------------------------
