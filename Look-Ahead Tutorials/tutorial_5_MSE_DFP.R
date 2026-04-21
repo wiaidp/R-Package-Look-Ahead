@@ -347,7 +347,7 @@ for (i in 1:length(alpha0_vec))
 #  - Moderate decoupling (intermediate alpha0): the predictor anticipates
 #    mean reversion over mid-term dynamics. This is visible as sustained
 #    intervals where the predictor leads the process (black line) across
-#    the zero line — i.e., it signals turning points before they occur.
+#    the zero line.
 #
 #  - Strong decoupling (small alpha0): the predictor aggressively
 #    anticipates maxima, minima, and zero-crossings of the process.

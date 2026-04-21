@@ -410,10 +410,19 @@ t(b_cd) %*% gamma0
 # tau = -sum(k * b_cd) / sum(b_cd) is formally ill-defined in the usual sense
 # (a negative denominator implies the filter is inverting, not delaying).
 sum(b_cd)
-
-# We can still compute the numerical value of the time-shift formula.
+# Notes:
+#
+# 1. Complete decoupling (alpha0 = 0) does not automatically imply
+# that the predictor reverses the trend direction or the level of the
+# series. Whether trend reversal occurs may depend on the data generating 
+# process or the forecast horizon. Tutorial 8 presents a counter-example 
+# in which the fully decoupled DFP preserves the trend direction despite 
+# alpha0 = 0.
+#
+# 2. We can still compute the numerical value of the time-shift formula.
 # The result should be interpreted as the shift of the sign-reverted predictor
-# (-b_cd), which does have a positive gain at frequency zero.
+# (-b_cd), which does have a positive gain at frequency zero, see Wildi 2026, 
+# section 4.1.
 tau_cd <- sum((0:(L-1)) * b_cd) / sum(b_cd)
 tau_cd
 
@@ -686,7 +695,7 @@ anf <- 350
 enf <- 415
 par(mfrow = c(1, 1))
 ts.plot(scale(cbind(x, y_out_mat[, 1]))[anf:enf, ],
-        main = "Nowcast gamma0 replicates the AR(3) process (scaled)")
+        main = "Nowcast gamma0 replicates the AR(3) process")
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.12.2 Plot: Predictor Outputs
@@ -762,7 +771,7 @@ ccf(y_out_mat[, 2], y_out_mat[, 4],
 #    or near zero frequency. The AR(3) process, however, distributes
 #    its spectral mass across the entire frequency band, so higher-
 #    frequency components are left-shifted by less than 2 units,
-#    pulling the aggregate CCF peak toward 1.
+#    pulling the aggregate CCF peak toward 0.
 #    Components near zero frequency — such as business-cycle dynamics
 #    with typical periodicities of 4–6 years — are shifted by close
 #    to 2 units. Exercise 2 below verifies the target lead of -2
@@ -779,8 +788,8 @@ ccf(y_out_mat[, 2], y_out_mat[, 4],
 # 3. Mean reversion and the DFP rationale:
 #    Simply inverting the MSE predictor (i.e., doing the opposite of
 #    gammah) is not a viable look-ahead strategy, because the predictor
-#    must still maintain a sufficiently large positive correlation with
-#    the target x_{t+h}. The DFP resolves this fundamental tension —
+#    must still maintain a sufficiently large positive (maximal) correlation 
+#    with the target x_{t+h}. The DFP resolves this fundamental tension —
 #    between decoupling from x_t and retaining predictive accuracy at
 #    horizon h — within a coherent optimisation framework.
 #
@@ -803,42 +812,44 @@ ccf(y_out_mat[, 2], y_out_mat[, 4],
 
 
 
-
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: Applications to Trend, Cycle, Cycle+Noise and Macro Indicator
+# Exercise 2: Applications to Trend, Cycle, Cycle+Noise, and Macro
+#             Indicator
 # ════════════════════════════════════════════════════════════════════
-
-# It is assumed that the code in exercise 1 has been executed.
+# Prerequisite: the code in Exercise 1 must be executed before
+# running this exercise, as filter objects and parameters defined
+# there are used throughout.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 Apply Predictors of Exercise 1 to a Linear Trend
 # ─────────────────────────────────────────────────────────────────────
 # Purposes:
-# 1) verify pertinence of the time-shift formula at frequency zero.
-# 2) Verify pertinence of the imposed DFP time-shift constraint.
+#   1. Verify the pertinence of the frequency-zero time-shift formula.
+#   2. Verify that the imposed DFP time-shift constraint is correctly
+#      enforced on a linear trend input.
+#
+# A linear trend is the canonical input for assessing frequency-zero
+# behaviour: a filter with gain Gamma(0) and time-shift tau(0) applied
+# to a linear trend reproduces the trend scaled by Gamma(0) and
+# shifted by tau(0) time steps.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.1.1 Generate Trend Predictor Outputs
 # ─────────────────────────────────────────────────────────────────────
-# Apply all four filters to a linear trend input x = -len, ..., len.
-# A linear trend is the canonical input for assessing frequency-zero
-# behaviour: a filter with gain Gamma(0) and time-shift tau(0) will
-# reproduce the trend scaled by Gamma(0) and shifted by tau(0) steps.
-
 len <- 100
-x   <- (-len):len
+x   <- (-len):len   # symmetric linear trend of length 2*len + 1
 
-# Apply each filter to x using one-sided (causal) filters and
-# collect outputs as columns of y_out_mat
-y_out_mat <- filter(x, filter_mat[, 1], side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+# Apply each filter to x via one-sided (causal) convolution and
+# collect the outputs as columns of y_out_mat.
+y_out_mat <- filter(x, filter_mat[, 1], sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], sides = 1))
 colnames(y_out_mat) <- col_names
 
 par(mfrow = c(1, 1))
 # Plot all four trend outputs (unscaled) to reveal differences in
-# amplitude and timing across predictors
+# amplitude and timing across predictors.
 ts.plot(y_out_mat,
         main = "Trend Outputs: Unscaled Predictors",
         col  = colo, xlab = "", ylab = "")
@@ -846,44 +857,43 @@ abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
-# Observation: the completely decoupled DFP (red) INVERTS the trend direction.
-# This is a direct consequence of its negative frequency-zero gain:
-#   sum(filter coefficients) = Gamma(0) < 0, see the performance matrix in 
-#   exercise 1.10, column Gamma(0):
-sum(filter_mat[, "DFP-full-dec."])
-
+# Observation: the fully decoupled DFP (red) INVERTS the trend
+# direction. This is a direct consequence of its negative frequency-
+# zero gain: sum(filter coefficients) = Gamma(0) < 0.
+# See the performance table in Section 1.10, column Gamma(0).
+sum(filter_mat[, "DFP-full-dec."])   # confirms Gamma(0) < 0
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.1.2 Rescale to Unit Amplitude
 # ─────────────────────────────────────────────────────────────────────
-# Three modifications are applied for a verification of the time-shift 
-# constraint:
-#   1. Remove the completely decoupled DFP (trend-inverting; not meaningful
-#      as a look-ahead predictor for a linear trend).
-#   2. Rescale the remaining filters so that each has unit gain at
-#      frequency zero, i.e. divide each filter by its coefficient sum.
-#      This normalises out amplitude differences and isolates timing (lead)
-#      differences across predictors.
-#   3. Shorten the trend path (smaller len) for visual clarity.
+# To isolate timing differences and verify the time-shift constraint,
+# three modifications are applied:
+#
+#   1. Remove the fully decoupled DFP: its negative Gamma(0) inverts
+#      the trend, making a timing comparison meaningless.
+#   2. Rescale the remaining three filters to unit gain at frequency
+#      zero by dividing each by its coefficient sum. This normalises
+#      out amplitude differences and isolates horizontal (timing) leads.
+#   3. Use a shorter trend (smaller len) for visual clarity.
 
 len <- 30
 x   <- (-len):len   # shorter linear trend for clearer visualisation
 
-# Apply each of the three remaining filters, normalised to unit gain at omega=0.
-# Dividing by sum(filter) ensures Gamma(0) = 1 for each predictor.
-y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), side = 1))
+# Apply the three remaining filters, each normalised to unit gain
+# at omega = 0 (i.e., Gamma(0) = 1 after dividing by sum of weights).
+y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), sides = 1))
 colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decoupled label
 
-# Shift all outputs downward so that the trend lines are separated vertically
-# for easier visual comparison (pure display adjustment, no analytical effect)
-mplot <- y_out_mat - min(y_out_mat, na.rm = T) - 5
-
+# Shift all outputs downward to separate the trend lines vertically
+# for easier visual comparison (display adjustment only; no analytical
+# effect on the time-shift verification).
+mplot <- y_out_mat - min(y_out_mat, na.rm = TRUE) - 5
 
 par(mfrow = c(1, 1))
-# Plot the rescaled trend outputs; horizontal leads between curves are now
-# directly interpretable as time-shifts at frequency zero
+# Horizontal offsets between curves are now directly interpretable as
+# time-shift differences at frequency zero.
 ts.plot(na.exclude(mplot),
         main = "Trend Outputs: Unit-Amplitude Predictors",
         col  = colo, xlab = "", ylab = "")
@@ -891,75 +901,64 @@ abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
-# The observed left-shifts reflect the time-shift differences: we now verify
-# that the observed empirical shifts match the theoretical expressions.
-
 # ─────────────────────────────────────────────────────────────────────
-# Verification checks
+# Verification Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # Check 1: lead of the MSE predictor (gammah) over the nowcast (gamma0)
-# -----------------------------------------------------------------------
-# Compute the effective lead from the trend outputs directly:
-#   the horizontal offset between the two unit-amplitude trend lines.
-# Note: we use the first non-NA offset
+# ----------------------------------------------------------------------
+# Compute the empirical lead as the horizontal offset between the two
+# unit-amplitude trend outputs (first non-NA difference).
 na.exclude(y_out_mat[, col_names[1]] - y_out_mat[, col_names[2]])[1]
-
-# Compare with the closed-form time-shift difference at frequency zero
+  
+# Compare with the theoretical time-shift difference at frequency zero
 # (derived in Tutorial 2):
 tauh - tau0
 
-# The empirical lead from the trend output matches the theoretical
-# time-shift difference, confirming that the frequency-zero analysis 
-# (tutorial 2) correctly predicts the filter's behaviour on a linear trend.
-
+# The empirical lead matches the theoretical value, confirming that the
+# frequency-zero time-shift formula correctly predicts filter behaviour
+# on a linear trend input.
 
 # Check 2: lead of the DFP predictor (b_unit) over the MSE predictor (gammah)
 # ---------------------------------------------------------------------------
-# Inspect column names to confirm ordering before differencing
+# Inspect column names to confirm ordering before differencing.
 col_names
 
-# Compute the effective lead (horizontal offset) of the DFP over the 
-# MSE predictor (use the first non-NA offset):
+# Compute the empirical lead of the DFP-shifted output over the MSE
+# output (first non-NA difference):
 na.exclude(y_out_mat[, col_names[2]] - y_out_mat[, col_names[3]])[1]
-
-# Compare with the lead imposed via the DFP time-shift constraint:
+  
+# Compare with the lead imposed by the DFP time-shift constraint:
 taub - tauh
 
-# The observed lead of the DFP trend output over the MSE trend output
-# matches the pre-specified DFP lead at frequency zero, confirming that 
-# the TIME-SHIFT CONSTRAINT IS CORRECTLY IMPLEMENTED AND ENFORCED.
-
-
+# The observed lead matches the pre-specified DFP lead at frequency
+# zero, confirming that the TIME-SHIFT CONSTRAINT IS CORRECTLY
+# IMPLEMENTED AND ENFORCED.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Apply Predictors to a Cosine (Synthetic Business-Cycle)
+# 2.2 Apply Predictors to a Cosine (Synthetic Business Cycle)
 # ─────────────────────────────────────────────────────────────────────
 # Purpose:
-# Verify spillover of the shift to frequencies nearby the trend (zero-) frequency.
+# Verify that the frequency-zero time-shift spills over to frequencies
+# near zero — specifically to business-cycle frequencies. A cosine with
+# a 5-year periodicity (in a monthly data framework) serves as a
+# stylised representation of business-cycle dynamics.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2.1 Generate Cosine (Business-Cycle Periodicity)
+# 2.2.1 Generate Cosine Input (Business-Cycle Periodicity)
 # ─────────────────────────────────────────────────────────────────────
-# Apply all four filters to a cosine with a typical business-cycle periodicity 
-# of 5 years in a monthly data framework.
+len   <- 120
+omega <- pi / (5 * 6)          # angular frequency: 5-year cycle, monthly data
+x     <- cos(omega * (1:len))  # cosine input of length len
 
-len <- 120
-# Five year periodicity:
-omega<-pi/(5*6)
-x   <- cos(omega*(1:len))
-
-# Apply each filter to x using one-sided (causal) filters and
-# collect outputs as columns of y_out_mat
-y_out_mat <- filter(x, filter_mat[, 1], side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+# Apply each filter to x via one-sided (causal) convolution.
+y_out_mat <- filter(x, filter_mat[, 1], sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], sides = 1))
 colnames(y_out_mat) <- col_names
 
 par(mfrow = c(1, 1))
-# Plot all four trend outputs (unscaled) to reveal differences in
-# amplitude and timing across predictors
 ts.plot(y_out_mat,
         main = "Cycle Outputs: Unscaled Predictors",
         col  = colo, xlab = "", ylab = "")
@@ -967,260 +966,297 @@ abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
-# Observation: the completely decoupled DFP (red) INVERTS the phase.
+# Observation: the fully decoupled DFP (red) seems to invert the phase of the
+# cosine — the counterpart, at business-cycle frequency, of the trend
+# reversal observed in Section 2.1.1. However, the frequency-domain analysis 
+# at the end of exercise 2.3.3 suggests an alternative interpretation.
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.2.2 Rescale to Unit Amplitude
 # ─────────────────────────────────────────────────────────────────────
-# The same modifications as in exercise 2.1.2 are applied: 
-#   1. Remove the completely decoupled DFP (trend-inverting; not meaningful
-#      as a look-ahead predictor for a linear trend).
-#   2. Rescale the remaining filters so that each has unit gain at
-#      frequency zero, i.e. divide each filter by its coefficient sum.
-#      This normalises out amplitude differences and isolates timing (lead)
-#      differences across predictors.
+# The same modifications as in Section 2.1.2 are applied:
+#   1. Remove the fully decoupled DFP whose shift is excessive.
+#   2. Rescale the remaining three filters to unit gain at frequency
+#      zero by dividing each by its coefficient sum. This normalises
+#      out amplitude differences and isolates horizontal timing leads.
 
-# Apply each of the three remaining filters, normalised to unit gain at omega=0.
-# Dividing by sum(filter) ensures Gamma(0) = 1 for each predictor.
-y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), side = 1))
+# Apply the three remaining filters, each normalised to unit gain
+# at omega = 0 (Gamma(0) = 1 after dividing by sum of weights).
+y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), sides = 1))
 colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decoupled label
 
-# Shift all outputs downward so that the trend lines are separated vertically
-# for easier visual comparison (pure display adjustment, no analytical effect)
-mplot <- y_out_mat 
-
-
 par(mfrow = c(1, 1))
-# Plot the rescaled trend outputs; horizontal leads between curves are now
-# directly interpretable as time-shifts at frequency zero
-ts.plot(na.exclude(mplot),
+# Horizontal offsets between curves are directly interpretable as
+# time-shift differences (leads) at the cosine frequency omega.
+ts.plot(na.exclude(y_out_mat),
         main = "Cycle Outputs: Unit-Amplitude Predictors",
         col  = colo, xlab = "", ylab = "")
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
-# The observed left-shifts reflect the time-shift differences: 
-# Note that the MSE (green) is almost coincident with the (AR(3)-) data. In 
-# constrast, the DFP is faster (left-shifted). we now compute 
-# the empirical left-shifts (leads) for the business-cycle cosine.
+# Observation: the MSE predictor (green) is nearly coincident with the
+# nowcast (black), indicating that its lead is negligible
+# at the business-cycle frequency omega = pi/30. By contrast, the
+# DFP-shifted predictor (blue) is visibly left-shifted relative to the
+# MSE predictor, demonstrating that the imposed frequency-zero lead
+# carries over to nearby frequencies.
 
 # ─────────────────────────────────────────────────────────────────────
-# Verification checks
+# Verification Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # Check 1: lead of the MSE predictor (gammah) over the nowcast (gamma0)
-# -----------------------------------------------------------------------
-# Compute the effective lead from the trend outputs directly:
-# In constrast to the linear trend, the lead here is found be taking the distance between maxima or minima of the cycle
-find_max_mat<-head(na.exclude(cbind(y_out_mat[, col_names[1]] , y_out_mat[, col_names[1]])),20)
-# Maximum of nowcast
-max_now<-which(find_max_mat[,1]==max(find_max_mat[,1]))
-# Maximum of DFP-shift (shifted by tau=-2 at frequency zero)
-max_mse<-which(find_max_mat[,2]==max(find_max_mat[,2]))
-# Zero delay: the predictor is coincident with the nowcast (x_t):
-max_mse-max_now
-# Compare with the closed-form time-shift difference at frequency zero
-# (derived in Tutorial 2):
-tauh - tau0
+# ----------------------------------------------------------------------
+# For a cosine input, the lead between two filters is measured as the
+# distance between their respective maxima (or minima).
+find_max_mat <- head(na.exclude(cbind(y_out_mat[, col_names[1]],
+                                      y_out_mat[, col_names[2]])), 20)
 
-# The original lead at frequency zero of the MSE predictor has vanished
-# at frequency omega=pi/30. We now verify if the DFP (shifted by tau=-2 
-# at zero-frequency) can maintain part of its lead at omega=pi/30>0
+max_now <- which(find_max_mat[, 1] == max(find_max_mat[, 1]))  # maximum of nowcast
+max_mse <- which(find_max_mat[, 2] == max(find_max_mat[, 2]))  # maximum of MSE predictor
 
+# Empirical lead of MSE over nowcast at the cosine frequency:
+max_mse - max_now
+# Expected lead based on the frequency-zero time-shift difference:
+tau0-tauh 
 
+# The MSE predictor's frequency-zero lead has vanished at omega = pi/30:
+# the two maxima are coincident. This confirms that the MSE predictor
+# does not genuinely lead the process at business-cycle frequencies,
+# regardless of the forecast horizon h.
 
 # Check 2: lead of the DFP predictor (b_unit) over the MSE predictor (gammah)
-# ---------------------------------------------------------------------------
-# Inspect column names to confirm ordering before differencing
-col_names
+# ----------------------------------------------------------------------------
+col_names   # inspect ordering before differencing
 
-# In constrast to the linear trend, the lead here is found be taking the distance between maxima or minima of the cycle
-find_max_mat<-head(na.exclude(cbind(y_out_mat[, col_names[2]] , y_out_mat[, col_names[3]])),20)
-# Maximum of MSE (gammah)
-max_dfp<-which(find_max_mat[,2]==max(find_max_mat[,2]))
+find_max_mat <- head(na.exclude(cbind(y_out_mat[, col_names[2]],
+                                      y_out_mat[, col_names[3]])), 20)
 
-# Outcome: the empirical shift is still approximately 2 time units at omega=pi/30
-max_dfp-max_mse
+max_mse <- which(find_max_mat[, 1] == max(find_max_mat[, 1]))  # maximum of MSE predictor
+max_dfp <- which(find_max_mat[, 2] == max(find_max_mat[, 2]))  # maximum of DFP-shifted
 
-# Compare with the lead imposed via the DFP time-shift constraint:
-taub - tauh
+# Empirical lead of DFP-shifted over MSE at the cosine frequency:
+max_mse - max_dfp
+# Lead at frequency zero:
+tauh-taub 
 
-#############################################################################
-# MAIN TAKE AWAYS:
+# The DFP-shifted predictor retains approximately 2 time units of lead
+# over the MSE predictor even at omega = pi/30, confirming that the
+# frequency-zero time-shift constraint spills over to nearby (business-
+# cycle) frequencies by continuity.
 
-# -The left-shift (lead) of the classic MSE predictor is small and increasing the forecast horizon does 
-#   help in generating a lerger lead.
-# -The tau-shifted DFP works as intended: a linear trend is left-shifted by tau time units.
-# -Due to continuity, this left shift also applied to non-zero frequencies, in 
-#  particular for a cosine with a typical 5-year business-cycle frequency.
-# -The fully-decoupled DFP is too extreme to be meaningfully applied to either the linear trend of the cosine.
-
-# Next we apply the designs to a cosine with noise
+# ─────────────────────────────────────────────────────────────────────
+# Main Takeaways
+# ─────────────────────────────────────────────────────────────────────
+#
+# 1. MSE lead: the classical MSE predictor has a negligible lead at
+#    both frequency zero and business-cycle frequencies. Increasing
+#    the forecast horizon h does not generate a materially larger lead.
+#
+# 2. DFP-shifted: the tau-shifted DFP works as intended — a linear
+#    trend is left-shifted by exactly tau time units. By continuity,
+#    this lead also applies at non-zero frequencies, and in particular
+#    at the 5-year business-cycle frequency.
+#
+# 3. Fully decoupled DFP: complete decoupling is too extreme to be
+#    meaningfully applied to either a linear trend or a pure cosine 
+#    in this example —it inverts the signal direction in both cases.
+#    Tutorial 8 illustrates a case of non-inverting fully decoupled DFP.
+#
+# Next: apply all three designs to a cosine contaminated with noise.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.3 Cycle + Noise
 # ─────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.3.1 Generate (Business-Cycle Frequency) Cosine + Noise
+# 2.3.1 Generate Business-Cycle Cosine Contaminated with Noise
 # ─────────────────────────────────────────────────────────────────────
-# Apply all four filters to a cosine with periodicity of 5 years in 
-# in a monthly data framework.
+# Apply all four filters to a signal consisting of a cosine at the
+# 5-year business-cycle frequency (monthly data) plus white noise.
+# The noise component tests whether the DFP's look-ahead advantage
+# survives in a more realistic, noisy environment.
 
-len <- 240
+len   <- 240
+omega <- pi / (5 * 6)   # angular frequency: 5-year cycle, monthly data
 set.seed(1)
-eps<-rnorm(len)
-# Five year periodicity:
-omega<-pi/(5*6)
-# Cycle plus noise
-x   <- cos(omega*(1:len))+eps
+eps <- rnorm(len)
+x   <- cos(omega * (1:len)) + eps   # cycle-plus-noise input
 
-
-# Apply each filter to x using one-sided (causal) filters and
-# collect outputs as columns of y_out_mat
-y_out_mat <- filter(x, filter_mat[, 1], side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+# Apply each filter to x via one-sided (causal) convolution.
+y_out_mat <- filter(x, filter_mat[, 1], sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], sides = 1))
 colnames(y_out_mat) <- col_names
 
 par(mfrow = c(1, 1))
-# Plot all four trend outputs (unscaled) to reveal differences in
-# amplitude and timing across predictors
 ts.plot(y_out_mat,
-        main = "Cycle Outputs: Unscaled Predictors",
+        main = "Cycle + Noise Outputs: Unscaled Predictors",
         col  = colo, xlab = "", ylab = "")
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
-# Observation: the completely decoupled DFP (red) INVERTS the phase and is discarded 
-# from further analysis here.
-
+# Observation: the fully decoupled DFP (red) inverts the phase and is
+# excluded from further analysis in this section.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.3.2 Rescale to Unit Amplitude
 # ─────────────────────────────────────────────────────────────────────
-
-# Apply each of the three remaining filters, normalised to unit gain at omega=0.
-# Dividing by sum(filter) ensures Gamma(0) = 1 for each predictor.
-y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), side = 1))
+# Apply the three remaining filters, each normalised to unit gain
+# at omega = 0 (Gamma(0) = 1 after dividing by sum of weights).
+y_out_mat <- filter(x, filter_mat[, 1] / sum(filter_mat[, 1]), sides = 1)
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2] / sum(filter_mat[, 2]), sides = 1))
+y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3] / sum(filter_mat[, 3]), sides = 1))
 colnames(y_out_mat) <- col_names[-length(col_names)]   # drop the fully decoupled label
 
-# Shift all outputs downward so that the trend lines are separated vertically
-# for easier visual comparison (pure display adjustment, no analytical effect)
-mplot <- na.exclude(y_out_mat) 
-
+mplot <- na.exclude(y_out_mat)
 
 par(mfrow = c(1, 1))
-# Plot the rescaled trend outputs; horizontal leads between curves are now
-# directly interpretable as time-shifts at frequency zero
 ts.plot(mplot,
-        main = "Cycle Outputs: Unit-Amplitude Predictors",
+        main = "Cycle + Noise Outputs: Unit-Amplitude Predictors",
         col  = colo, xlab = "", ylab = "")
 abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
+# Observation: The DFP cannot anticipate high-frequency noise —
+# short-term peaks and troughs are not left-shifted. However, as
+# established in Section 2.2, the DFP does anticipate cyclical
+# turning points. When the signal-to-noise ratio is sufficiently
+# large, the DFP leads the MSE predictor at cyclical turning points
+# even in the presence of noise. The plot suggests that this lead is
+# preserved here. A formal quantitative assessment via amplitude and
+# time-shift statistics is provided in the next section, where the
+# empirical findings above are confirmed through a data-independent
+# frequency-domain analysis.
 
-# Outcome: the DFP cannot anticipate high-frequency noise: short term peaks or troughs are not left-shifted.
-# But we know from the previous
-# exercise that it can anticipate cyclical turning-points. So if the signal (the cycle) 
-# is strong enough, the DFP will lead the classic MSE predictor gammah at the cycle turning-points.
-# The plot suggests indeed that the DFP is left-shifted (leading) even when subject to noise. 
-# Amplitude and time-shifts will provide more insight.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.3.3 Amplitude and Time-Shifts
+# 2.3.3 Amplitude and Time-Shift Functions
 # ─────────────────────────────────────────────────────────────────────
+# Compute the amplitude and time-shift functions for all four filters
+# across the full frequency range [0, pi]. These spectral summaries
+# complement the time-domain verification in Sections 2.1–2.3 and
+# quantify the accuracy–timeliness tradeoff across frequencies.
 
-K      <- 600      # number of frequency grid points
-plot_T <- FALSE    # suppress internal plotting; we build a custom plot below
-amp_mat<-shift_mat<-NULL
-for (i in 1:ncol(filter_mat))
-{
-  as_obj <- amp_shift_func(K, filter_mat[,i], plot_T)   # time-shift for lagged filter (b1)
-  amp_mat<-cbind(amp_mat,as_obj$amp)
-  shift_mat<-cbind(shift_mat,as_obj$shift)
+K      <- 600    # number of frequency grid points in [0, pi]
+plot_T <- FALSE  # suppress internal plotting; a custom plot is built below
+
+amp_mat   <- NULL
+shift_mat <- NULL
+
+for (i in 1:ncol(filter_mat)) {
+  as_obj    <- amp_shift_func(K, filter_mat[, i], plot_T)
+  amp_mat   <- cbind(amp_mat,   as_obj$amp)
+  shift_mat <- cbind(shift_mat, as_obj$shift)
 }
-colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
+colnames(amp_mat) <- colnames(shift_mat) <- colnames(filter_mat)
 
-
-# Plot time-shift functions for both filters across frequencies [0, π]
+# --- Plot amplitude and time-shift functions side by side ---
 par(mfrow = c(1, 2))
 colo <- c("black", "green", "blue", "red")
-mplot <- amp_mat
 
+# Left panel: amplitude functions
+mplot <- amp_mat
 plot(mplot[, 1], type = "l", axes = FALSE,
      xlab = "Frequency", ylab = "Amplitude",
-     main = "Amplitude functions",
+     main = "Amplitude Functions",
      ylim = c(min(mplot), max(mplot)), col = colo[1])
 mtext(colnames(mplot)[1], line = -1, col = colo[1])
-
 for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = colo[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
-# Label frequency axis from 0 to π in sixths
-axis(1, at = 1 + 0:6 * K / 6,
+axis(1, at     = 1 + 0:6 * K / 6,
      labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
 axis(2)
 box()
 
-
+# Right panel: time-shift functions
+# Truncate extreme negative values of the fully decoupled DFP (red)
+# for display purposes: values below -2 are replaced with NA to
+# prevent the y-axis scale from being dominated by outliers.
 mplot <- shift_mat
-mplot[which(mplot[,ncol(mplot)]<(-2)),ncol(mplot)]<-NA
+mplot[mplot[, ncol(mplot)] < -2, ncol(mplot)] <- NA
 
 plot(mplot[, 1], type = "l", axes = FALSE,
      xlab = "Frequency", ylab = "Time shift (periods)",
-     main = "Time-shift functions",
-     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
-#mtext(colnames(mplot)[1], line = -1, col = colo[1])
-
+     main = "Time-Shift Functions",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))),
+     col  = colo[1])
 for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = colo[i])
-#  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
-# Label frequency axis from 0 to π in sixths
-axis(1, at = 1 + 0:6 * K / 6,
+axis(1, at     = 1 + 0:6 * K / 6,
      labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
 axis(2)
 box()
 
-# Outcome:
-# 1. Amplitude:
-#   -All filters are lowpass. Only the fully-decoupled (red) does not have a monotonically decaying amplitude.
-#   -The MSE amplitude (green) is close to the process (black) illustrating the `stuck to present' problem.
-#   -The DFP amplitudes are smaller at lower frequencies and larger at higher frequencies: ATS trilemma.
-#     -They generate more high-frequency noise relative to low frequency signal.
-# 2. Time shifts
-#   -MSE (green) and process (black) are close: `stuck at present problem'.
-#   -The DFP (blue) time-shift is exactly tau=-2 smaller than MSE at frequency zero.
-#   -The frequency-domain shifts at frequency zero confirm the time-domain time-shifts computed in the performance table of 
-#    exercise 1.10: the MSE predictor lags a linear time trend by 4 time units.
-#   -The lead of DFP (blue) over MSE (green) is fairly stable in a vicinity of frequency zero: 
-#    this confirms the lead at business-cycles frequencies in exercise 2.2 and 2.3.
-#   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
+# --- Discussion ---
+#
+# 1. Amplitude functions (left panel):
+#    - The first three filters (excluding the fully decoupled design) 
+#      are low-pass: amplitude declines toward higher frequencies.
+#    - The fully decoupled DFP (red) is the only filter whose amplitude
+#      function is not monotonically decreasing.
+#    - The MSE predictor (green) closely tracks the process amplitude
+#      (black) across all frequencies, illustrating the "stuck at the
+#      present" problem: it adds little filtering relative to the
+#      nowcast.
+#    - Both DFP designs exhibit reduced amplitude at low frequencies
+#      and relatively larger amplitude at high frequencies, reflecting
+#      the accuracy–timeliness (ATS) trilemma: gaining timeliness
+#      comes at the cost of amplifying high-frequency noise relative
+#      to the low-frequency signal.
+#
+# 2. Time-shift functions (right panel):
+#    - The MSE predictor (green) and the nowcast (black) have nearly
+#      identical time-shift profiles, confirming the "stuck at the
+#      present" problem across the full frequency band.
+#    - The DFP-shifted predictor (blue) has a time-shift exactly
+#      tau = -2 units smaller than the MSE predictor at frequency
+#      zero, consistent with the imposed constraint. This confirms
+#      the time-domain results reported in the performance table of
+#      Section 1.10.
+#    - The DFP lead over the MSE predictor is approximately stable in
+#      a neighbourhood of frequency zero, which explains the observed
+#      lead at business-cycle frequencies in Sections 2.2 and 2.3.
+#    - The fully decoupled DFP (red) exhibits a negative time-shift at
+#      low frequencies, confirming its anticipative behaviour.
+#      Specifically, its lead at omega = pi/30 (the 5-year
+#      business-cycle frequency) is:
 
+shift_mat[1 + K/30, ncol(shift_mat)]
+
+# This corresponds to the left-shift visible in the output (red curve)
+# in the figure of Exercise 2.2.1: the maxima and minima are left-shifted
+# by approximately 20 time units relative to the process (black curve).
+# Since the process itself lags by 
+
+shift_mat[1 + K/30, 1]
+
+# the net lead is (as can be verified from the figure):
+
+shift_mat[1 + K/30, 1] - shift_mat[1 + K/30, ncol(shift_mat)]
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.4 Application to Monthly Macro Indicator: PAYEMS
+# 2.4 Application to a Monthly Macro Indicator: PAYEMS
 # ─────────────────────────────────────────────────────────────────────
-# This is a first incomplete and partly false application of DFP to the 
-# monthly US employment PAYEMS indicator.
-
-# A more refined complete and corrected application to the indicator is 
-# given in tutorial 8.
+# Note: this is a preliminary application of the DFP to the monthly
+# US non-farm payroll employment series (PAYEMS). It is intentionally
+# incomplete and flawed and serves as an initial illustration only. 
+# A fully refined and corrected application is provided in Tutorial 8.
 
 # Set reload_data = TRUE to download the latest vintage from FRED;
-# set to FALSE to load the previously saved local copy.
+# set to FALSE to load a previously saved local copy.
 reload_data <- FALSE
 
 if (reload_data) {
@@ -1235,73 +1271,82 @@ if (reload_data) {
 head(PAYEMS)
 tail(PAYEMS)
 
-# Extract the post-1990, pre-pandemic sub-sample in log-levels.
-# Log transformation addresses non-stationarity in the variance as the level 
-# of the series evolves. 
+# --- Extract and transform the sub-sample ---
+# Restrict to the post-1990, pre-pandemic period (1990–2019) in
+# log-levels. The log transformation stabilises the variance as the
+# level of the series grows over time.
 y   <- as.double(log(PAYEMS["1990::2019"]))
 len <- length(y)
-names(y)<-index(PAYEMS["1990::2019"])
-plot(y,main = "Log(PAYEMS): 1990–2019",
-     type = "l", axes = F,
+names(y) <- index(PAYEMS["1990::2019"])
+
+plot(y, main = "Log(PAYEMS): 1990–2019",
+     type = "l", axes = FALSE,
      xlab = "", ylab = "")
-axis(1, at = 1:length(y),
-     labels = names(y))
+axis(1, at = 1:length(y), labels = names(y))
 axis(2)
 box()
 
-# We consider (stationary) first differences of the log-series:
-# The log stabilizes the variance.
-# The difference stabilizes the level.
-x<-diff(y)
-# The dependence structure is similar to above AR(3): slowly monotonically 
-# decaying ACF: 
-acf(x)
+# First-difference the log series to obtain a stationary growth-rate
+# series. The log transformation stabilises the variance; differencing
+# stabilises the level.
+x <- diff(y)
 
-# We can fit a model to the data and run the code in exercise 1 or
-# we can apply the existing predictors, without data fitting.
-# Specifically, we select AR(3), MSE and DFP (shifted by tau) and compare
-# their effects on the data.
-# Given the above `cycle' analysis, we expect AR(3) and its 3-step MSE 
-# predictor to be coincident, while the DFP should lead. 
-select_predictors<-1:3
-filter_payems<-filter_mat[,select_predictors]
-colnames(filter_payems)<-colnames(filter_mat)[select_predictors]
-coli<-colo[select_predictors]
+# Inspect the ACF of the differenced series.
+# The slowly, monotonically decaying ACF closely resembles the AR(3)
+# structure used in Exercise 1, justifying the direct application of
+# the filters derived there.
+acf(x, main = "ACF of log-differenced PAYEMS")
 
+# --- Apply existing filters without re-fitting ---
+# Rather than re-estimating a model for PAYEMS, we apply the AR(3)-
+# based filters from Exercise 1 directly. This is valid given the
+# similarity in ACF structure noted above.
+# We select the nowcast (gamma0), h-step MSE predictor (gammah), and
+# DFP-shifted predictor (b_unit); the fully decoupled DFP is excluded
+# as it inverts the signal direction.
+# Based on the cycle analysis in Sections 2.2–2.3, we expect the
+# nowcast and MSE predictor to be nearly coincident, while the DFP
+# should lead both.
 
+select_predictors <- 1:3
+filter_payems     <- filter_mat[, select_predictors]
+colnames(filter_payems) <- colnames(filter_mat)[select_predictors]
+coli <- colo[select_predictors]
 
-
-# Apply each filter to x using one-sided (causal) filters and
-# collect outputs as columns of y_out_mat
-y_out_mat<-NULL
+# Apply each filter to x via one-sided (causal) convolution.
+y_out_mat <- NULL
 for (i in 1:ncol(filter_payems))
-  y_out_mat <- cbind(y_out_mat, filter(x, filter_payems[, i], side = 1))
-colnames(y_out_mat)<-colnames(filter_payems)
-rownames(y_out_mat)<-names(x)
+  y_out_mat <- cbind(y_out_mat, filter(x, filter_payems[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_payems)
+rownames(y_out_mat) <- names(x)
 
+# --- Plot predictor outputs ---
 par(mfrow = c(1, 1))
-# Plot all four trend outputs (unscaled) to reveal differences in
-# amplitude and timing across predictors
-mplot<-y_out_mat
-plot(mplot[, 1], type = "l", axes = FALSE, xlab = "", ylab = "",
-     main = "MSE and DFP applied to log-diff PAYEMS",
-     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = coli[1])
+mplot <- y_out_mat
+plot(mplot[, 1], type = "l", axes = FALSE,
+     xlab = "", ylab = "",
+     main = "Nowcast, MSE Predictor, and DFP Applied to Log-Diff PAYEMS",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))),
+     col  = coli[1])
 mtext(colnames(mplot)[1], line = -1, col = coli[1])
 for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = coli[i])
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 }
-abline(h=0)
-axis(1, at     = 1:nrow(mplot),
-     labels = rownames(mplot))
+abline(h = 0)
+axis(1, at = 1:nrow(mplot), labels = rownames(mplot))
 axis(2)
 box()
 
+# Outcome:
+# The DFP-shifted predictor (blue) leads the MSE predictor (green) and
+# the nowcast (black), consistent with the results in Sections 2.2–2.3.
+# However, the DFP output is noisier in relative terms: the signal-to-
+# noise ratio is lower than for the MSE predictor. This is a direct
+# consequence of the amplitude function behaviour documented in
+# Section 2.3.3 — the DFP amplifies high-frequency components relative
+# to the low-frequency signal as the price of its look-ahead advantage.
 
-
-# Outcome: 
-# The DFP is left-shifted (leading) but the noise is stronger in relative terms.
-# This effect (worse signal to noise ratio) has been explained with the 
-# amplitude functions above.
-
-
+# CAVEAT:
+# The implementation above is fundamentally flawed (why?). An explanation of
+# the issue and the corresponding correction are provided in Tutorial 8.
