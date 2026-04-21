@@ -122,7 +122,7 @@ gamma <- ARMAtoMA(ar = c(ar1, ar2, ar3), lag.max = 1000)
 # Inspect the first L MA coefficients
 # Slowly monotonically decaying
 par(mfrow=c(1,1))
-ts.plot(gamma[1:L])
+ts.plot(gamma[1:L],main="Wold decomposition of AR(3)")
 
 # Truncate the MA expansion to length L for the nowcast/MSE filter (gamma0)
 gamma0 <- gamma[1:L]
@@ -160,7 +160,7 @@ lambda0 <- dfp_obj$lambda0  # DFP regularisation weight on gamma0
 b       <- dfp_obj$b        # raw DFP filter coefficients
 
 # Normalise b to unit length to obtain the unitary DFP filter
-b_opt <- b / as.double(sqrt(b %*% b))
+b_unit <- b / as.double(sqrt(b %*% b))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -185,8 +185,34 @@ tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon fil
 tau0
 tauh
 
-# Desired lead of the DFP over the MSE predictor at frequency zero
-tau <- lead
+# Interpretation of tau0: the AR(3) process can be represented as an
+# AR(3) filter 1/(1 - a1*B - a2*B^2 - a3*B^3) applied to the
+# innovation sequence epsilon_t. Accordingly, gamma0 represents the
+# inverted finite-length approximation of this filter (i.e., a
+# truncated Wold decomposition).
+#
+# When applied to a linear trend, this filter shifts the trend by tau0
+# time units to the right (after rescaling; see Tutorial 2 for
+# details). The MSE predictor gammah has a slightly smaller time-shift
+# value tauh, meaning that a linear trend filtered by gammah lies
+# slightly to the left of a trend filtered by gamma0 (after proper
+# rescaling).
+#
+# In this sense, the MSE predictor gammah effectively leads the process gamma0
+# at frequency zero, as measured by the tau-statistic: the predictor
+# anticipates the trend component by (tau0 - tauh) time units relative
+# to the process itself:
+
+tau0 - tauh   # natural lead of the MSE predictor over the process (in time units)
+
+# This lead is minor (approximately a quarter of a time unit), and is
+# therefore insufficient for practical look-ahead purposes. We impose a
+# larger lead via the DFP constraint. The desired lead of the DFP over
+# the MSE predictor at frequency zero is specified as:
+
+tau <- lead     # target lead (in time units) to be enforced by DFP
+abs(tau)        # absolute magnitude of the desired lead
+
 
 # Step 2. Compute lambda0 from the closed-form expression (Theorem 2, equation 34):
 lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
@@ -198,10 +224,14 @@ b_tau <- gammah + lambda0 * gamma0
 # Check: difference should vanish
 max(abs(b-b_tau))
 
-# Geometry: 
-# A negative lambda0 means that the DFP predictor b lies on the side of gammah 
-# opposite to gamma0, i.e., gammah lies between b and gamma0 (phase excess), see 
-# tutorial 5, exercise 1.6.
+# Geometry:
+# A negative lambda0 indicates that the DFP predictor b lies on the
+# opposite side of gammah from gamma0 — that is, gammah lies between
+# b and gamma0 in the filter coefficient space. This configuration
+# corresponds to a phase excess: the DFP predictor overshoots the
+# MSE benchmark gammah in the direction away from the process filter
+# gamma0. See Tutorial 5, Exercise 1.6 for a detailed geometric
+# derivation.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -311,7 +341,7 @@ dfp_obj  <- mse_dfp_from_alpha0_func(gamma0, gammah, alpha0_cd)
 lambda_cd <- dfp_obj$lambda
 b_cd      <- dfp_obj$b
 
-# Normalise to unit length so that b_cd is comparable to b_opt
+# Normalise to unit length so that b_cd is comparable to b_unit
 scale <- as.double(1 / sqrt(t(b_cd) %*% b_cd))
 b_cd  <- scale * b_cd
 
@@ -371,7 +401,7 @@ mat_perf[2, 1:2] <- c(tauhtilde,
                       sum(gammahtilde) / as.double(sqrt(t(gammahtilde) %*% gammahtilde)))
 
 # Time-shift DFP: all four metrics available
-mat_perf[3, ] <- c(taub, sum(b_opt), lambda0, alpha0)
+mat_perf[3, ] <- c(taub, sum(b_unit), lambda0, alpha0)
 
 # Completely decoupled DFP: time-shift is NA (ill-defined due to phase reversal)
 mat_perf[4, ] <- c(NA, sum(b_cd), lambda_cd, alpha0_cd)
@@ -419,7 +449,7 @@ colo <- c("black", "green", "blue", "red")
 
 # Collect all four filters into a matrix (no scaling applied)
 # Columns: AR(3) nowcast, h-step MSE, time-shift DFP, fully decoupled DFP
-mplot     <- scale(cbind(gamma0, gammah, b_opt, b_cd), center = F, scale = F)
+mplot     <- scale(cbind(gamma0, gammah, b_unit, b_cd), center = F, scale = F)
 col_names <- c("AR(3)", paste("MSE ", h, "-step"), "DFP-shift", "DFP-full-decouple")
 colnames(mplot) <- col_names
 
@@ -454,7 +484,7 @@ box()
 max_lag<-10
 mplot <- cbind(
   compute_ccf_func(gammah, gamma0),
-  compute_ccf_func( b_opt,  gamma0),
+  compute_ccf_func( b_unit,  gamma0),
   compute_ccf_func( b_cd,   gamma0))[L-1+1:max_lag,]
 colnames(mplot) <- col_names[2:length(col_names)]
 
@@ -508,7 +538,7 @@ box()
 filter_mat <- cbind(
   gamma0  / as.double(sqrt(t(gamma0)  %*% gamma0)),   # unit-normalised nowcast filter
   gammah  / as.double(sqrt(t(gammah)  %*% gammah)),   # unit-normalised h-step MSE filter
-  b_opt,                                    # time-shift DFP (already unit-length)
+  b_unit,                                    # time-shift DFP (already unit-length)
   b_cd                                      # completely decoupled DFP (unit-length)
 )
 colnames(filter_mat)<-col_names
@@ -704,7 +734,7 @@ tauh - tau0
 # (tutorial 2) correctly predicts the filter's behaviour on a linear trend.
 
 
-# Check 2: lead of the DFP predictor (b_opt) over the MSE predictor (gammah)
+# Check 2: lead of the DFP predictor (b_unit) over the MSE predictor (gammah)
 # ---------------------------------------------------------------------------
 # Inspect column names to confirm ordering before differencing
 col_names
@@ -823,7 +853,7 @@ tauh - tau0
 
 
 
-# Check 2: lead of the DFP predictor (b_opt) over the MSE predictor (gammah)
+# Check 2: lead of the DFP predictor (b_unit) over the MSE predictor (gammah)
 # ---------------------------------------------------------------------------
 # Inspect column names to confirm ordering before differencing
 col_names
