@@ -300,7 +300,6 @@ mat_cor_vec
 
 # Fix the random seed for reproducibility
 # (set.seed(45) overridden below; set.seed(17) is the active seed)
-set.seed(45)
 set.seed(17)
 len <- 10000
 

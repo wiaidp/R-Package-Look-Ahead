@@ -1,5 +1,10 @@
 unitary_DFP_func<-function(gamma0,gammah,alpha0)
 {
+  if (abs(alpha0)>1)
+  {
+    print("|alpha0| must be smaller one: it is a correlation!")
+    return()
+  }
   # First case: gamma0 and gammah are not orthogonal  
   if (abs( t(gamma0)%*%gammah)>1.e-10)
   {

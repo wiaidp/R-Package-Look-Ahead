@@ -40,9 +40,9 @@
 #
 # A second limitation, discussed in Tutorial 5, is that it is not
 # immediately clear how enforcing decoupling from the present x_t
-# translates into genuine look-ahead behaviour — that is, whether and
-# to what extent the MSE-DFP predictor achieves a measurable lead over
-# the classical MSE benchmark.
+# translates into genuine look-ahead behaviour of x_{t+h} — that is, 
+# whether and to what extent the MSE-DFP predictor achieves a measurable 
+# lead over the classical MSE benchmark.
 
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
 # the time-shift (phase delay) at frequency zero — the trend frequency —
@@ -117,7 +117,7 @@ ar3 <- ar31 <-  lambda1*lambda2*lambda3
 # Compute a long MA(∞) expansion of the AR(3) process.
 # More than L terms are needed to accurately construct the MSE forecast 
 # filters below.
-gamma <- ARMAtoMA(ar = c(ar1, ar2, ar3), lag.max = 1000)
+gamma <- c(1,ARMAtoMA(ar = c(ar1, ar2, ar3), lag.max = 1000))
 
 # Inspect the first L MA coefficients
 # Slowly monotonically decaying
@@ -127,14 +127,14 @@ ts.plot(gamma[1:L],main="Wold decomposition of AR(3)")
 # Truncate the MA expansion to length L for the nowcast/MSE filter (gamma0)
 gamma0 <- gamma[1:L]
 
-# h-step-ahead cross-correlation vector (gammah):
-# shift gamma by h positions and pad with zeros at the end.
-# The trailing zeros reflect the fact that MA coefficients beyond index L
-# are negligible for a finite-length filter of length L.
-gammah <- c(gamma[h + (1:(L - h))], rep(0, h))
+# h-step-ahead predictor (gammah):
+# shift gamma by h positions.
+gammah <- gamma[h + 1:L]
 
-# Analogous cross-correlation vector for the longer horizon htilde
+# Analogous long MSE forecast: horizon htilde
 gammahtilde <- c(gamma[htilde + (1:(L - htilde))], rep(0, htilde))
+gammahtilde <- gamma[htilde + 1:L]
+
 
 # Desired lead of the DFP predictor over the MSE predictor at frequency zero
 # (negative value = the DFP output leads by |lead| time steps at the zero 
@@ -146,8 +146,6 @@ lead <- -2
 # 1.2 Run Time-Shift MSE-DFP
 # ─────────────────────────────────────────────────────────────────────
 
-# Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
-tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
 
 # Call the dedicated function to compute the DFP filter for a specified lead
 # (see dfp_from_tau_func for the derivation based on Theorem 2, Wildi 2026)
@@ -159,53 +157,51 @@ tauh    <- dfp_obj$tauh     # frequency-zero time-shift of gammah
 lambda0 <- dfp_obj$lambda0  # DFP regularisation weight on gamma0
 b       <- dfp_obj$b        # raw DFP filter coefficients
 
-# Normalise b to unit length to obtain the unitary DFP filter
+# Normalise b to unit length (corresponds to unitary DFP)
 b_unit <- b / as.double(sqrt(b %*% b))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.3 Replicate Formula for b
 # ─────────────────────────────────────────────────────────────────────
-# The frequency-zero time-shift of a filter with coefficients c is defined as
-#   tau_c = sum_{k=0}^{L-1} k * c_k  /  sum_{k=0}^{L-1} c_k. This equals the 
-# phase shift at omega = 0, see tutorial 2, exercise 3.
-
-# The MSE DFP predictor is obtained as
-#   b <- gammah + lambda0 * gamma0,
-# see tutorial 5 and Wildi 2026, proposition 1. We can link lambda0 to the 
-# time-shift tau at frequency zero, see Theorem 2 (equation 34) in 
-# Wildi (2026). We here briefly summarize the main implementation steps:
-
-# Step 1. Compute frequency-zero time-shifts of the three filters (see tutorial 2)
-tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)       # nowcast filter
-tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)       # h-step MSE filter
-tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon filter
-
-# Display tau0 and tauh (the MSE filter leads slightly at frequency zero)
-tau0
-tauh
-
-# Interpretation of tau0: the AR(3) process can be represented as an
-# AR(3) filter 1/(1 - a1*B - a2*B^2 - a3*B^3) applied to the
-# innovation sequence epsilon_t. Accordingly, gamma0 represents the
-# inverted finite-length approximation of this filter (i.e., a
-# truncated Wold decomposition).
+# The frequency-zero time-shift of a filter with coefficients c is
+# defined as:
 #
-# When applied to a linear trend, this filter shifts the trend by tau0
-# time units to the right (after rescaling; see Tutorial 2 for
-# details). The MSE predictor gammah has a slightly smaller time-shift
-# value tauh, meaning that a linear trend filtered by gammah lies
-# slightly to the left of a trend filtered by gamma0 (after proper
-# rescaling).
+#   tau_c = sum_{k=0}^{L-1} k * c_k  /  sum_{k=0}^{L-1} c_k
 #
-# In this sense, the MSE predictor gammah effectively leads the process gamma0
-# at frequency zero, as measured by the tau-statistic: the predictor
-# anticipates the trend component by (tau0 - tauh) time units relative
-# to the process itself:
+# This quantity equals the phase shift at frequency omega = 0; see
+# Tutorial 2, Exercise 3 for a derivation.
 
-tau0 - tauh   # natural lead of the MSE predictor over the process (in time units)
+# The MSE-DFP predictor is obtained as:
+#
+#   b <- gammah + lambda0 * gamma0
+#
+# See Tutorial 5 and Wildi (2026), Proposition 1. The scalar lambda0
+# can be linked to the frequency-zero time-shift tau via Theorem 2
+# (equation 34) of Wildi (2026). The main implementation steps are
+# summarised below.
 
-# This lead is minor (approximately a quarter of a time unit), and is
+# --- Step 1: Compute frequency-zero time-shifts of the three filters ---
+# (See Tutorial 2 for the definition and interpretation of tau.)
+
+tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)       # nowcast filter (gamma0)
+tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)       # h-step MSE predictor (gammah)
+tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon MSE predictor (gammahtilde)
+
+# Display tau0 and tauh:
+# tauh < tau0 confirms that the MSE predictor gammah leads the process
+# slightly at frequency zero — but the lead is small (approximately 
+# half a time unit).
+tau0-tauh
+
+# Display tauhtilde:
+# Increasing the forecast horizon from h to htilde does not substantially 
+# reduce the time-shift, confirming that longer-horizon MSE prediction alone 
+# does not resolve the look-ahead problem.
+tau0-tauhtilde
+
+
+# The above leads are minor (approximately half a time unit), and are
 # therefore insufficient for practical look-ahead purposes. We impose a
 # larger lead via the DFP constraint. The desired lead of the DFP over
 # the MSE predictor at frequency zero is specified as:
@@ -214,11 +210,11 @@ tau <- lead     # target lead (in time units) to be enforced by DFP
 abs(tau)        # absolute magnitude of the desired lead
 
 
-# Step 2. Compute lambda0 from the closed-form expression (Theorem 2, equation 34):
+# --- Step 2. Compute lambda0 from the closed-form expression (Theorem 2, equation 34): ---
 lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
 
 
-# Step 3. Construct the DFP predictor/filter
+# --- Step 3. Construct the DFP predictor/filter ---
 b_tau <- gammah + lambda0 * gamma0
 
 # Check: difference should vanish
@@ -234,6 +230,7 @@ max(abs(b-b_tau))
 # derivation.
 
 
+
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Express alpha0 as a Function of tau
 # ─────────────────────────────────────────────────────────────────────
@@ -242,13 +239,26 @@ max(abs(b-b_tau))
 
 alpha0 <- as.double(t(gamma0) %*% b_tau)
 alpha0
+# Note: alpha0 is the covariance of b and gamma0 (up to the variance sigma^2 
+# of epsilon_t)
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.5 Roundtrips: Apply MSE-DFP Based on alpha0
 # ─────────────────────────────────────────────────────────────────────
 
-# Check: we can recover b_tau from the ordinary MSE-DFP based on alpha0
+# --- Consistency Check: Recovering b_tau from the MSE-DFP via alpha0 ---
+#
+# Purpose: verify that the time-shift-based DFP formulation (b_tau)
+# is consistent with the covariance-constrained MSE-DFP formulation
+# (based on alpha0), and that the linking formulae in Wildi (2026)
+# are mutually coherent.
+#
+# Specifically, we confirm that the two routes to the DFP predictor —
+#   (i)  specifying the desired frequency-zero lead tau directly, and
+#   (ii) specifying the decoupling threshold alpha0 —
+# yield identical filter coefficients b_tau when the correspondence
+# established in Theorem 2 (equation 34) of Wildi (2026) is applied.
 
 dfp_obj <- mse_dfp_from_alpha0_func(gamma0, gammah, alpha0)
 
@@ -289,34 +299,73 @@ lead_dfp_mse - lead
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.7 Comparison with Unitary DFP: Cautionary Warning
+# 1.7 Comparison with Unitary DFP: Cautionary Note on alpha0
 # ─────────────────────────────────────────────────────────────────────
-# This is a counter example to emphasize the different meaning of alpha0 
-# in unitary DFP and MSE-DFP.
+# This section presents a counter-example highlighting the different
+# interpretations of alpha0 in the two DFP formulations:
+#
+#   - Unitary DFP: alpha0 is a correlation (scale-independent) between
+#     the predictor output and the nowcast filter gamma0.
+#   - MSE-DFP:     alpha0 is a covariance (scale-dependent); it no
+#     longer has a direct correlation interpretation.
+#
+# Imposing the same numerical value of alpha0 in both formulations
+# therefore produces two different predictors.
 
-# Compute unitary DFP
-bu<-unitary_DFP_func(gamma0, gammah, alpha0)$b0
-# Check unit length
-t(bu)%*%bu
-# Check unitary DFP constraint: should vanish
-t(bu)%*%gamma0/sqrt(t(gamma0)%*%gamma0)-alpha0
+# --- Compute the unitary DFP predictor (naive, incorrect translation) ---
+# Passing the MSE-DFP covariance alpha0 directly to unitary_DFP_func()
+# is incorrect: the unitary DFP expects a correlation, not a covariance.
+# This call is retained for illustration purposes only. If |alpha0|>1 an 
+# error message is issued and the function stops.
+bu <- unitary_DFP_func(gamma0, gammah, alpha0)$b0
 
-# Check MSE-DFP constraint: should vanish
-t(b_tau)%*%gamma0-alpha0
+# --- Correct translation: convert alpha0 to a correlation ---
+# The unitary DFP constraint requires a scale-independent correlation.
+# We obtain alpha0_unitary by normalising the inner product <gamma0, b_tau>
+# by the product of the L2-norms of gamma0 and b_tau.
+alpha0_unitary <- as.double(t(gamma0) %*% b_tau) /
+  sqrt(as.double(t(gamma0) %*% gamma0) *
+         as.double(t(b_tau)  %*% b_tau))
 
-# Compare both DFP predictors
-ts.plot(cbind(bu,b_tau/sqrt(as.double(t(b_tau)%*%b_tau))),col=c("red","blue"),xlab="",main="Unitary and MSE DFP for a given (the same) alpha0")
-mtext("Unitary DFP",col="red",line=-1)
-mtext("MSE DFP",line=-2,col="blue")
+bu <- unitary_DFP_func(gamma0, gammah, alpha0_unitary)$b0
 
+# Verify unit-length constraint: should equal 1
+t(bu) %*% bu
 
-# The difference is due to the fact that alpha0 does not have the same meaning:
-# In the unitary DFP, alpha0 is the correlation between DFP and the nowcast gamma0. 
-# In the MSE-DFP alpha0 is not a correlation anymore.
-# Therefore, imposing the same alpha0 generates two different solutions.
+# Verify unitary DFP decoupling constraint (correlation form): should equal 0
+t(bu) %*% gamma0 / sqrt(as.double(t(gamma0) %*% gamma0)) - alpha0_unitary
 
-# However, imposing the same (zer0-frequency) time-shift to unitary and MSe DFP would lead to the same solution.
+# Confirm that bu does not satisfy the MSE-DFP covariance constraint:
+# the following should NOT equal 0 (different scale)
+t(bu) %*% gamma0 / sqrt(as.double(t(gamma0) %*% gamma0)) - alpha0
 
+# Verify MSE-DFP decoupling constraint (covariance form): should equal 0
+t(b_tau) %*% gamma0 - alpha0
+
+# --- Compare the two DFP predictors (both rescaled to unit length) ---
+ts.plot(cbind(bu, b_tau / sqrt(as.double(t(b_tau) %*% b_tau))),
+        col  = c("red", "blue"),
+        xlab = "",
+        main = "Unitary DFP vs. MSE-DFP: correctly matched constraints")
+mtext("Unitary DFP", col = "red",  line = -1)
+mtext("MSE-DFP",     col = "blue", line = -2)
+
+# When alpha0 and alpha0_unitary are correctly matched (i.e., they encode
+# the same decoupling strength in their respective scales), the two
+# predictors differ only up to a unit-length rescaling — confirming that
+# the formulations are equivalent once the constraint is expressed on a
+# common scale.
+#
+# By contrast, imposing the same raw numerical value of alpha0 (assuming 
+# |alpha0|<1) in both formulations does not impose the same
+# degree of decoupling, because alpha0 carries a different meaning in
+# each framework (correlation vs. covariance).
+#
+# Note: the frequency-zero time-shift tau provides the most natural
+# common language for specifying decoupling strength across DFP
+# variants. If the same tau is imposed on both the unitary DFP and the
+# MSE-DFP, the two formulations yield identical filter coefficients up
+# to unit-length rescaling, regardless of the differing alpha0 scales.
 
 
 
@@ -373,206 +422,318 @@ tau_cd
 # 1.10 Performance Table
 # ─────────────────────────────────────────────────────────────────────
 # Summarise four key performance metrics for each predictor:
-#   tau(0)    — frequency-zero time-shift (positive = right-shift or lag when applied to linear trend)
-#   Gamma(0)  — gain at frequency zero (sum of filter weights, unit-normalised)
-#   lambda    — DFP regularisation weight on gamma0
-#   alpha0    — inner product <gamma0, b> (DFP constraint value)
+#
+#   tau(0)   — frequency-zero time-shift: positive values indicate a
+#              right-shift (lag/delay) when the filter is applied to
+#              a linear trend; negative values indicate a left-shift
+#              (lead/advancement).
+#   Gamma(0) — gain at frequency zero: the sum of filter weights,
+#              normalised to unit filter length. Positive values
+#              indicate that the filter preserves the sign of a linear
+#              trend; negative values indicate trend reversal.
+#   lambda   — DFP scalar weight on gamma0 in the decomposition
+#              b = gammah + lambda * gamma0 (Proposition 1,
+#              Wildi 2026).
+#   alpha0   — inner product <gamma0, b>: the DFP decoupling
+#              constraint value, interpretable as a covariance
+#              between the predictor and the nowcast filter gamma0.
 #
 # Rows correspond to:
-#   MSE(h)       — h-step MSE predictor
-#   MSE(htilde)  — long-horizon MSE predictor (reference)
-#   DFP-shifted  — time-shift DFP with specified lead
-#   DFP full dec.— completely decoupled DFP (alpha0 = 0)
+#   MSE(h)        — h-step ahead MSE predictor (classical benchmark).
+#   MSE(htilde)   — long-horizon MSE predictor (timeliness reference).
+#   DFP-shifted   — MSE-DFP with a specified frequency-zero lead tau.
+#   DFP full dec. — completely decoupled MSE-DFP (alpha0 = 0).
 
 mat_perf <- matrix(nrow = 4, ncol = 4)
 
 colnames(mat_perf) <- c("tau(0)", "Gamma(0)", "lambda", "alpha0")
-rownames(mat_perf) <- c(paste("MSE(", h,      ")", sep = ""),
-                        paste("MSE(", htilde, ")", sep = ""),
+rownames(mat_perf) <- c(paste0("MSE(", h,      ")"),
+                        paste0("MSE(", htilde, ")"),
                         "DFP-shifted",
                         "DFP full dec.")
 
-# MSE h-step: time-shift and unit-normalised gain; lambda and alpha0 not applicable
+# MSE h-step: compute time-shift and unit-normalised gain.
+# lambda and alpha0 are not applicable (left as NA).
+# Unit-normalisation is applied so that all predictors are compared
+# on the same scale (b_unit and b_cd are also of unit length).
 mat_perf[1, 1:2] <- c(tauh,
                       sum(gammah) / as.double(sqrt(t(gammah) %*% gammah)))
 
-# Long-horizon MSE: same metrics for htilde
+# Long-horizon MSE: same metrics computed for the htilde-step predictor.
 mat_perf[2, 1:2] <- c(tauhtilde,
                       sum(gammahtilde) / as.double(sqrt(t(gammahtilde) %*% gammahtilde)))
 
-# Time-shift DFP: all four metrics available
+# Time-shift DFP: all four metrics are available and meaningful.
 mat_perf[3, ] <- c(taub, sum(b_unit), lambda0, alpha0)
 
-# Completely decoupled DFP: time-shift is NA (ill-defined due to phase reversal)
+# Completely decoupled DFP: tau(0) is set to NA because the
+# frequency-zero time-shift is ill-defined when the filter reverses
+# the trend direction (i.e., Gamma(0) < 0, see Wildi 2026, section 4.1).
 mat_perf[4, ] <- c(NA, sum(b_cd), lambda_cd, alpha0_cd)
 
-# Note: NAs indicate that the corresponding entries are left blank (not meaningful)
+# Note: NA entries indicate that the metric is not meaningful for
+# that predictor, not that the computation failed.
 mat_perf
 
-# Discussion:
-# 1. tau(0)-column:
-#     -The classic h=3 steps ahead MSE predictor has a time-shift of ~4.01
-#       Interpretation: when the filter (predictor) is applied to a linear trend, 
-#       then the trend will be right-shifted (delayed) by 4.01 time points.
-#     -Increasing the forecast horizon to h=20 (MSE(20) predcitor) does not 
-#       reduce the lag: the forecast horizon cannot be used to address timeliness (look ahead)
-#     -DFP-shifted (3-rd row) has a time-shift that differs by tau=-2 from MSE(3).
-#       DFP implements the time-shift constraint at frequency zero and it can address
-#       look ahead behaviour which cannot be obtained in the MSE paradigm (increasing 
-#       the foreacst horizon is not effective.)
-#     -DFP fully decoupled: the time-shift is not defined because the fully-decoupled DFP
-#       inverts the trend direction: this is confirmed by the negative sign of Gamma(0) 
-#       in the second column (the weights add to a negative number)
-# 2. Gamma(0) column
-#     -Positive numbers indicate that the filter (predictor) preserves the direction of a linear trend,
-#     -All predictors except the fully-decoupled preserve sign orientation at frequency zero.
-# 3. lambda: 
-#     -The estimated lambda in the DFP: a negative lambda implies that gammah lies between b and gamm0, 
-#       see tutorial 5, exercise 1.6. The fully decoupled has a more negative lambda indicating stronger
-#       look ahead behaviour (stronger rotation in the figure of tutorial 5, exercise 1.6).
-# 4. alpha0:
-#     -The MSE-DFP constraint parameter. It cannot be interpreted as a correlation (except when it is vanishing).
-#     -Reformulating the DFP constraint in terms of tau (instead of alpha0) increases interpretability.
-#     -The fully decoupled DFP leads to a vanishing alpha0
-
+# ── Discussion ────────────────────────────────────────────────────────
+#
+# 1. tau(0) — Frequency-zero time-shift
+#
+#    - MSE(h): the classical h-step MSE predictor has a time-shift of
+#      approximately 4.01, meaning that when applied to a linear trend
+#      the output is delayed by ~4 time units (right-shifted).
+#
+#    - MSE(htilde): increasing the forecast horizon to h = htilde does
+#      not materially reduce the time-shift. A longer horizon alone
+#      cannot address timeliness — the look-ahead problem persists
+#      within the MSE paradigm regardless of h.
+#
+#    - DFP-shifted (row 3): the time-shift differs from MSE(h) by the
+#      imposed lead tau = -2 time units. The DFP constraint directly
+#      controls frequency-zero timeliness, achieving look-ahead
+#      behaviour (relative to gammah) that is inaccessible to the MSE 
+#      predictor at any forecast horizon.
+#
+#    - DFP full dec. (row 4): tau(0) is undefined because the fully
+#      decoupled DFP reverses the trend direction, as confirmed by the
+#      negative Gamma(0) in column 2. A time-shift is not meaningful
+#      when the filter inverts the sign of the trend.
+#
+# 2. Gamma(0) — Gain at frequency zero
+#
+#    - Positive values indicate that the predictor preserves the
+#      direction of a linear trend (sign-consistent, see Wildi 2026, 
+#      section 4.1).
+#    - All predictors except the fully decoupled DFP have positive
+#      Gamma(0), confirming sign consistency at frequency zero.
+#    - The fully decoupled DFP has Gamma(0) < 0, indicating trend
+#      reversal — an extreme consequence of complete decoupling in 
+#      this particular example.
+#
+# 3. lambda — DFP weight on gamma0
+#
+#    - A negative lambda indicates that gammah lies between b and
+#      gamma0 in filter coefficient space (phase excess); see
+#      Tutorial 5, Exercise 1.6 for the geometric interpretation.
+#    - The fully decoupled DFP has a more negative lambda than the
+#      shifted DFP, reflecting stronger look-ahead behaviour (a larger
+#      rotation in the geometry of Tutorial 5, Exercise 1.6).
+#
+# 4. alpha0 — DFP decoupling constraint
+#
+#    - alpha0 is a covariance, not a correlation, and cannot be
+#      interpreted on an absolute scale except at the boundary
+#      alpha0 = 0 (complete decoupling).
+#    - Reparametrising the DFP constraint in terms of the frequency-
+#      zero time-shift tau (instead of alpha0) substantially improves
+#      interpretability and comparability across predictors.
+#    - The fully decoupled DFP corresponds to alpha0 = 0 by
+#      construction, confirming exact satisfaction of the constraint.
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.11 Plot Predictor Filters
 # ─────────────────────────────────────────────────────────────────────
 
-# Layout: two plots in the top row (filter coefficients, CCF),
-# and a third plot spanning the full bottom row (predictor outputs, Section 3.9)
-par(mfrow=c(1,2))
+# Layout: two side-by-side panels —
+#   Left:  filter coefficient profiles for all four predictors.
+#   Right: cross-correlation functions (CCF) between each predictor
+#          and the nowcast gamma0, i.e., x_t.
+par(mfrow = c(1, 2))
 
 colo <- c("black", "green", "blue", "red")
 
-# Collect all four filters into a matrix (no scaling applied)
-# Columns: AR(3) nowcast, h-step MSE, time-shift DFP, fully decoupled DFP
-mplot     <- scale(cbind(gamma0, gammah, b_unit, b_cd), center = F, scale = F)
-col_names <- c("AR(3)", paste("MSE ", h, "-step"), "DFP-shift", "DFP-full-decouple")
+# Collect all four filters into a matrix (no rescaling applied).
+# Columns: AR(3) nowcast | h-step MSE | time-shift DFP | fully decoupled DFP
+mplot     <- cbind(gamma0, gammah, b_unit, b_cd)
+col_names <- c("Nowcast: AR(3)", paste0("MSE ", h, "-step"), "DFP-shifted", "DFP-full-dec.")
 colnames(mplot) <- col_names
 
-# Diagnostic: sum of squared coefficients per filter (proxy for filter energy)
-apply(mplot^2, 2, sum)
-
-# --- Top-left panel: filter coefficient profiles ---
+# --- Left panel: filter coefficient profiles ---
 plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
+     main = "Nowcast and Predictor Filter Coefficients",
+     axes = F, type = "l",
+     xlab = "Lag", ylab = "Filter coefficient",
      col  = colo[1], lwd = 1,
      ylim = c(min(mplot), max(mplot)))
 mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters and add colour-coded labels
+# Overlay remaining filters with colour-coded legend labels
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i], type = "l")
+  lines(mplot[, i], col = colo[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
 
-# Redraw the MSE h-step filter on top to ensure visibility
+# Redraw the h-step MSE filter on top to ensure it is not occluded
 lines(mplot[, 2], col = colo[2])
 
-axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
-     labels = c(0, (1:(nrow(mplot)/10)) * 10))
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
 axis(2)
 box()
 
-# --- Top-right panel: cross-correlation functions (CCF) ---
-# Compute the CCF between each predictor and the AR(3) process at lags
-# surrounding lag 0 and the h-step-ahead lag
-max_lag<-10
+# --- Right panel: cross-correlation functions (CCF) ---
+# For each predictor, compute the CCF with the AR(3) process and
+# retain max_lag values starting from lag 0.
+max_lag <- 10
 mplot <- cbind(
   compute_ccf_func(gammah, gamma0),
-  compute_ccf_func( b_unit,  gamma0),
-  compute_ccf_func( b_cd,   gamma0))[L-1+1:max_lag,]
+  compute_ccf_func(b_unit, gamma0),
+  compute_ccf_func(b_cd,   gamma0))[L - 1 + 1:max_lag, ]
 colnames(mplot) <- col_names[2:length(col_names)]
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
-     xlab = "", ylab = "",
+     main = "Cross-Correlation Functions (CCF)",
+     axes = F, type = "l",
+     xlab = "Lag", ylab = "CCF",
      col  = colo[2], lwd = 1,
      ylim = c(min(mplot), max(mplot)))
 
-# Overlay CCFs for DFP-shifted and fully decoupled DFP
+# Overlay CCFs for the time-shift DFP and fully decoupled DFP
 for (i in 1:ncol(mplot)) {
   lines(mplot[, i], col = colo[1 + i])
 }
-
-# Disabled in-plot legend (filters identified by colour above)
-# mtext("MSE", line=-1, col=colo[1+1])
-# mtext("DFP", line=-2, col=colo[2+1])
-
-# Vertical reference lines:
-#   solid  → lag 0 (current observation, index = max_lag + 1)
-#   dashed → h-step-ahead lag
-abline(v = 1,     lty = 1)
-abline(v =  1 + h, lty = 2)
+# Reference lines:
+#   solid  vertical → lag 0 (current observation x_t)
+#   dashed vertical → lag h (target forecast horizon)
+#   solid horizontal → CCF = 0 baseline
+abline(v = 1,       lty = 1)
+abline(v = 1 + h,   lty = 2)
 abline(h = 0)
 
-axis(1, at = 1:nrow(mplot),
-     labels = -1+1:nrow(mplot))
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
 axis(2)
 box()
 
-# Discussion:
-# CCF (right panel)
-#   -The MSE predictor (green) maximizes the CCF at the target horizon h=3.
-#    However, the MSE predictor correlates very strongly with x_t (lag 0).
-#   -The tau-shifted DFP (blue) correlates less strongly with x_t as an effect of imposing a lead tau=-2
-#     at frewuency zero. As a consequence, the correlation with the target at h=3 decreases.
-#     But the DFP minimizes this loss at h=3.
-#   -Finally, the fully decoupled (red) has a vanishing CCF at lag 0. As 
-#     a consequence, the traget correlation at h=3 is pulled severly down: it is maximal 
-#     subject to the imposed full decoupling.
+# ── Discussion: CCF panel (right) ────────────────────────────────────
+#
+# - MSE predictor (green): by construction, the MSE predictor maximises
+#   the CCF at the target horizon h. However, it also correlates very
+#   strongly with x_t at lag 0, confirming the "stuck at the present"
+#   phenomenon.
+#
+# - DFP-shifted (blue): imposing a frequency-zero lead of tau = -2
+#   reduces the correlation with x_t at lag 0. As a consequence, the
+#   CCF at the target horizon h decreases relative to the MSE
+#   predictor. The DFP-shifted solution minimises this accuracy loss
+#   at horizon h subject to the imposed lead constraint.
+#
+# - DFP fully decoupled (red): enforcing alpha0 = 0 drives the CCF
+#   at lag 0 to zero by construction. The resulting CCF at the target
+#   horizon h is substantially reduced — it represents the maximum
+#   attainable correlation at h under complete decoupling from x_t.
+
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.12 Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
-#----------------------------------------------------------------------
-# 1.12.1 Apply Predictors to data
-#----------------------------------------------------------------------
-# Assemble the filter matrix, normalising gamma0 and gammah to unit L2-norm
-# so that all four filters are on a comparable amplitude scale.
-# Note: b_cd remains phase-reversing at frequency zero even after normalisation.
+
+# ---------------------------------------------------------------------
+# 1.12.1 Apply Predictors to Data
+# ---------------------------------------------------------------------
+
+# Assemble the filter matrix, normalising gamma0 and gammah to unit
+# L2-norm so that all four filters are on a comparable amplitude scale.
+# Note: b_cd remains phase-reversing at frequency zero even after
+# normalisation (Gamma(0) < 0; see Section 1.10).
 filter_mat <- cbind(
-  gamma0  / as.double(sqrt(t(gamma0)  %*% gamma0)),   # unit-normalised nowcast filter
-  gammah  / as.double(sqrt(t(gammah)  %*% gammah)),   # unit-normalised h-step MSE filter
-  b_unit,                                    # time-shift DFP (already unit-length)
-  b_cd                                      # completely decoupled DFP (unit-length)
+  gamma0 / as.double(sqrt(t(gamma0) %*% gamma0)),  # unit-normalised nowcast filter
+  gammah / as.double(sqrt(t(gammah) %*% gammah)),  # unit-normalised h-step MSE filter
+  b_unit,                                          # time-shift DFP (already unit-length)
+  b_cd                                             # fully decoupled DFP  (already unit-length)
 )
-colnames(filter_mat)<-col_names
+colnames(filter_mat) <- col_names
 
-# Fix the random seed and generate a long white-noise input series
-set.seed(345)
+# --- Simulate the AR(3) process and the MSE predictor ---
+# Fix the random seed for reproducibility and generate a long
+# white-noise (standard normal) input series of length `len`.
+set.seed(17)
 len <- 10000
-x   <- rnorm(len)
+eps <- rnorm(len)
 
-# Apply each filter to x using one-sided (causal) convolution
-y_out_mat <- filter(x, filter_mat[, 1], side = 1)
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 2], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 3], side = 1))
-y_out_mat <- cbind(y_out_mat, filter(x, filter_mat[, 4], side = 1))
+# Initialise the AR(3) process x and the h-step MSE predictor xhat.
+# Both are initialised to the innovation sequence; the recursion below
+# overwrites entries from index 4 onwards.
+x    <- eps
+xhat <- eps
+
+for (i in 4:len) {
+  # AR(3) recursion: x_t = ar1*x_{t-1} + ar2*x_{t-2} + ar3*x_{t-3} + eps_t
+  x[i]    <- ar1 * x[i-1] + ar2 * x[i-2] + ar3 * x[i-3] + eps[i]
+  # h-step MSE predictor: finite MA applied to the innovation sequence
+  xhat[i] <- gammah[1:min(i, L)] %*% eps[i:max(1, i - L + 1)]
+}
+
+# --- Apply each filter to the innovation sequence via causal convolution ---
+# All filters are applied to eps (the innovation sequence) using one-sided
+# (causal) convolution, consistent with the MA-form representation.
+y_out_mat <- filter(eps, filter_mat[, 1], sides = 1)  # unit-normalised nowcast
+y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 2], sides = 1))  # unit-normalised MSE
+y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 3], sides = 1))  # DFP-shifted
+y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 4], sides = 1))  # DFP fully decoupled
 colnames(y_out_mat) <- col_names
+
+# --- Verification: gamma0 approximates the AR(3) filter ---
+# The first column of y_out_mat (nowcast via gamma0) is compared with
+# the directly simulated AR(3) process x. The two series should be
+# nearly indistinguishable: any remaining difference arises from the
+# finite truncation length L of the Wold decomposition, and can be
+# made arbitrarily small by increasing L.
+
+# Select a short time span for visualization
+anf <- 350
+enf <- 415
+par(mfrow=c(1,1))
+ts.plot(scale(cbind(x, y_out_mat[, 1]))[anf:enf, ],
+        main = "Nowcast gamma0 replicates the AR(3) process")
+
+
 
 #----------------------------------------------------------------------
 # 1.12.2 Plot
 #----------------------------------------------------------------------
-# Disabled earlier diagnostic plot (shorter window, scaled outputs)
-# ts.plot(scale(y_out_mat[270:305,], center=F, scale=T),
-#         main="AR(3)", col=colo, xlab="", ylab="")
-# abline(h=0)
 
+
+# Reset to single-panel layout and plot a representative excerpt (obs. anf:enf)
+# of the filtered outputs to visually compare predictor behaviours
 par(mfrow = c(1, 1))
-# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
-ts.plot(y_out_mat[300:350, ],
+ts.plot(scale(y_out_mat[anf:enf, ]),
         main = "Predictor Outputs", col = colo, xlab = "", ylab = "")
 abline(h = 0)
+lines(scale(x[anf:enf]),lty=2,lwd=2)
+lines(scale(xhat[anf:enf]),col="green",lty=2,lwd=2)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
+
+# --- Interpretation of the Plot ---
+#
+# The plot illustrates the practical effect of the time-shift DFP parameter alpha0 on 
+# predictor behaviour:
+
+#  - Moderate decoupling (intermediate alpha0): the predictor anticipates
+#    mean reversion over mid-term dynamics. This is visible as sustained
+#    intervals where the predictor leads the process (black line) across
+#    the zero line — i.e., it signals turning points before they occur.
+#
+#  - Strong decoupling (small alpha0): the predictor aggressively
+#    anticipates maxima, minima, and zero-crossings of the process.
+#    However, two costs emerge simultaneously:
+#
+#      (i)  Amplitude loss — the predictor becomes anchored near the
+#           mean during sustained swings, losing the ability to track
+#           the true amplitude of the process.
+#
+#      (ii) Increased noise — the predictor output becomes noisier.
+#
+#    Together, these affect the cross-correlation (CCF)
+#    between the predictor and the target at forecast horizon h.
+
+
 # Discussion:
-# The DFP designs (blue and red) tend to lie to the right of the MSE predictor
+# The DFP designs (blue and red) tend to lie to the left of the MSE predictor
 #   (green) especially at longer swings above or below the zero (mean) line.
 # Short term high-frequency noise cannot be anticipated.
 # The time-shifted DFP (blue) leads the MSE predictor on a linear trend, by design of the constraint.
@@ -620,6 +781,13 @@ ccf(y_out_mat[,1],y_out_mat[,4],main="DFP-fully-decoupled vs. MSE",lag.max=10)
 #    predictor. This raises the question of interpretability and consistency
 #    of aggressive look-ahead designs.
 
+
+
+
+
+
+
+#???? change h=3 to h=10 to see if full decoupling inerts trend direction
 
 
 
