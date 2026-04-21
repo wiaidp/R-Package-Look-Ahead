@@ -630,9 +630,9 @@ box()
 # 1.12 Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
-# ---------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
 # 1.12.1 Apply Predictors to Data
-# ---------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
 
 # Assemble the filter matrix, normalising gamma0 and gammah to unit
 # L2-norm so that all four filters are on a comparable amplitude scale.
@@ -642,11 +642,11 @@ filter_mat <- cbind(
   gamma0 / as.double(sqrt(t(gamma0) %*% gamma0)),  # unit-normalised nowcast filter
   gammah / as.double(sqrt(t(gammah) %*% gammah)),  # unit-normalised h-step MSE filter
   b_unit,                                          # time-shift DFP (already unit-length)
-  b_cd                                             # fully decoupled DFP  (already unit-length)
+  b_cd                                             # fully decoupled DFP (already unit-length)
 )
 colnames(filter_mat) <- col_names
 
-# --- Simulate the AR(3) process and the MSE predictor ---
+# --- Simulate the AR(3) process and the h-step MSE predictor ---
 # Fix the random seed for reproducibility and generate a long
 # white-noise (standard normal) input series of length `len`.
 set.seed(17)
@@ -654,7 +654,7 @@ len <- 10000
 eps <- rnorm(len)
 
 # Initialise the AR(3) process x and the h-step MSE predictor xhat.
-# Both are initialised to the innovation sequence; the recursion below
+# Both are initialised to the innovation sequence; the loop below
 # overwrites entries from index 4 onwards.
 x    <- eps
 xhat <- eps
@@ -662,132 +662,144 @@ xhat <- eps
 for (i in 4:len) {
   # AR(3) recursion: x_t = ar1*x_{t-1} + ar2*x_{t-2} + ar3*x_{t-3} + eps_t
   x[i]    <- ar1 * x[i-1] + ar2 * x[i-2] + ar3 * x[i-3] + eps[i]
-  # h-step MSE predictor: finite MA applied to the innovation sequence
+  # h-step MSE predictor: truncated MA applied to the innovation sequence
   xhat[i] <- gammah[1:min(i, L)] %*% eps[i:max(1, i - L + 1)]
 }
 
 # --- Apply each filter to the innovation sequence via causal convolution ---
-# All filters are applied to eps (the innovation sequence) using one-sided
-# (causal) convolution, consistent with the MA-form representation.
-y_out_mat <- filter(eps, filter_mat[, 1], sides = 1)  # unit-normalised nowcast
-y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 2], sides = 1))  # unit-normalised MSE
+# All filters are applied to eps using one-sided (causal) convolution,
+# consistent with the MA-form representation of the AR(3) process.
+y_out_mat <- filter(eps, filter_mat[, 1], sides = 1)                    # nowcast (gamma0)
+y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 2], sides = 1))  # h-step MSE
 y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 3], sides = 1))  # DFP-shifted
 y_out_mat <- cbind(y_out_mat, filter(eps, filter_mat[, 4], sides = 1))  # DFP fully decoupled
 colnames(y_out_mat) <- col_names
 
-# --- Verification: gamma0 approximates the AR(3) filter ---
-# The first column of y_out_mat (nowcast via gamma0) is compared with
-# the directly simulated AR(3) process x. The two series should be
-# nearly indistinguishable: any remaining difference arises from the
-# finite truncation length L of the Wold decomposition, and can be
-# made arbitrarily small by increasing L.
-
-# Select a short time span for visualization
+# --- Verification: gamma0 approximates the AR(3) process ---
+# The nowcast output (column 1 of y_out_mat, based on gamma0) is
+# compared with the directly simulated AR(3) series x over a short
+# window. The two series should be nearly indistinguishable: any
+# remaining discrepancy arises from the finite truncation length L of
+# the Wold decomposition and can be made arbitrarily small by
+# increasing L.
 anf <- 350
 enf <- 415
-par(mfrow=c(1,1))
+par(mfrow = c(1, 1))
 ts.plot(scale(cbind(x, y_out_mat[, 1]))[anf:enf, ],
-        main = "Nowcast gamma0 replicates the AR(3) process")
+        main = "Nowcast gamma0 replicates the AR(3) process (scaled)")
 
+# ─────────────────────────────────────────────────────────────────────
+# 1.12.2 Plot: Predictor Outputs
+# ─────────────────────────────────────────────────────────────────────
 
-
-#----------------------------------------------------------------------
-# 1.12.2 Plot
-#----------------------------------------------------------------------
-
-
-# Reset to single-panel layout and plot a representative excerpt (obs. anf:enf)
-# of the filtered outputs to visually compare predictor behaviours
+# Plot a representative excerpt (obs. anf:enf) of all four scaled
+# predictor outputs. The true AR(3) process (dashed black) and the
+# h-step MSE predictor (dashed green) are overlaid for reference.
 par(mfrow = c(1, 1))
 ts.plot(scale(y_out_mat[anf:enf, ]),
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "")
+        main = "Scaled Predictor Outputs",
+        col  = colo, xlab = "", ylab = "")
 abline(h = 0)
-lines(scale(x[anf:enf]),lty=2,lwd=2)
-lines(scale(xhat[anf:enf]),col="green",lty=2,lwd=2)
+lines(scale(x[anf:enf]),              lty = 2, lwd = 2)            # true AR(3) process
+lines(scale(xhat[anf:enf]), col = "green", lty = 2, lwd = 2)       # h-step MSE predictor
 for (i in 1:ncol(y_out_mat))
-  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
-
+  mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
 
 # --- Interpretation of the Plot ---
 #
-# The plot illustrates the practical effect of the time-shift DFP parameter alpha0 on 
-# predictor behaviour:
-
-#  - Moderate decoupling (intermediate alpha0): the predictor anticipates
-#    mean reversion over mid-term dynamics. This is visible as sustained
-#    intervals where the predictor leads the process (black line) across
-#    the zero line — i.e., it signals turning points before they occur.
+# The plot compares the outputs of all four predictors over the sample
+# window [anf, enf], illustrating the practical consequences of the
+# DFP constraint when alpha0 = alpha0(tau) is derived from the desired
+# frequency-zero lead tau.
 #
-#  - Strong decoupling (small alpha0): the predictor aggressively
-#    anticipates maxima, minima, and zero-crossings of the process.
-#    However, two costs emerge simultaneously:
+# - DFP-shifted (blue): the predictor anticipates mean reversion over
+#   mid-term dynamics. This is visible as sustained intervals where the
+#   DFP-shifted output leads the MSE predictor (green) across the zero
+#   line — i.e., it signals turning points before the MSE predictor
+#   does. By construction, the DFP-shifted filter leads the MSE
+#   predictor by exactly tau time units on a linear trend at frequency
+#   zero. Subsequent tutorials and applications demonstrate how this
+#   translates into a pratically relevant look-ahead advantage.
 #
-#      (i)  Amplitude loss — the predictor becomes anchored near the
-#           mean during sustained swings, losing the ability to track
-#           the true amplitude of the process.
+# - DFP fully decoupled (red): complete decoupling (alpha0 = 0)
+#   aggressively anticipates maxima, minima, and zero-crossings of the
+#   process. However, two costs emerge simultaneously:
 #
-#      (ii) Increased noise — the predictor output becomes noisier.
+#     (i)  Amplitude loss — the predictor becomes anchored near the
+#          mean during sustained swings, losing the ability to track
+#          the true amplitude of the process.
 #
-#    Together, these affect the cross-correlation (CCF)
-#    between the predictor and the target at forecast horizon h.
-
-
-# Discussion:
-# The DFP designs (blue and red) tend to lie to the left of the MSE predictor
-#   (green) especially at longer swings above or below the zero (mean) line.
-# Short term high-frequency noise cannot be anticipated.
-# The time-shifted DFP (blue) leads the MSE predictor on a linear trend, by design of the constraint.
-# We shall see below how this materializes as useful look ahead feature for other series/applications.
-
-#----------------------------------------------------------------------
-# 1.12.3 Compute empirical CCFs: referenced against MSE predictor gammah
-#----------------------------------------------------------------------
-
-y_out_mat<-na.exclude(y_out_mat)
-
-par(mfrow=c(1,2))
-ccf(y_out_mat[,1],y_out_mat[,3],main="CCF: DFP-shift vs. MSE",lag.max=10)
-ccf(y_out_mat[,1],y_out_mat[,4],main="DFP-fully-decoupled vs. MSE",lag.max=10)
-
-# Outcome:
-# 1. The DFP with a time-shift of -2 at frequency zero exhibits an asymmetric CCF,
-#    suggesting that it leads the MSE predictor gammah: it correlates more strongly 
-#     with forward shifted than with backward shifted gammah. 
-#     However, because the AR(3)
-#    process distributes its spectral mass across the entire frequency band, this
-#    time-shift lead (-2) is purely local to frequency zero and should not be interpreted as an
-#    indicator of an overall aggregate lead over gammah (exercise 3.10
-#    below verifies the target lead of -2 at zero frequency).
+#     (ii) Increased noise — the predictor output is noisier than the
+#          DFP-shifted variant, as complete decoupling discards all
+#          signal content associated with x_t.
 #
-# 2. The fully decoupled DFP has a strongly asymmetric CCF with an effective
-#    aggregate lead of two time units, as evidenced by the peak correlation
-#    occurring at lead 2 (to the right of zero). Notably, a strong negative correlation with
-#    backward-shifted values of gammah (i.e., lagged values) is observed,
-#    suggesting that the fully decoupled DFP may be exploiting the natural
-#    mean-reversion tendency of gammah.
+#   Together, these two costs reduce the cross-correlation (CCF)
+#   between the fully decoupled predictor and the target x_{t+h} at
+#   forecast horizon h — as confirmed in the CCF panel of Section 1.11.
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.12.3 Empirical CCFs: DFP Predictors Referenced Against MSE (gammah)
+# ─────────────────────────────────────────────────────────────────────
+
+# Remove leading NAs introduced by the causal convolution before
+# computing empirical cross-correlation functions.
+y_out_mat <- na.exclude(y_out_mat)
+
+par(mfrow = c(1, 2))
+ccf(y_out_mat[, 2], y_out_mat[, 3],
+    main    = "CCF: DFP-shifted vs. MSE",
+    lag.max = 10)
+ccf(y_out_mat[, 2], y_out_mat[, 4],
+    main    = "CCF: DFP fully decoupled vs. MSE",
+    lag.max = 10)
+# --- Discussion ---
 #
-# 3. With regards to mean-reversion, just doing the opposite of gammah is not a feasible strategy
-#   because the correlation with gammah must be `large'. Thus the DFP reconciles 
-#   an internal (fundamental) inconsistency in a consistent rationale optimization framework.
+# 1. DFP-shifted (tau = -2 at frequency zero):
+#    The empirical CCF is asymmetric, peaking at lag 0 rather than
+#    lead 2. This apparent discrepancy arises because the imposed
+#    time-shift of -2 is local to frequency zero: it guarantees a
+#    left-shift of exactly 2 time units only for signal components at
+#    or near zero frequency. The AR(3) process, however, distributes
+#    its spectral mass across the entire frequency band, so higher-
+#    frequency components are left-shifted by less than 2 units,
+#    pulling the aggregate CCF peak toward 1.
+#    Components near zero frequency — such as business-cycle dynamics
+#    with typical periodicities of 4–6 years — are shifted by close
+#    to 2 units. Exercise 2 below verifies the target lead of -2
+#    explicitly for a linear trend and for a cosine with a 5-year
+#    business-cycle periodicity.
 #
-# 4. When targeting a forecast horizon h (here h=3) we expect a consistent predictor to correlate 
-#     positively with x_{t+h}. Both DFP comply with this fundamental consistency rule,
-#     though the correlation of the fully decoupled design is rather small at h=3. This 
-#     is the price to be paid for complete decoupling at lag 0 (present time). 
-#     The DFp addresses this tradeoff optimally (efficient frontier).
+# 2. DFP fully decoupled (alpha0 = 0):
+#    The empirical CCF is strongly asymmetric, with the peak
+#    correlation still occurring at lag 0. A pronounced
+#    negative correlation with backward-shifted (lagged) values of
+#    gammah is also observed, suggesting that the fully decoupled DFP
+#    exploits the natural mean-reversion tendency of the AR(3) process.
 #
-# 5. The CCF pattern of the fully decoupled DFP pushes to an extreme the
-#    asymmetry already introduced by the more mildly decoupled DFP time-shift
-#    predictor. This raises the question of interpretability and consistency
-#    of aggressive look-ahead designs.
-
-
-
-
-
-
-
-#???? change h=3 to h=10 to see if full decoupling inerts trend direction
+# 3. Mean reversion and the DFP rationale:
+#    Simply inverting the MSE predictor (i.e., doing the opposite of
+#    gammah) is not a viable look-ahead strategy, because the predictor
+#    must still maintain a sufficiently large positive correlation with
+#    the target x_{t+h}. The DFP resolves this fundamental tension —
+#    between decoupling from x_t and retaining predictive accuracy at
+#    horizon h — within a coherent optimisation framework.
+#
+# 4. Consistency requirement:
+#    When targeting forecast horizon h (here h = 3), a consistent
+#    predictor must correlate positively with x_{t+h}. Both DFP
+#    designs satisfy this requirement. However, the fully decoupled
+#    design achieves only a small positive correlation at h = 3 —
+#    the price of enforcing complete decoupling from x_t at lag 0.
+#    The DFP addresses this accuracy–timeliness tradeoff optimally,
+#    operating on the efficient frontier between the two objectives.
+#
+# 5. Escalating asymmetry and interpretability:
+#    The CCF pattern of the fully decoupled DFP pushes to an extreme
+#    the asymmetry already introduced by the DFP-shifted predictor.
+#    This raises natural questions about the interpretability and
+#    statistical consistency of aggressive look-ahead designs. These
+#    questions are examined further in subsequent tutorials; see also
+#    Sections 4.3 and 5 of Wildi (2026) for a formal treatment.
 
 
 
@@ -838,7 +850,7 @@ for (i in 1:ncol(y_out_mat))
 # This is a direct consequence of its negative frequency-zero gain:
 #   sum(filter coefficients) = Gamma(0) < 0, see the performance matrix in 
 #   exercise 1.10, column Gamma(0):
-sum(filter_mat[, "DFP-full-decouple"])
+sum(filter_mat[, "DFP-full-dec."])
 
 
 # ─────────────────────────────────────────────────────────────────────
