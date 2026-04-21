@@ -1,9 +1,9 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 5 — DECOUPLE FROM PRESENT (DFP) PREDICTOR
+# TUTORIAL 6 — DECOUPLE FROM PRESENT (DFP) PREDICTOR
 # PART 3: Time-Shift Constraint and Interpretability
 # ════════════════════════════════════════════════════════════════════
 
-# A brief overview on the DFP is provided in tutorial_3_introduction.r
+# A brief overview on the DFP is provided in tutorial_3_DFP_overview.r
 
 # ── TWO OPTIMISATION FORMS ────────────────────────────────────────────
 # DFP can be formulated in two equivalent but complementary ways:
@@ -21,21 +21,29 @@
 #     interpretable in isolation.
 #
 #----------------------------------------------------------------------
-# As in tutorial 4, we here discuss the second form: the MSE-DFP.
+# As in tutorial 5, we here discuss the second form: the MSE-DFP.
 #----------------------------------------------------------------------
 
 # ─────────────────────────────────────────────────────────────────────
 # MOTIVATION:
 # ─────────────────────────────────────────────────────────────────────
-# Without a unit-length constraint on the filter (unitary DFP, tutorial 3), 
-# the parameter alpha0 in the
-# MSE-DFP formulation lacks a straightforward interpretation: its effect on the
-# predictor cannot easily be expressed in terms of an observable or intuitive
-# quantity (unlike the correlation-based interpretation available for the
-# unitary DFP Tutorial 3). Moreover, as discussed in tutorial 4, it is unclear 
-# how the necessary decoupling from the present x_t also addresses 
-# look-ahead behaviour in terms of a lead over the MSE benchmark.
+# In the MSE-DFP formulation (unlike the unitary DFP of Tutorial 4,
+# which imposes a unit-length constraint on the filter), the parameter
+# alpha0 corresponds to a covariance rather than a correlation. This
+# scale-dependence of the covariance makes the absolute value of alpha0 
+# more difficult to interpret: one cannot assess the degree of decoupling 
+# from alpha0 alone without knowing the scale of the process.
 #
+# By contrast, the unitary DFP expresses the effect of alpha0 in terms
+# of a scale-independent correlation, providing a more transparent
+# and directly comparable measure of decoupling strength.
+#
+# A second limitation, discussed in Tutorial 5, is that it is not
+# immediately clear how enforcing decoupling from the present x_t
+# translates into genuine look-ahead behaviour — that is, whether and
+# to what extent the MSE-DFP predictor achieves a measurable lead over
+# the classical MSE benchmark.
+
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0 to
 # the time-shift (phase delay) at frequency zero — the trend frequency —
 # as introduced in Tutorial 2.
@@ -81,7 +89,7 @@ library(alfred)
 # ─────────────────────────────────────────────────────────────────────
 # 1.1 AR(3) and DFP Settings
 # ─────────────────────────────────────────────────────────────────────
-# The example reuses the AR(3) process from tutorial 4.
+# The example reuses the AR(3) process from tutorial 5.
 # This process represents a challenging forecast problem, as its ACF decays
 # slowly and monotonically. In such cases, the classical MSE predictor is
 # typically trapped at the present, unable to anticipate future movements.
@@ -164,7 +172,7 @@ b_opt <- b / as.double(sqrt(b %*% b))
 
 # The MSE DFP predictor is obtained as
 #   b <- gammah + lambda0 * gamma0,
-# see tutorial 4 and Wildi 2026, proposition 1. We can link lambda0 to the 
+# see tutorial 5 and Wildi 2026, proposition 1. We can link lambda0 to the 
 # time-shift tau at frequency zero, see Theorem 2 (equation 34) in 
 # Wildi (2026). We here briefly summarize the main implementation steps:
 
@@ -193,7 +201,7 @@ max(abs(b-b_tau))
 # Geometry: 
 # A negative lambda0 means that the DFP predictor b lies on the side of gammah 
 # opposite to gamma0, i.e., gammah lies between b and gamma0 (phase excess), see 
-# tutorial 4, exercise 1.6.
+# tutorial 5, exercise 1.6.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -390,8 +398,8 @@ mat_perf
 #     -All predictors except the fully-decoupled preserve sign orientation at frequency zero.
 # 3. lambda: 
 #     -The estimated lambda in the DFP: a negative lambda implies that gammah lies between b and gamm0, 
-#       see tutorial 4, exercise 1.6. The fully decoupled has a more negative lambda indicating stronger
-#       look ahead behaviour (stronger rotation in the figure of tutorial 4, exercise 1.6).
+#       see tutorial 5, exercise 1.6. The fully decoupled has a more negative lambda indicating stronger
+#       look ahead behaviour (stronger rotation in the figure of tutorial 5, exercise 1.6).
 # 4. alpha0:
 #     -The MSE-DFP constraint parameter. It cannot be interpreted as a correlation (except when it is vanishing).
 #     -Reformulating the DFP constraint in terms of tau (instead of alpha0) increases interpretability.
@@ -999,7 +1007,7 @@ box()
 # monthly US employment PAYEMS indicator.
 
 # A more refined complete and corrected application to the indicator is 
-# given in tutorial 7.
+# given in tutorial 8.
 
 # Set reload_data = TRUE to download the latest vintage from FRED;
 # set to FALSE to load the previously saved local copy.

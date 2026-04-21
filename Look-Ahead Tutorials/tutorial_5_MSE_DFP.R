@@ -1,5 +1,5 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 4 — DECOUPLE FROM PRESENT (DFP) PREDICTOR
+# TUTORIAL 5 — DECOUPLE FROM PRESENT (DFP) PREDICTOR
 # PART 2: MSE-DFP
 # ════════════════════════════════════════════════════════════════════
 
@@ -189,11 +189,17 @@ axis(2); box()
 max_lag    <- 0
 cor_vec_mat <- compute_ccf_func(gammah, gamma0)[L:(2 * L - 1)]
 
+# Compute DFP constraint value of MSE predictor for reference:
+# To enforce decoupling, alpha0 should be smaller than this value
+alpha0_MSE<-as.double(gammah%*%gamma0)
+alpha0_MSE
+
+
 # Grid of alpha0 values to sweep the AT frontier
 # Note: alpha0 is NOT a correlation here (no unit-norm constraint);
 # it is the raw inner product b0 %*% gamma0, controlling decoupling strength
-alpha0_vec <- c(0.9, 0.45, 0.22, 0.1, 0)
-
+alpha0_vec <- c(alpha0_MSE/1.1,alpha0_MSE/(1.5^(1:6)),0)
+  
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.3 MSE-DFP: Sweep the AT Frontier 
@@ -206,6 +212,7 @@ alpha0_vec <- c(0.9, 0.45, 0.22, 0.1, 0)
 
 b_mat      <- NULL          # stores filter coefficients for each alpha0
 lambda_vec1 <- NULL         # stores lambda values
+cor_vec_mat <- NULL         # stores CCF 
 cor_vec_1  <- matrix(ncol = 2, nrow = length(alpha0_vec))  # CCF at lags 0 and h
 
 for (i in seq_along(alpha0_vec)) {
@@ -223,7 +230,7 @@ for (i in seq_along(alpha0_vec)) {
   max(abs(b0 - b0_alternative))
   
   b_mat       <- cbind(b_mat, b0)
-  lambda_vec1 <- lambda
+  lambda_vec1 <- c(lambda_vec1,lambda)
   
   # ── Compute population CCF for this predictor ────────────────────
   cor_vec <- compute_acf_at_lags_zero_delta_func(max_lag, h,
@@ -233,7 +240,7 @@ for (i in seq_along(alpha0_vec)) {
   cor_vec_1[i, 2]  <- cor_vec[1 + h]   # CCF at lag h  (coupling with target)
 }
 
-colnames(b_mat)    <- paste0("alpha0=", alpha0_vec)
+colnames(b_mat)<- colnames(cor_vec_mat) <- names(lambda_vec1)  <- paste0("alpha0=", round(alpha0_vec,3))
 colnames(cor_vec_1) <- c("Lag 0", "Lag h")
 
 # ── Verification checks ───────────────────────────────────────────────
@@ -247,42 +254,27 @@ cor_vec_1[, 1] - alpha0_vec / sqrt(diag(t(b_mat) %*% b_mat) *
                                      as.double(t(gamma0) %*% gamma0))
 
 
+
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Plots and Performances
 # ─────────────────────────────────────────────────────────────────────
 
 # Set up a 1×2 panel layout for side-by-side plots
 par(mfrow = c(1, 2))
-
-# --- Disabled diagnostic plots (kept for reference) ---
-# ts.plot(gammah1, main=paste("MSE first process: h=", h, sep=""),
-#         col="green", xlab="", ylab="")
-# ts.plot(gammah, main="Second process", col="green", xlab="", ylab="")
-
 # Define a colour palette for up to 6 predictors
-colo <- c("green", "brown", "orange", "blue", "violet", "red")
-
-# Scale filter coefficients (centre=FALSE) and normalise by sqrt(L-1)
-# so that all predictors are on a comparable amplitude scale for plotting
-mplot <- scale(cbind(gammah, b_mat), center = F, scale = T) / sqrt(L - 1)
-
+colo <- c("green", rainbow(ncol(b_mat)))
+# Assemble MSE and DFP
+mplot <- cbind(gammah, b_mat)
 
 ts.plot(mplot,main="Unit-scaled predictors: AR(3)",col=colo,xlab="",ylab="")
 mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9, ",rho,"=",0.92)),line=-2,col=colo[2])
-#mtext(expression(paste("    ",alpha[0],"=0.45, ",rho,"=",0.76)),line=-3,col=colo[3])
-#mtext(expression(paste("    ",alpha[0],"=0.22, ",rho,"=",0.51)),line=-4,col=colo[4])
-#mtext(expression(paste("    ",alpha[0],"=0.1, ",rho,"=",0.26)),line=-5,col=colo[5])
-#mtext(expression(paste("    ",alpha[0],"=0, ",rho,"=",0.0)),line=-6,col=colo[6])
-mtext(expression(paste("DFP ",alpha[0],"=0.9 ")),line=-2,col=colo[2])
-mtext(expression(paste("    ",alpha[0],"=0.45 ")),line=-3,col=colo[3])
-mtext(expression(paste("    ",alpha[0],"=0.22 ")),line=-4,col=colo[4])
-mtext(expression(paste("    ",alpha[0],"=0.1 ")),line=-5,col=colo[5])
-mtext(expression(paste("    ",alpha[0],"=0 ")),line=-6,col=colo[6])
+for (i in 1:ncol(b_mat))
+  mtext(paste("DFP: alpha0=",round(alpha0_vec[i],3),sep=""),line=-(i+1),col=colo[i+1])
 abline(h=0)
 
-
-mplot<-cor_vec_mat[1:22,]*as.double(sqrt(gamma0%*%gamma0)/sqrt(gamma%*%gamma))
+ccf_mse<-compute_acf_at_lags_zero_delta_func(max_lag, h,
+                                             as.vector(gammah), gamma0)$cor_vec
+mplot<-cbind(ccf_mse,cor_vec_mat)[1:22,]
 
 plot(mplot[,1],main="",axes=F,type="l",xlab="",ylab="",col=colo[1],lwd=1,ylim=c(min(mplot),max(mplot)))
 for (i in 2:ncol(mplot))
@@ -290,12 +282,6 @@ for (i in 2:ncol(mplot))
   lines(mplot[,i],col=colo[i])
 }
 abline(h=0)
-#mtext("MSE",line=-1,col=colo[1])
-#mtext(expression(paste("DFP ",alpha[0],"=0.9")),line=-2,col=colo[2])
-#mtext(expression(paste("DFP ",alpha[0],"=0.45")),line=-3,col=colo[3])
-#mtext(expression(paste("DFP ",alpha[0],"=0.22")),line=-4,col=colo[4])
-#mtext(expression(paste("DFP ",alpha[0],"=0.1")),line=-5,col=colo[5])
-#mtext(expression(paste("DFP ",alpha[0],"=0")),line=-6,col=colo[6])
 abline(v=max_lag+1,lty=1)
 abline(v=max_lag+1+h,lty=2)
 axis(1,at=1:nrow(mplot),labels=-max_lag-1+1:(nrow(mplot)))
@@ -319,61 +305,118 @@ set.seed(17)
 len <- 10000
 
 # Generate a white-noise (standard normal) input series of length `len`
-x <- rnorm(len)
+eps <- rnorm(len)
 
-# Apply each DFP/MSE filter column in b_mat to x using one-sided (causal)
+# Generate AR(3)
+x<-xhat<-eps
+for (i in 4:len)
+{
+# AR(3)  
+  x[i]<-ar1*x[i-1]+ar2*x[i-2]+ar3*x[i-3]+eps[i]
+# MSE predictor
+  xhat[i]<-gammah[1:min(i,L)]%*%eps[i:max(1,i-L+1)]
+}
+
+# Apply each DFP/MSE filter column in b_mat to eps (MA form) using one-sided (causal)
 # convolution, and collect all filtered outputs as columns of y_out_mat.
 # Each column of b_mat corresponds to one predictor (MSE or a DFP variant).
 y_out_mat <- NULL
 for (i in 1:ncol(b_mat))
-  y_out_mat <- cbind(y_out_mat, filter(x, b_mat[, i], side = 1))
+  y_out_mat <- cbind(y_out_mat, filter(eps, b_mat[, i], side = 1))
 
-
+# Select a short time span for visualization
+anf<-350
+enf<-415
 # Reset to single-panel layout and plot a representative excerpt (obs. 300–350)
 # of the filtered outputs to visually compare predictor behaviours
 par(mfrow = c(1, 1))
-ts.plot(y_out_mat[300:350, ],
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "")
+ts.plot(scale(y_out_mat[anf:enf, ]),
+        main = "Predictor Outputs", col = colo[2:length(colo)], xlab = "", ylab = "")
 abline(h = 0)
+lines(scale(x[anf:enf]),lty=2,lwd=2)
+lines(scale(xhat[anf:enf]),col="green",lty=2,lwd=2)
+mtext("AR(3)",line=-1)
+mtext("MSE",line=-2,col="green")
 for (i in 1:length(alpha0_vec))
-  mtext(paste("alpha0=", alpha0_vec[i], sep = ""), col = colo[i], line = -i)
+  mtext(paste("alpha0=", round(alpha0_vec[i],3), sep = ""), col = colo[i+1], line = -i-2)
 
-# --- Interpretation of the plot ---
-# The plot illustrates the practical effect of the DFP regularisation parameter alpha0:
+# --- Interpretation of the Plot ---
 #
-#  - High-frequency, short-term noise fluctuations are unpredictable by any of the
-#    filters; all predictors follow the series closely at that time-scale.
+# The plot illustrates the practical effect of the DFP parameter alpha0 on 
+# predictor behaviour:
 #
-#  - Stronger decoupling (smaller alpha0) causes the predictor to anticipate
-#    mean reversion over 'mid-term' dynamics — visible as longer connected
-#    intervals where the DFP output stays above or below the zero line relative
-#    to the MSE predictor.
+#  - Moderate decoupling (intermediate alpha0): the predictor anticipates
+#    mean reversion over mid-term dynamics. This is visible as sustained
+#    intervals where the predictor leads the process (black line) across
+#    the zero line — i.e., it signals turning points before they occur.
 #
-#  - Note: alpha0 does not have a simple closed-form interpretation in general;
-#    its meaning is transparent only at the extreme alpha0 = 0
-#    (zero correlation).
+#  - Strong decoupling (small alpha0): the predictor aggressively
+#    anticipates maxima, minima, and zero-crossings of the process.
+#    However, two costs emerge simultaneously:
+#
+#      (i)  Amplitude loss — the predictor becomes anchored near the
+#           mean during sustained swings, losing the ability to track
+#           the true amplitude of the process.
+#
+#      (ii) Increased noise — the predictor output becomes noisier.
+#
+#    Together, these affect the cross-correlation (CCF)
+#    between the predictor and the target at forecast horizon h.
+#
+#  - Note: alpha0 can be interpreted as a covariance (up to a factor of 
+#    sigma^2, the innovation variance). The scale-dependence of the covariance
+#    makes the raw value of alpha0 difficult to interpret in isolation.
+#
+#    In the example above, all candidate values of alpha0 were chosen to
+#    be smaller than the covariance between the MSE predictor and the
+#    nowcast, given by gammah %*% gamma0. This quantity serves as a
+#    natural reference point: enforcing alpha0 < gammah %*% gamma0
+#    is precisely what constitutes decoupling of the MSE-DFP in practice.
 
 
-# --- Remark on complete decoupling (alpha0 = 0) ---
-# Complete decoupling enforces zero correlation between the predictor output
-# and x_t (the most recent observation). Since x_t is conventionally regarded
-# as highly informative, one might ask: does zero correlation conflict with its
-# importance?
+# --- Remark on Complete Decoupling (alpha0 = 0) ---
 #
-# The answer is no. Zero correlation does NOT imply that the filter weight
-# assigned to x_t is zero. Rather, the decoupling constraint reshapes the
-# overall filter dynamics so that the predictor output is structurally
-# orthogonal to x_t — while x_t itself may still receive a substantial weight.
+# Complete decoupling enforces zero correlation between the predictor
+# output and x_t (the most recent observation). Since x_t is
+# conventionally regarded as highly informative, one might ask: does
+# imposing zero correlation conflict with its importance?
 #
-# Indeed, as the plot below confirms, x_t receives the LARGEST filter weight
-# among all lags in the completely decoupled DFP (alpha0 = 0). The decoupling
-# is therefore achieved through the interplay of all filter coefficients
-# collectively, not by suppressing the weight on x_t.
+# A complete answer is deferred to Exercise 2 below, which examines
+# the AR-form representation of the DFP predictor. Here, we reason
+# about the weight assigned to the most recent innovation epsilon_t
+# in the MA-form representation (i.e., the filter applied directly
+# to the innovation sequence epsilon_{t-k}, k = 0, 1, 2, ...).
+#
+# In the MA form, zero correlation (complete decoupling from x_t)
+# does NOT imply that the filter weight assigned to epsilon_t is
+# zero. Rather, the decoupling constraint reshapes the overall filter
+# so that the predictor output is structurally orthogonal to x_t —
+# while epsilon_t itself may still receive a substantial weight.
+# Orthogonality is a global property of the filter as a whole, not
+# a local constraint on any single coefficient.
+#
+# As the plot below confirms, epsilon_t receives the LARGEST filter
+# weight among all lags in the completely decoupled DFP (alpha0 = 0).
+# Decoupling is therefore achieved through the collective interplay
+# of all filter coefficients, not by suppressing the weight on
+# epsilon_t alone.
+#
+# The complementary AR-form perspective is examined in Exercise 2
+# below: progressively strengthening the decoupling (decreasing
+# alpha0) deflates the weight assigned to x_t, yet x_t retains its
+# dominant importance throughout.
+
 
 ts.plot(b_mat[, ncol(b_mat)],
         main = "Complete decoupling: the largest weight is assigned to x_t",
         xlab = "Lag",
-        ylab = "Completely decoupled DFP")
+        ylab = "Filter coefficient")
+
+# Caveat: complete decoupling (alpha0 = 0) is an extreme DFP
+# configuration. It pushes look-ahead behaviour to the boundary of
+# what is statistically consistent and practically interpretable, and
+# should therefore be treated as a limiting reference case rather than
+# a recommended operational setting.
 
 
 # ─────────────────────────────────────────────────────────────────────

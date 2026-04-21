@@ -1,25 +1,25 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 7 — APPLICATION OF DFP TO MONTHLY PAYEMS —
+# TUTORIAL 8 — APPLICATION OF DFP TO MONTHLY PAYEMS —
 # ════════════════════════════════════════════════════════════════════
 
-# A brief overview on the DFP is provided in tutorial_3_introduction.r
+# A brief overview on the DFP is provided in tutorial_3_DFP_overview.r
 
 # We consider application of the interpretable MSE-DFP to PAYEMS, an 
 # important monthly US business-cycle indicator.
 # Interpretability of MSE-DFP is provided by applying the DFP time-shift 
-# constraint introduced in tutorial 5. The constraint specifies the constraint
+# constraint introduced in tutorial 6. The constraint specifies the constraint
 # in terms of lead of the DFP over the MSE predictor.
 #
 
 # ─────────────────────────────────────────────────────────────────────
 # MOTIVATION:
 # ─────────────────────────────────────────────────────────────────────
-# Without a unit-length constraint on the filter (unitary DFP, tutorial 3), 
+# Without a unit-length constraint on the filter (unitary DFP, tutorial 4), 
 # the parameter alpha0 in the
 # MSE-DFP formulation lacks a straightforward interpretation: its effect on the
 # predictor cannot easily be expressed in terms of an observable or intuitive
 # quantity (unlike the correlation-based interpretation available for the
-# unitary DFP Tutorial 3). Moreover, as discussed in tutorial 4, it is unclear 
+# unitary DFP Tutorial 4). Moreover, as discussed in tutorial 5, it is unclear 
 # how the necessary decoupling from the present x_t also addresses 
 # look-ahead behaviour in terms of a lead over the MSE benchmark.
 #
@@ -275,7 +275,7 @@ colnames(filter_mat)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"DFP FD")
 t(b_cd) %*% gamma0
 
 # Note on phase reversal:
-# In contrast to tutorial 5 (exercise 1.9), the fully decoupled DFP does not 
+# In contrast to tutorial 6 (exercise 1.9), the fully decoupled DFP does not 
 # invert orientation of the trend (or change sign of the mean): the sum of its 
 # filter coefficients is positive.
 sum(b_cd)
@@ -335,14 +335,14 @@ mat_perf
 #     -DFP-shifted have time-shifts that differ by lead_vec from MSE(12).
 #     -DFP fully decoupled: the time-shift is also well defined since the fully-decoupled DFP
 #       does not invert the trend direction, see exercise 1.5 (to be contrasted with 
-#       tutorial 5, exercise 1.9 (where the fully decoupled DFP inverts trend direction).
+#       tutorial 6, exercise 1.9 (where the fully decoupled DFP inverts trend direction).
 #       Note: the forecast horizon, h=12, is larger which puts some distance between 
 #       lag 0 (decoupling) and forecast horizon h=12 (maximization of target correlation). 
 #       In a way, the forecast problem is less conflicting (less complex) here.
 # 3. lambda: 
 #     -The estimated lambda in the DFP: a negative lambda implies that gammah lies between b and gamm0, 
-#       see tutorial 4, exercise 1.6. More negative lambda indicate stronger rotation 
-#       in the figure of tutorial 4, exercise 1.6.
+#       see tutorial 5, exercise 1.6. More negative lambda indicate stronger rotation 
+#       in the figure of tutorial 5, exercise 1.6.
 # 4. alpha0:
 #     -The MSE-DFP constraint parameter. It cannot be interpreted as a correlation (except when it is vanishing).
 #     -Reformulating the DFP constraint in terms of tau (instead of alpha0) increases interpretability.
@@ -438,7 +438,7 @@ box()
 
 # All filters are defined in MA form (as applied to the einnovations eps_t in the Wold decomposition)
 # Therefore we apply the filters to model residuals.
-# Note: example 2.4 in tutorial 5 applied the MA form to x_t instead, which is not optimal.
+# Note: example 2.4 in tutorial 6 applied the MA form to x_t instead, which is not optimal.
 x_filt   <- arima.obj$residuals
 
 y_out_mat<-NULL
@@ -553,7 +553,7 @@ box()
 # ─────────────────────────────────────────────────────────────────────
 # We now convert the MA-form predictors to their AR equivalents by
 # convolving each predictor with the AR(3) operator. A similar proceeding
-# applies to the unitary DFP in tutorial 3.
+# applies to the unitary DFP in tutorial 4.
 
 # --------------------------------------------------------------------------
 # 2.1 AR inversion
@@ -640,7 +640,7 @@ ts.plot(
 for (i in 1:ncol(filter_mat_ar))
   mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
 
-# Note: in principle only the first weight of the DFP in AR form is affected, see exercise 2.3 tutorial 4.
+# Note: in principle only the first weight of the DFP in AR form is affected, see exercise 2.3 tutorial 5.
 # But here we have scaled the predictors to unit-length. 
 # Therefore we can not see the simple structure in the above plot
 # Without normalization, only the first weight would be affected (at least for 
@@ -929,7 +929,7 @@ colnames(filter_mat)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"DFP FD")
 t(b_cd) %*% gamma0
 
 # Note on phase reversal:
-# In contrast to tutorial 5 (exercise 1.9), the fully decoupled DFP does not 
+# In contrast to tutorial 6 (exercise 1.9), the fully decoupled DFP does not 
 # invert orientation of the trend (or change sign of the mean): the sum of its 
 # filter coefficients is positive.
 sum(b_cd)
@@ -989,14 +989,14 @@ mat_perf
 #     -DFP-shifted have time-shifts that differ by lead_vec from MSE(12).
 #     -DFP fully decoupled: the time-shift is also well defined since the fully-decoupled DFP
 #       does not invert the trend direction, see exercise 1.5 (to be contrasted with 
-#       tutorial 5, exercise 1.9 (where the fully decoupled DFP inverts trend direction).
+#       tutorial 6, exercise 1.9 (where the fully decoupled DFP inverts trend direction).
 #       Note: the forecast horizon, h=12, is larger which puts some distance between 
 #       lag 0 (decoupling) and forecast horizon h=12 (maximization of target correlation). 
 #       In a way, the forecast problem is less conflicting (less complex) here.
 # 3. lambda: 
 #     -The estimated lambda in the DFP: a negative lambda implies that gammah lies between b and gamm0, 
-#       see tutorial 4, exercise 1.6. More negative lambda indicate stronger rotation 
-#       in the figure of tutorial 4, exercise 1.6.
+#       see tutorial 5, exercise 1.6. More negative lambda indicate stronger rotation 
+#       in the figure of tutorial 5, exercise 1.6.
 # 4. alpha0:
 #     -The MSE-DFP constraint parameter. It cannot be interpreted as a correlation (except when it is vanishing).
 #     -Reformulating the DFP constraint in terms of tau (instead of alpha0) increases interpretability.
@@ -1095,7 +1095,7 @@ box()
 
 # All filters are defined in MA form (as applied to the einnovations eps_t in the Wold decomposition)
 # Therefore we apply the filters to model residuals.
-# Note: example 2.4 in tutorial 5 applied the MA form to x_t instead, which is not optimal.
+# Note: example 2.4 in tutorial 6 applied the MA form to x_t instead, which is not optimal.
 x_filt   <- arima.obj$residuals
 
 y_out_mat<-NULL
