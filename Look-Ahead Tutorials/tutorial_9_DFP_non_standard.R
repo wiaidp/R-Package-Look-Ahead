@@ -1,6 +1,6 @@
 
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 9 — DFP TRICKY SPECIAL CASES
+# TUTORIAL 9 — DFP NON-STANDARD CASE
 # ════════════════════════════════════════════════════════════════════
 
 # A brief overview of the DFP is provided in tutorial_3_DFP_overview.r.

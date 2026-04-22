@@ -68,7 +68,7 @@ library(alfred)
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 1: DFP PAYEMS SETTINGS
+# EXERCISE 1: DFP APPLIED TO MONTHLY PAYEMS (EMPLOYMENT BCA INDICATOR)
 # ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
@@ -169,19 +169,10 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),main="Slowly monotonically decayin
 # The slowly decaying, monotonic ACF pattern suggests that the MSE predictor
 # will be stuck at the present; see Tutorial 1.
 
-# Specify the target: either the raw series (x) or a smoothed version.
-if (FALSE) {
-  #?????
-  # Acausal symmetric moving average over the preceding and following year
-  # (filter length = 23 months).
-  L_target     <- 12 * 2 - 1
-  gamma_target <- rep(1 / L_target, L_target)
-  gamma        <- conv_two_filt_func(xi, gamma_target)
-} else {
-  # Target the raw differenced log-series directly.
-  gamma <- xi
-}
-
+# The target weights are set equal to the Wold decomposition coefficients,
+# meaning the predictor targets the original data (monthly log-differences
+# of PAYEMS). A more complex target is considered in Exercise 3.
+gamma <- xi
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -202,13 +193,22 @@ gamma0 <- gamma[1:L]
 # h-step-ahead cross-correlation vector (gammah): shift gamma by h positions.
 gammah <- gamma[h + 1:L]
 
+# Check: gamma0 and gammah must be non-collinear; if they are, the DFP
+# optimisation is degenerate and cannot be solved without additional interventions.
+if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-15)
+{
+  print("Warning: gammah and gamma0 are nearly collinear — the DFP predictor will not be computed.")
+  return()
+}
+
+
 # Analogous cross-correlation vector for the longer horizon htilde
 gammahtilde <- gamma[htilde + 1:L]
 
 # Desired lead of the DFP predictor over the MSE predictor at frequency zero
 # (negative value = the DFP output leads by |lead| time steps at the zero 
 # trend frequency). We analyse a sequence of increasing leads at frequency zero.
-lead_vec <- c(-1,-3^(1:5))
+lead_vec <- c(-1,-2^(1:5),-160)
 
 
 
@@ -216,10 +216,34 @@ lead_vec <- c(-1,-3^(1:5))
 # 1.4 Run Time-Shift MSE-DFP
 # ─────────────────────────────────────────────────────────────────────
 
-# Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
-tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
-tau0 <- sum((0:(L-1)) * gamma0) / sum(gamma0)
-tauh <- sum((0:(L-1)) * gammah) / sum(gammah)
+# Compute the frequency-zero time-shifts.
+tau0 <- sum((0:(L - 1)) * gamma0) / sum(gamma0)
+tauh <- sum((0:(L - 1)) * gammah) / sum(gammah)
+
+# Note:
+# The 24-steps-ahead MSE predictor does not preserve trend orientation: the
+# sum of its coefficients is negative (i.e., the transfer function at
+# frequency zero is negative), as confirmed below.
+sum(gammahtilde)
+
+# Consequently, defining a time-shift at frequency zero is not meaningful
+# for gammahtilde. The formula can nonetheless be evaluated:
+sum((0:(L - 1)) * gammahtilde) / sum(gammahtilde)
+
+# In this case, the formula computes the time-shift of the sign-inverted
+# filter -gammahtilde at frequency zero; see Section 4.1, Wildi (2024).
+# Since the time-shift is not defined for gammahtilde itself, it is set to NA:
+tauhtilde <- NA
+
+
+# Verify the lead of the MSE predictor over the nowcast at frequency zero.
+#   - In the standard case, tauh - tau0 < 0, i.e., the MSE predictor leads
+#     the nowcast (a linear trend is left-shifted by gammah).
+#   - In the non-standard case, tauh > tau0, i.e., the predictor lags the
+#     nowcast; this (rather unusual) case is addressed in Tutorial 9.
+
+tauh - tau0
+
 
 # Call the dedicated function to compute the DFP filter for a specified lead
 # (see dfp_from_tau_func for the derivation based on Theorem 2, Wildi 2026)
@@ -244,7 +268,7 @@ for (i in 1:length(lead_vec))
     alpha0 <- as.double(t(gamma0) %*% b)
   
 
-# Normalise b to unit length to obtain the unitary DFP filter
+# Normalise b to unit length (simplifies comparisons in plots below)
     b_tau <- b / as.double(sqrt(b %*% b))
     b_mat<-cbind(b_mat,b_tau)
     lambda_vec<-c(lambda_vec,lambda0)
@@ -254,7 +278,6 @@ for (i in 1:length(lead_vec))
     print("Warning: gammah and gamma0 are nearly collinear")
   }
 }
-
 # ─────────────────────────────────────────────────────────────────────
 # 1.5 Validation
 # ─────────────────────────────────────────────────────────────────────
@@ -272,6 +295,10 @@ for (i in 1:length(lead_vec))
   print(lead_dfp_mse - lead_vec[i])
 }
 
+# --- Check 2: verify that the DFP preserve trend orientation ---
+# The sums of the coefficients are positive (the transfer functions at 
+# frequency zero are positive, see Wildi 2026, section 4.1). 
+apply(b_mat,2,sum)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -292,8 +319,12 @@ b_cd      <- dfp_obj$b
 scale <- as.double(1 / sqrt(t(b_cd) %*% b_cd))
 b_cd  <- scale * b_cd
 
-filter_mat<-cbind(gamma0,gammah,b_mat,b_cd)
-colnames(filter_mat)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"DFP FD")
+# Assemble all predictors: Scale now- and MSE -forecasts to unit-length (as DFP)
+filter_mat<-cbind(gamma0/as.double(sqrt(gamma0%*%gamma0))
+                  ,gammah/as.double(sqrt(gammah%*%gammah)),
+                  gammahtilde/as.double(sqrt(gammahtilde%*%gammahtilde)),
+                  b_mat,b_cd)
+colnames(filter_mat)<-c("Nowcast",paste("MSE(",h,")",sep=""),paste("MSE(",2*h,")",sep=""),paste("DFP ",lead_vec,sep=""),"DFP FD")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -305,18 +336,27 @@ colnames(filter_mat)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"DFP FD")
 t(b_cd) %*% gamma0
 
 # Note on phase reversal:
-# As in tutorial 6 (exercise 1.9), the fully decoupled DFP  
-# inverts orientation of the trend (or change sign of the mean): the sum of its 
-# filter coefficients is negative.
+# As in Tutorial 6 (Exercise 1.9), the fully decoupled DFP inverts the
+# orientation of the trend (i.e., changes the sign of the mean): the sum
+# of its filter coefficients is negative, as confirmed below.
 sum(b_cd)
 
-# We can compute the time-shift at frequency zero: this corresponds to 
-# the sign inverted -b_cd.
-tau_cd <- sum((0:(L-1)) * b_cd) / sum(b_cd)
+# In Exercise 3 below, the fully decoupled design preserves trend orientation:
+# the sum of filter coefficients will be positive.
+
+# Despite this inversion, the usual time-shift formula (evaluated at frequency
+# zero) can still be applied. Note, however, that the result corresponds to
+# the time-shift of the sign-inverted filter -b_cd:
+#   - b_cd inverts the direction of the trend (see plots below).
+#   - Hence -b_cd preserves the trend direction.
+#   - The classical time-shift formula computes the shift of -b_cd;
+#     see Section 4.1, Wildi (2026).
+tau_cd <- sum((0:(L - 1)) * b_cd) / sum(b_cd)
 tau_cd
 
-# Lead over MSE: smaller (larger lead) than the above lead_vec
-tau_cd-tauh
+# Time-shift of -b_cd relative to the MSE predictor: the sign inverted DFP 
+# (-b_cd) is lagging.
+tau_cd - tauh
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -324,8 +364,8 @@ tau_cd-tauh
 # ─────────────────────────────────────────────────────────────────────
 # Summarise four key performance metrics for each predictor:
 #   tau(0)    — frequency-zero time-shift (positive = right-shift or lag when applied to linear trend)
-#   lambda    — DFP regularisation weight on gamma0
-#   alpha0    — inner product <gamma0, b> (DFP constraint value)
+#   lambda    — DFP weight on gamma0
+#   alpha0    — inner product <gamma0, b> (DFP constraint value: covariance of DFP and nowcast)
 #
 # Rows correspond to:
 #   MSE(h)       — h-step MSE predictor
@@ -346,8 +386,8 @@ mat_perf[1, 1] <- tauh
 
 # Long-horizon MSE: same metrics for htilde
 mat_perf[2, 1] <- tauhtilde
-# Time-shift DFP and completely decoupled DFP: all metrics available
-mat_perf[3:nrow(mat_perf),1]<-c(tau_vec,tau_cd)
+# Time-shift DFP and completely decoupled DFP: 
+mat_perf[3:nrow(mat_perf),1]<-c(tau_vec,NA)
 mat_perf[3:nrow(mat_perf),2]<-c(lambda_vec,lambda_cd)
 mat_perf[3:nrow(mat_perf),3]<-c(alpha_vec,alpha0_cd)
 
@@ -357,12 +397,11 @@ mat_perf
 
 # Discussion:
 # 1. tau(0)-column:
-#     -The classic h=12 steps ahead MSE predictor has a time-shift of ~13.01
+#     -The classic h=12 steps ahead MSE predictor has a time-shift of ~1.4
 #       Interpretation: when the filter (predictor) is applied to a linear trend, 
 #       then the trend will be right-shifted (delayed) by 13 time points.
 #     -Increasing the forecast horizon to h=24 (MSE(24) predictor) 
-#       reduces the lag: the forecast horizon can be used to some extent to address 
-#       timeliness (look ahead) but the effect remains limited overall.
+#       generates a trend-inverting and mean-inverting design. 
 #     -DFP-shifted have time-shifts that differ by lead_vec from MSE(12).
 #     -DFP fully decoupled: the time-shift is also well defined since the fully-decoupled DFP
 #       does not invert the trend direction, see exercise 1.5 (to be contrasted with 
@@ -398,24 +437,20 @@ colnames(mplot) <- col_names
 
 # Diagnostic: sum of squared coefficients per filter (proxy for filter energy)
 apply(mplot^2, 2, sum)
+lty_vec<-lwd_vec<-c(2,2,2,rep(1,ncol(filter_mat)-3))
 
 # --- Top-left panel: filter coefficient profiles ---
 plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
+     main = "Scaled Predictors", axes = F, type = "l",lty=lty_vec[1],lwd=lwd_vec[1],
      xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
+     col  = colo[1], 
      ylim = c(min(mplot), max(mplot)))
 mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
 # Overlay remaining filters and add colour-coded labels
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i], type = "l")
+  lines(mplot[, i], col = colo[i], type = "l",lty=lty_vec[i],lwd=lwd_vec[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
 axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
      labels = c(0, (1:(nrow(mplot)/10)) * 10))
 axis(2)
@@ -431,14 +466,13 @@ for (i in 1:ncol(filter_mat))
 colnames(mplot) <- col_names
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
+     main = "CCF", axes = F, type = "l",lty=lty_vec[1],lwd=lwd_vec[1],
      xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
+     col  = colo[1], 
      ylim = c(min(mplot), max(mplot)))
-
 # Overlay CCFs for DFP-shifted and fully decoupled DFP
 for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[ i])
+  lines(mplot[, i], col = colo[ i],lty=lty_vec[i],lwd=lwd_vec[i])
 }
 abline(v =  1 + h, lty = 2)
 abline(h = 0)
@@ -450,14 +484,33 @@ box()
 
 # Discussion:
 # CCF (right panel)
-#   -The MSE predictor (green) maximizes the CCF at the target horizon h=12.
-#    However, the MSE predictor correlates very strongly with x_t (lag 0).
-#   -The tau-shifted DFP correlate less strongly with x_t with increasing lead in lead_vec.
-#     As a consequence, the correlation with the target at h=12 decreases.
-#     But the DFP minimizes this loss at h=12.
-#   -Finally, the fully decoupled (red) has a vanishing CCF at lag 0. As 
-#     a consequence, the target correlation at h=12 is pulled down even more strongly, 
-#     though it is still maximal subject to the imposed full decoupling.
+#
+#   - MSE 12-steps ahead predictor (green, dashed):
+#       Maximizes the CCF at the target horizon h = 12, as expected.
+#       However, it remains strongly correlated with x_t at lag 0,
+#       indicating little decoupling from the concurrent observation.
+#
+#   - MSE 24-steps ahead predictor (MSE(24)):
+#       Substantially decoupled from x_t — unlike in previous tutorials,
+#       increasing the forecast horizon here *increases* decoupling.
+#       However, this predictor maximizes the CCF at h = 24, not at the
+#       intended target horizon h = 12.
+#       For an equivalent level of decoupling, the DFP with shift -160
+#       (violet) achieves the same decoupling while maximizing the CCF
+#       at h = 12 — no other linear predictor can improve the target
+#       correlation under the same decoupling constraint.
+#
+#   - Tau-shifted DFPs (varying lead in lead_vec):
+#       As the lead increases, these predictors become progressively less
+#       correlated with x_t. Consequently, the CCF at the target horizon
+#       h = 12 also decreases. Among all predictors at each given level
+#       of decoupling, however, the DFP minimizes this loss at h = 12.
+#
+#   - Fully decoupled predictor (red):
+#       By construction, the CCF at lag 0 vanishes entirely.
+#       This further reduces the achievable target correlation at h = 12,
+#       but the predictor remains optimal in the sense that it maximizes
+#       the CCF at h = 12 subject to the full decoupling constraint.
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.10 Compare Predictors
@@ -484,15 +537,25 @@ colnames(y_out_mat) <- col_names
 par(mfrow = c(1, 1))
 # Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
 ts.plot(y_out_mat,
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)))
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+# Dotcom crisis
+ts.plot(y_out_mat[120:170,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 
-
+# Financial crisis
 ts.plot(y_out_mat[200:250,],
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)))
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
@@ -565,20 +628,16 @@ axis(1, at = 1 + 0:6 * K / 6,
 axis(2)
 box()
 
-# Outcome:
-# 1. Amplitude:
-#   -All filters are lowpass. Only the fully-decoupled (red) does not have a monotonically decaying amplitude.
-#   -The MSE amplitude (green) is close to the process (black) illustrating the `stuck to present' problem.
-#   -The DFP amplitudes are smaller at lower frequencies and larger at higher frequencies: ATS trilemma.
-#     -They generate more high-frequency noise relative to low frequency signal.
-# 2. Time shifts
-#   -MSE (green) and process (black) are close: `stuck at present problem'.
-#   -The DFP (blue) time-shift is exactly tau=-2 smaller than MSE at frequency zero.
-#   -The frequency-domain shifts at frequency zero confirm the time-domain time-shifts computed in the performance table of 
-#    exercise 1.10: the MSE predictor lags a linear time trend by 4 time units.
-#   -The lead of DFP (blue) over MSE (green) is fairly stable in a vicinity of frequency zero: 
-#    this confirms the lead at business-cycles frequencies in exercise 2.2 and 2.3.
-#   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
+# Outcome
+#   -The lead at frequency zero spills over to adjacent frequencies, including
+#     business-cycle band, see frequency-domain time-shift plots. However, the
+#     lead decreases as omega increases.
+#   -The observed lead at recessions is consistent with the frequency-domain 
+#     time-shift values in the business-cycle band.
+#   -The predictor slowly morphs from a lowpass (MSE) to a bandpass 
+#    (fully decoupled DFP): ATS trilemma.
+#   -As the lead increases, the predictor is increasingly unable to track non-zero 
+#     levels and tends to hover close to the zero line (bandpass behaviour).
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -596,7 +655,7 @@ box()
 xi <- c(1, ARMAtoMA(
   ar      = arima.obj$coef[1:ar_order],
   ma      = arima.obj$coef[ar_order + 1:ma_order],
-  lag.max = L - 1
+  lag.max = length(x)
 ))
 
 # AR inversion
@@ -733,12 +792,512 @@ for (i in 1:ncol(y_out_mat))
 
 
 
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 3: FORECASTING SMOOTH GROWTH  
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.1 Framework
+# ─────────────────────────────────────────────────────────────────────
+
+# It is assumed that exercise 1 has been run to initialize the general 
+# framework for working with diff-log PAYEMS
 
 
 
+# The differenced log-PAYEMS series is fairly noisy, with pronounced
+# downturns during recession episodes.
+ts.plot(x)
+
+# To reduce noise we apply a lowpass filter. Possible choices involve: 
+# Classic trend, e.g., HP-trend (see tutorial 10)
+# Ideal trend
+# AR(1)
+# MA
+
+# For simplity we here rely on the latter, employing an equally-weighted MA(12).
+#   -The proceeding in the DFP approach does not depend on this choice.
+#   -The equally-weighted MA(12) applied to diff-logs corresponds to yearly 
+#     growth and is thus readily interpretable.
+#   -Averaging over a full year reduces noise and strengthens the relevant 
+#     business-cycle dynamics.
+
+# Equally weighted yearly MA
+gamma_target<-rep(1/12,12)
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.2 Model Fit
+# ─────────────────────────────────────────────────────────────────────
+
+# We rely on the model of exercise 1
+# Key novelty when compared to exercise 1: yearly growth
+if (T) {
+# Cnovolve the Wold decomposition with the target filter  
+  gamma        <- conv_two_filt_func(xi, gamma_target)$conv
+} else {
+  # Target the raw differenced log-series directly.
+  gamma <- xi
+}
+
+# Visualise the Wold coefficients: the slow decay confirms the longer-memory
+# character of the post-1990 log-differences relative to the full
+# post-WWII sample.
+par(mfrow = c(2, 1))
+ts.plot(xi, main = "Wold Decomposition Monthly Growth (Post-1990)")
+ts.plot(gamma, main = "Wold Decomposition Yearly Growth (Post-1990)")
 
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.3 DFP Settings
+# ─────────────────────────────────────────────────────────────────────
+# The same as in exercise 1.
+
+h <- 12    # primary forecast horizon (one year ahead)
+# Longer forecast horizon used as a longer-term benchmark
+htilde <- 2*h
+
+# Nowcast:
+# Truncate the MA expansion to length L for the nowcast/MSE filter (gamma0)
+gamma0 <- gamma[1:L]
+
+# h-step-ahead cross-correlation vector (gammah): shift gamma by h positions.
+gammah <- gamma[h + 1:L]
+
+# Analogous cross-correlation vector for the longer horizon htilde
+gammahtilde <- gamma[htilde + 1:L]
+
+# Desired lead of the DFP predictor over the MSE predictor at frequency zero:
+# same as in exercise 1
+lead_vec <- c(-1,-2^(1:5))
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.4 Run Time-Shift MSE-DFP
+# ─────────────────────────────────────────────────────────────────────
+
+# Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
+tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
+tau0 <- sum((0:(L-1)) * gamma0) / sum(gamma0)
+tauh <- sum((0:(L-1)) * gammah) / sum(gammah)
+
+# Standard case: tauh<tau0: the MSE predictor leads the nowcast (the 
+# non-standard case is analysed in tutorial 9).
+tauh-tau0
+
+# Call the dedicated function to compute the DFP filter for a specified lead
+# (see dfp_from_tau_func for the derivation based on Theorem 2, Wildi 2026)
+
+b_mat<-lambda_vec<-alpha_vec<-NULL
+for (i in 1:length(lead_vec))
+{
+  # Lead over MSE at frequency zero  
+  lead<-lead_vec[i]
+  
+  dfp_obj <- mse_dfp_from_tau_func(gamma0, gammah, lead)
+  
+  if (!is.null(dfp_obj))
+  {
+    
+    # Extract the components returned by the function
+    tau0    <- dfp_obj$tau0     # frequency-zero time-shift of gamma0
+    tauh    <- dfp_obj$tauh     # frequency-zero time-shift of gammah
+    lambda0 <- dfp_obj$lambda0  # DFP regularisation weight on gamma0
+    b       <- dfp_obj$b        # raw DFP filter coefficients
+    
+    alpha0 <- as.double(t(gamma0) %*% b)
+    
+    
+    # Normalise b to unit length to obtain the unitary DFP filter
+    b_tau <- b / as.double(sqrt(b %*% b))
+    b_mat<-cbind(b_mat,b_tau)
+    lambda_vec<-c(lambda_vec,lambda0)
+    alpha_vec<-c(alpha_vec,alpha0)
+  } else
+  {
+    print("Warning: gammah and gamma0 are nearly collinear")
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.5 Validation
+# ─────────────────────────────────────────────────────────────────────
+
+# --- Check 1: verify that the achieved leads match the specified leads ---
+tau_vec<-NULL
+for (i in 1:length(lead_vec))
+{
+  taub <- sum((0:(L-1)) * b_mat[,i]) / sum(b_mat[,i])  # frequency-zero shift of the DFP filter, see tutorial 2, exercise 3.3.2
+  tau_vec<-c(tau_vec,taub)
+  # Actual lead of the DFP over the MSE predictor at frequency zero
+  lead_dfp_mse <- taub - tauh
+  
+  # This difference should be (numerically) zero
+  print(lead_dfp_mse - lead_vec[i])
+}
+
+# Assemble all predictors: Scale now- and MSE -forecasts to unit-length (as DFP)
+filter_mat<-cbind(gamma0/as.double(sqrt(gamma0%*%gamma0))
+                  ,gammah/as.double(sqrt(gammah%*%gammah)),
+                  gammahtilde/as.double(sqrt(gammahtilde%*%gammahtilde)),
+                  b_mat,b_cd)
+colnames(filter_mat)<-c("Nowcast","MSE(12)","MSE(24)",paste("DFP ",lead_vec,sep=""),"DFP FD")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.6 Compute Complete Decoupling for Additional Reference
+# ─────────────────────────────────────────────────────────────────────
+# The completely decoupled DFP corresponds to alpha0 = 0, i.e. the DFP filter
+# is orthogonal to gamma0. This serves as a reference benchmark alongside the
+# time-shift DFP computed above.
+
+alpha0_cd <- 0  # complete decoupling: <gamma0, b_cd> = 0
+
+# Compute the completely decoupled DFP filter via Proposition 1
+dfp_obj  <- mse_dfp_from_alpha0_func(gamma0, gammah, alpha0_cd)
+lambda_cd <- dfp_obj$lambda
+b_cd      <- dfp_obj$b
+
+# Normalise to unit length so that b_cd is comparable to b_opt
+scale <- as.double(1 / sqrt(t(b_cd) %*% b_cd))
+b_cd  <- scale * b_cd
+
+# Assemble all predictors: Scale now- and MSE -forecasts to unit-length (as DFP)
+filter_mat<-cbind(gamma0/as.double(sqrt(gamma0%*%gamma0))
+                  ,gammah/as.double(sqrt(gammah%*%gammah)),
+                  gammahtilde/as.double(sqrt(gammahtilde%*%gammahtilde)),
+                  b_mat,b_cd)
+colnames(filter_mat)<-c("Nowcast",paste("MSE(",h,")",sep=""),paste("MSE(",2*h,")",sep=""),paste("DFP ",lead_vec,sep=""),"DFP FD")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.7 Checks: Complete Decoupling DFP
+# ─────────────────────────────────────────────────────────────────────
+
+# Verify orthogonality: <b_cd, gamma0> should be (numerically) zero,
+# confirming that the completely decoupled filter is orthogonal to gamma0
+t(b_cd) %*% gamma0
+
+# Novelty: in constrast to exercise 1, the fully decoupled DFP preserves 
+# trend orientation: the sum of coefficients is positive:
+sum(b_cd)
+
+# We can compute the time-shift at frequency zero: this corresponds to 
+# the sign inverted -b_cd.
+tau_cd <- sum((0:(L-1)) * b_cd) / sum(b_cd)
+tau_cd
+
+# Lead over MSE: a fairly large lead at frequency zero
+tau_cd-tauh
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.8 Performance Table
+# ─────────────────────────────────────────────────────────────────────
+# Summarise four key performance metrics for each predictor:
+#   tau(0)    — frequency-zero time-shift (positive = right-shift or lag when applied to linear trend)
+#   lambda    — DFP regularisation weight on gamma0
+#   alpha0    — inner product <gamma0, b> (DFP constraint value)
+#
+# Rows correspond to:
+#   MSE(h)       — h-step MSE predictor
+#   MSE(htilde)  — long-horizon MSE predictor (reference)
+#   DFP-shifted  — time-shift DFP with specified lead
+#   DFP full dec.— completely decoupled DFP (alpha0 = 0)
+
+mat_perf <- matrix(nrow = 3+length(lead_vec), ncol = 3)
+
+colnames(mat_perf) <- c("tau(0)",  "lambda", "alpha0")
+rownames(mat_perf) <- c(paste("MSE(", h,      ")", sep = ""),
+                        paste("MSE(", htilde, ")", sep = ""),
+                        paste("DFP-shifted by ",lead_vec,sep=""),
+                        "DFP fully decoupled")
+
+# MSE h-step: time-shift and unit-normalised gain; lambda and alpha0 not applicable
+mat_perf[1, 1] <- tauh
+
+# Long-horizon MSE: same metrics for htilde
+mat_perf[2, 1] <- tauhtilde
+# Time-shift DFP and completely decoupled DFP: 
+# Novelty: the time-shift is also available for the fully decoupled DFP
+mat_perf[3:nrow(mat_perf),1]<-c(tau_vec,tau_cd)
+mat_perf[3:nrow(mat_perf),2]<-c(lambda_vec,lambda_cd)
+mat_perf[3:nrow(mat_perf),3]<-c(alpha_vec,alpha0_cd)
+
+
+# Note: NAs indicate that the corresponding entries are left blank (not meaningful)
+mat_perf
+
+
+
+# Discussion: as in exercise 1
+
+# Novelty/difference
+# The MSE predictor has a larger lead over the nowcast
+# The time-shift of the fully decoupled DFP is well-defined (not trend inverting)
+
+# 1. tau(0)-column:
+#     -The classic h=12 steps ahead MSE predictor has a time-shift of ~13.01
+#       Interpretation: when the filter (predictor) is applied to a linear trend, 
+#       then the trend will be right-shifted (delayed) by 13 time points.
+#     -Increasing the forecast horizon to h=24 (MSE(24) predictor) 
+#       reduces the lag: the forecast horizon can be used to some extent to address 
+#       timeliness (look ahead) but the effect remains limited overall.
+#     -DFP-shifted have time-shifts that differ by lead_vec from MSE(12).
+#     -DFP fully decoupled: the time-shift is also well defined since the fully-decoupled DFP
+#       does not invert the trend direction, see exercise 1.5 (to be contrasted with 
+#       tutorial 6, exercise 1.9 (where the fully decoupled DFP inverts trend direction).
+#       Note: the forecast horizon, h=12, is larger which puts some distance between 
+#       lag 0 (decoupling) and forecast horizon h=12 (maximization of target correlation). 
+#       In a way, the forecast problem is less conflicting (less complex) here.
+# 3. lambda: 
+#     -The estimated lambda in the DFP: a negative lambda implies that gammah lies between b and gamm0, 
+#       see tutorial 5, exercise 1.6. More negative lambda indicate stronger rotation 
+#       in the figure of tutorial 5, exercise 1.6.
+# 4. alpha0:
+#     -The MSE-DFP constraint parameter. It cannot be interpreted as a correlation (except when it is vanishing).
+#     -Reformulating the DFP constraint in terms of tau (instead of alpha0) increases interpretability.
+#     -The fully decoupled DFP leads to a vanishing alpha0
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.9 Plot Predictor Filters
+# ─────────────────────────────────────────────────────────────────────
+
+# Layout: two plots in the top row (filter coefficients, CCF),
+# and a third plot spanning the full bottom row (predictor outputs, Section 3.9)
+par(mfrow=c(1,2))
+
+colo <- c("black", "green", rainbow(ncol(filter_mat)-2))
+
+# Collect all four filters into a matrix (no scaling applied)
+mplot<-filter_mat
+col_names <- colnames(filter_mat)
+colnames(mplot) <- col_names
+
+# Diagnostic: sum of squared coefficients per filter (proxy for filter energy)
+apply(mplot^2, 2, sum)
+
+# --- Top-left panel: filter coefficient profiles ---
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters and add colour-coded labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i], type = "l")
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
+     labels = c(0, (1:(nrow(mplot)/10)) * 10))
+axis(2)
+box()
+
+# --- Top-right panel: cross-correlation functions (CCF) ---
+# Compute the CCF between each predictor and the AR(3) process at lags
+# surrounding lag 0 and the h-step-ahead lag
+max_lag<-20
+mplot<-NULL
+for (i in 1:ncol(filter_mat))
+  mplot <- cbind(mplot,compute_ccf_func(filter_mat[,i], gamma0)[L-1+1:max_lag])
+colnames(mplot) <- col_names
+
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+
+# Overlay CCFs for DFP-shifted and fully decoupled DFP
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[ i])
+}
+abline(v =  1 + h, lty = 2)
+abline(h = 0)
+
+axis(1, at = 1:nrow(mplot),
+     labels = -1+1:nrow(mplot))
+axis(2)
+box()
+
+# Discussion:
+# CCF (right panel)
+#   -The MSE predictor (green) maximizes the CCF at the target horizon h=12.
+#    However, the MSE predictor correlates very strongly with x_t (lag 0).
+#   -The tau-shifted DFP correlate less strongly with x_t with increasing lead in lead_vec.
+#     As a consequence, the correlation with the target at h=12 decreases.
+#     But the DFP minimizes this loss at h=12.
+#   -Finally, the fully decoupled (red) has a vanishing CCF at lag 0. As 
+#     a consequence, the target correlation at h=12 is pulled down even more strongly, 
+#     though it is still maximal subject to the imposed full decoupling.
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.10 Compare Predictors
+# ─────────────────────────────────────────────────────────────────────
+#----------------------------------------------------------------------
+# 3.10.1 Apply Predictors to data
+#----------------------------------------------------------------------
+
+
+# All filters are defined in MA form (as applied to the einnovations eps_t in the Wold decomposition)
+# Therefore we apply the filters to model residuals.
+# Note: example 2.4 in tutorial 6 applied the MA form to x_t instead, which is not optimal.
+x_filt   <- arima.obj$residuals
+
+y_out_mat<-NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat<-cbind(y_out_mat,filter(x_filt,filter_mat[, i], side = 1))
+colnames(y_out_mat) <- col_names
+
+#----------------------------------------------------------------------
+# 1.10.2 Plot
+#----------------------------------------------------------------------
+
+par(mfrow = c(1, 1))
+# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
+ts.plot(y_out_mat,
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+# Dotcom recession
+ts.plot(y_out_mat[120:170,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+
+# Financial crisis
+ts.plot(y_out_mat[200:250,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,2,rep(1,ncol(filter_mat)-3)),lwd=c(2,2,2,rep(1,ncol(filter_mat)-3)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+# Discussion:
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.11 Amplitude and Time-Shifts
+# ─────────────────────────────────────────────────────────────────────
+
+K      <- 600      # number of frequency grid points
+plot_T <- FALSE    # suppress internal plotting; we build a custom plot below
+amp_mat<-shift_mat<-NULL
+for (i in 1:ncol(filter_mat))
+{
+  as_obj <- amp_shift_func(K, filter_mat[,i], plot_T)   # time-shift for lagged filter (b1)
+  amp_mat<-cbind(amp_mat,as_obj$amp)
+  shift<-as_obj$shift
+  # Ignore too negative shifts  
+  shift[which(shift<(-3))]<-NA
+  shift_mat<-cbind(shift_mat,shift)
+}
+colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
+
+
+# Plot time-shift functions for both filters across frequencies [0, π]
+par(mfrow = c(1, 2))
+mplot <- amp_mat
+lty_vec<-c(2,2,rep(1,ncol(filter_mat)-2))
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
+     xlab = "Frequency", ylab = "Amplitude",
+     main = "Amplitude functions",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+
+mplot <- shift_mat
+
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Time-shift functions",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
+#mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
+  #  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# Outcome:
+# 1. Amplitude:
+#   -All filters are lowpass. Only the fully-decoupled (red) does not have a monotonically decaying amplitude.
+#   -The MSE amplitude (green) is close to the process (black) illustrating the `stuck to present' problem.
+#   -The DFP amplitudes are smaller at lower frequencies and larger at higher frequencies: ATS trilemma.
+#     -They generate more high-frequency noise relative to low frequency signal.
+# 2. Time shifts
+#   -MSE (green) and process (black) are close: `stuck at present problem'.
+#   -The DFP (blue) time-shift is exactly tau=-2 smaller than MSE at frequency zero.
+#   -The frequency-domain shifts at frequency zero confirm the time-domain time-shifts computed in the performance table of 
+#    exercise 1.10: the MSE predictor lags a linear time trend by 4 time units.
+#   -The lead of DFP (blue) over MSE (green) is fairly stable in a vicinity of frequency zero: 
+#    this confirms the lead at business-cycles frequencies in exercise 2.2 and 2.3.
+#   -The fully-decoupled DFP (red) is anticipative (negative shift for lower frequencies).
+
+
+
+# MAIN TAKE AWAYS
+# -Exercise 1 (and 2) emphasized monthly growth
+#   -The series is fairly noisy
+#   -Forecasting through time-shift DFP generates an increasing left-shift
+#     with increasing lead tau
+#   -The lead at frequency zero spills over to adjacent frequencies, including
+#     business-cycle band, see frequency-domain time-shift plots. However, the
+#     lead decreases as omega increases.
+#   -The observed lead at recessions is consistent with the frequency-domain 
+#     time-shift values in the business-cycle band.
+#   -The predictor slowly morphs from a lowpass (MSE) to a bandpass 
+#    (fully decoupled DFP): ATS trilemma.
+#   -As the lead increases, the predictor is increasingly unable to track non-zero 
+#     levels and tends to hover close to the zero line (bandpass behaviour).
+# -The fully decoupled design does not preserve trend orientation. This can lead 
+#  to severe distortions when the level of a series is non-zero (the sign of 
+#   the mean is inverted). We argue that full decoupling is too excessive in 
+#   this example.
+# -One additional advantage of the time-shift DFP is that the formula ensures 
+#  that the resulting DFP preserves orientation of a linear trend.
+
+# -Exercise 3 generalized exercises 1 and 2 by allowing tracking of  a generic 
+#   signal of x_t (here a lowpass).
+# -Specifically, we select an yearly equally-weighted MA which emphasizes yearly growth.
+# -In this context, the target is smoother (less noisy) and the effect of the DFP 
+#   is more stringent.
+# -In contrast to exercise 1 (or 2), the fully decoupled DFP preserves trend orientation 
+#   and can serve as a consistent predictor (though fairly extreme in design).
+
+# Coming next:
+# Tutorial 9 analyzes a non-standard case and some other tricky configurations.
+# Tutorial 10 introduces the PCS
 
 
 

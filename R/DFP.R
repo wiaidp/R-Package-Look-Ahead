@@ -103,7 +103,7 @@ compute_mse_dfp<-function(alpha0,gamma0,gammah,plot_T=F)
 
 mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 {
-  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-10})
+  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-15})
   {
     print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
     return()
