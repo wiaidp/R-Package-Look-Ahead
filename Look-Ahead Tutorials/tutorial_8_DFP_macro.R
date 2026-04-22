@@ -219,7 +219,7 @@ gammahtilde <- gamma[htilde + 1:L]
 # Desired lead of the DFP predictor over the MSE predictor at frequency zero
 # (negative value = the DFP output leads by |lead| time steps at the zero 
 # trend frequency). We analyse a sequence of increasing leads at frequency zero.
-lead_vec <- c(-1,-2^(1:5),-160)
+lead_vec <- c(-2^(0:5),-200)
 
 
 
@@ -506,7 +506,7 @@ box()
 #       increasing the forecast horizon here *increases* decoupling.
 #       However, this predictor maximizes the CCF at h = 24, not at the
 #       intended target horizon h = 12.
-#       For an equivalent level of decoupling, the DFP with shift -160
+#       For an equivalent level of decoupling, the DFP with shift -200
 #       (violet) achieves the same decoupling while maximizing the CCF
 #       at h = 12 — no other linear predictor can improve the target
 #       correlation under the same decoupling constraint.
@@ -801,14 +801,32 @@ for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 3: SIMULATIONS  
+# ════════════════════════════════════════════════════════════════════
+
+# with ARMA(2,2) show that DFP(-200) outperforms MSE(24) at h=12 (but not at h=24)
+
+# With h=50: show that gammah inverts phase
+
+# With mu large added to eps: show that MA(24) changes sign of mu
+
+# With trend: show that MA(24) changes sign of mu
+
+# Outcomes: 
+# For a periodic AR(2) look ahead behaviour is straightforward 
+# But phase invesrion makes very long forecasts unplausible
+# DFP time-shift tries to track target at h as closely as possible: phase inversion not possible.
+
+
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 3: FORECASTING SMOOTH GROWTH  
+# EXERCISE 4: FORECASTING SMOOTH GROWTH  
 # ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.1 Framework
+# 4.1 Framework
 # ─────────────────────────────────────────────────────────────────────
 
 # It is assumed that exercise 1 has been run to initialize the general 
@@ -837,7 +855,7 @@ ts.plot(x)
 gamma_target<-rep(1/12,12)
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.2 Model Fit
+# 4.2 Model Fit
 # ─────────────────────────────────────────────────────────────────────
 
 # We rely on the model of exercise 1
@@ -860,7 +878,7 @@ ts.plot(gamma, main = "Wold Decomposition Yearly Growth (Post-1990)")
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.3 DFP Settings
+# 4.3 DFP Settings
 # ─────────────────────────────────────────────────────────────────────
 # The same as in exercise 1.
 
@@ -891,12 +909,12 @@ gammahtilde <- gamma[htilde + 1:L]
 
 # Desired lead of the DFP predictor over the MSE predictor at frequency zero:
 # same as in exercise 1
-lead_vec <- c(-1,-2^(1:5))
+lead_vec <- -2^(0:5)
 
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.4 Run Time-Shift MSE-DFP
+# 4.4 Run Time-Shift MSE-DFP
 # ─────────────────────────────────────────────────────────────────────
 
 # Compute the frequency-zero time-shift of the long-horizon MSE filter (reference)
@@ -943,7 +961,7 @@ for (i in 1:length(lead_vec))
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.5 Validation
+# 4.5 Validation
 # ─────────────────────────────────────────────────────────────────────
 
 # --- Check 1: verify that the achieved leads match the specified leads ---
@@ -968,7 +986,7 @@ colnames(filter_mat)<-c("Nowcast","MSE(12)","MSE(24)",paste("DFP ",lead_vec,sep=
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.6 Compute Complete Decoupling for Additional Reference
+# 4.6 Compute Complete Decoupling for Additional Reference
 # ─────────────────────────────────────────────────────────────────────
 # The completely decoupled DFP corresponds to alpha0 = 0, i.e. the DFP filter
 # is orthogonal to gamma0. This serves as a reference benchmark alongside the
@@ -994,7 +1012,7 @@ colnames(filter_mat)<-c("Nowcast",paste("MSE(",h,")",sep=""),paste("MSE(",2*h,")
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.7 Checks: Complete Decoupling DFP
+# 4.7 Checks: Complete Decoupling DFP
 # ─────────────────────────────────────────────────────────────────────
 
 # Verify orthogonality: <b_cd, gamma0> should be (numerically) zero,
@@ -1015,7 +1033,7 @@ tau_cd-tauh
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.8 Performance Table
+# 4.8 Performance Table
 # ─────────────────────────────────────────────────────────────────────
 # Summarise four key performance metrics for each predictor:
 #   tau(0)    — frequency-zero time-shift (positive = right-shift or lag when applied to linear trend)
@@ -1085,11 +1103,10 @@ mat_perf
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.9 Plot Predictor Filters
+# 4.9 Plot Predictor Filters
 # ─────────────────────────────────────────────────────────────────────
 
-# Layout: two plots in the top row (filter coefficients, CCF),
-# and a third plot spanning the full bottom row (predictor outputs, Section 3.9)
+
 par(mfrow=c(1,2))
 
 colo <- c("black", "green", rainbow(ncol(filter_mat)-2))
@@ -1101,24 +1118,20 @@ colnames(mplot) <- col_names
 
 # Diagnostic: sum of squared coefficients per filter (proxy for filter energy)
 apply(mplot^2, 2, sum)
+lty_vec<-lwd_vec<-c(2,2,2,rep(1,ncol(filter_mat)-3))
 
 # --- Top-left panel: filter coefficient profiles ---
 plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
+     main = "Scaled Predictors", axes = F, type = "l",lty=lty_vec[1],lwd=lwd_vec[1],
      xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
+     col  = colo[1], 
      ylim = c(min(mplot), max(mplot)))
 mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
 # Overlay remaining filters and add colour-coded labels
 for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i], type = "l")
+  lines(mplot[, i], col = colo[i], type = "l",lty=lty_vec[i],lwd=lwd_vec[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
 axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
      labels = c(0, (1:(nrow(mplot)/10)) * 10))
 axis(2)
@@ -1134,14 +1147,13 @@ for (i in 1:ncol(filter_mat))
 colnames(mplot) <- col_names
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
+     main = "CCF", axes = F, type = "l",lty=lty_vec[1],lwd=lwd_vec[1],
      xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
+     col  = colo[1], 
      ylim = c(min(mplot), max(mplot)))
-
 # Overlay CCFs for DFP-shifted and fully decoupled DFP
 for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[ i])
+  lines(mplot[, i], col = colo[ i],lty=lty_vec[i],lwd=lwd_vec[i])
 }
 abline(v =  1 + h, lty = 2)
 abline(h = 0)
@@ -1150,6 +1162,11 @@ axis(1, at = 1:nrow(mplot),
      labels = -1+1:nrow(mplot))
 axis(2)
 box()
+
+
+
+
+
 
 # Discussion:
 # CCF (right panel)
@@ -1163,10 +1180,10 @@ box()
 #     though it is still maximal subject to the imposed full decoupling.
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.10 Compare Predictors
+# 4.10 Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 #----------------------------------------------------------------------
-# 3.10.1 Apply Predictors to data
+# 4.10.1 Apply Predictors to data
 #----------------------------------------------------------------------
 
 
