@@ -1,5 +1,10 @@
 unitary_DFP_func<-function(gamma0,gammah,alpha0)
 {
+  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-10})
+  {
+    print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
+    return()
+  }
   if (abs(alpha0)>1)
   {
     print("|alpha0| must be smaller one: it is a correlation!")
@@ -73,7 +78,13 @@ unitary_DFP_func<-function(gamma0,gammah,alpha0)
 
 # Compute MSE DFP
 compute_mse_dfp<-function(alpha0,gamma0,gammah,plot_T=F)
-{
+{  
+  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-10})
+  {
+    print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
+    return()
+  }
+  
   L<-length(gamma0)
   B<-rbind(-gamma0[2:L]/gamma0[1],diag(rep(1,L-1)))
   alpha0_vec<-c(alpha0/gamma0[1],rep(0,L-1))
@@ -92,13 +103,39 @@ compute_mse_dfp<-function(alpha0,gamma0,gammah,plot_T=F)
 
 mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 {
+  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-10})
+  {
+    print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
+    return()
+  }
+  
   # Compute shifts at frequency zero
   tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
   tauh<-sum((0:(L-1))*gammah)/sum(gammah)
+
   tau<-lead
   # Formula for lambda0
   lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
   b<-gammah+lambda0*gamma0
+  if (tauh>tau0)
+  {
+    print("Non-standard case: tauh>tau0")
+    print("The MSE predictors lags the nowcast at frequency zero")
+    print("This requires inversion of the DFP solution")
+    print("b must lie on side of gamma0 opposite to gammah")
+    print("Equivalently, we minimize the target correlation")
+    print("This means b=-gammah+lambda0*gamma0")
+    print("The sign of gammah is inverted in the non-standard case")
+    lambda0<--lambda0
+    b<--gammah+lambda0*gamma0
+  }
+
+  if (b%*%gammah<0)
+  {
+    print("Warning: the target correlation is negative")
+#    lambda0<--lambda0
+#    b<--b
+  }
   
   return(list(tau0=tau0,tauh=tauh,lambda0=lambda0,b=b))
 }
@@ -107,6 +144,12 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 
 mse_dfp_from_alpha0_func<-function(gamma0,gammah,alpha0)
 {
+  if (abs(abs(gamma0%*%gammah)-sqrt(sum(gamma0^2)*sum(gammah^2)))<10^{-10})
+  {
+    print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
+    return()
+  }
+  
   lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
   b<-gammah+lambda*gamma0
   return(list(lambda=lambda,b=b))
