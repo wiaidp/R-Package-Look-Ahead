@@ -193,6 +193,17 @@ gamma0 <- gamma[1:L]
 # h-step-ahead cross-correlation vector (gammah): shift gamma by h positions.
 gammah <- gamma[h + 1:L]
 
+# Check that transfer functions are positive at frequency zero.
+# Otherwise the time-shift decoupling DFP should not be used.
+if (sum(gammah)<0|sum(gamma0)<0)
+{
+  print("#####################################################")
+  print("Time shifts at frequency zero are not well-defined")
+  print("Nowcast or MSE forecast do not preserve trend orientation")
+  print("#####################################################")
+}  
+
+
 # Check: gamma0 and gammah must be non-collinear; if they are, the DFP
 # optimisation is degenerate and cannot be solved without additional interventions.
 if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-15)
@@ -863,6 +874,17 @@ gamma0 <- gamma[1:L]
 
 # h-step-ahead cross-correlation vector (gammah): shift gamma by h positions.
 gammah <- gamma[h + 1:L]
+
+# Check that transfer functions are positive at frequency zero.
+# Otherwise the time-shift decoupling DFP should not be used.
+if (sum(gammah)<0|sum(gamma0)<0)
+{
+  print("#####################################################")
+  print("Time shifts at frequency zero are not well-defined")
+  print("Nowcast or MSE forecast do not preserve trend orientation")
+  print("#####################################################")
+}  
+
 
 # Analogous cross-correlation vector for the longer horizon htilde
 gammahtilde <- gamma[htilde + 1:L]
