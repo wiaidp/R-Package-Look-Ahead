@@ -9,6 +9,21 @@
 # 1. A different (simpler) ARMA(1,1) model
 # 2. A slightly different computation of gammah
 
+# Modification 1 will lead to a  `non standard' case 
+# where the MSE predictor is lagging the nowcast, a practically rather uncommon 
+# situation.
+
+# Modification 1 and 2 together will
+# a) reinstall the standard case
+# b) but generate solutions whose time-shifts comply with the DFp constraint
+#   but whose outputs lag (because the shift does not spill over to business-cycle 
+#   frequencies).
+
+# This suggests that we need a look ahead proceeding which considers the aggreagte lead 
+# rather than the lead at frequency zero.
+
+# Alternatively, one might consider the time-shift at another frequency than 0 (e.g., business-cycle frequency)
+
 
 # ── INITIALISATION ───────────────────────────────────────────────────
 rm(list = ls())
