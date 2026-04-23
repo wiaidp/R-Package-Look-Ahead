@@ -4,11 +4,13 @@
 
 # A brief overview of the DFP is provided in tutorial_3_DFP_overview.r.
 
-# We consider an application of the interpretable MSE-DFP to PAYEMS, an
-# important monthly US business-cycle indicator. Interpretability is
-# achieved by applying the DFP time-shift constraint introduced in
-# Tutorial 6, which specifies the lead of the DFP over the MSE predictor
-# directly in terms of a pre-specified number of time steps.
+# We consider an application of the interpretable MSE-DFP introduced in 
+# Tutorial 6 to PAYEMS, an important monthly US business-cycle indicator. 
+# Interpretability is achieved by applying the DFP time-shift constraint 
+# introduced in Tutorial 6, which specifies the constraint of the DFP 
+# directly in terms of a pre-specified lead at frequency zero, i.e. a
+# corresponding left-shift of a linear trend by the predictor when compared 
+# to the classic MSE predictor.
 
 # ─────────────────────────────────────────────────────────────────────
 # MOTIVATION
@@ -16,9 +18,9 @@
 # Without a unit-length constraint on the filter (unitary DFP, Tutorial 4),
 # the parameter alpha0 in the MSE-DFP formulation represents a scale-dependent 
 # covariance whose values are more difficult to interpret than the correlation 
-# meaning in the unitary DFP (tutorial 4). Moreover, as discussed in Tutorial 5, it is unclear how
-# decoupling from the present value x_t translates into a quantifiable
-# lead over the MSE benchmark.
+# meaning in the unitary DFP (tutorial 4). Moreover, as discussed in Tutorial 5, 
+# it is unclear how decoupling from the present value x_t translates into a 
+# quantifiable lead over the MSE benchmark.
 #
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0
 # to the time-shift (phase delay) at frequency zero — the trend frequency —
@@ -414,7 +416,8 @@ filter_mat<-cbind(gamma0/as.double(sqrt(gamma0%*%gamma0))
                   ,gammah/as.double(sqrt(gammah%*%gammah)),
                   gammahtilde/as.double(sqrt(gammahtilde%*%gammahtilde)),
                   b_mat,b_cd)
-colnames(filter_mat)<-c("Nowcast",paste("MSE(",h,")",sep=""),paste("MSE(",2*h,")",sep=""),paste("DFP ",lead_vec,sep=""),"DFP FD")
+colnames(filter_mat)<-c("Nowcast",paste("MSE(",h,")",sep=""),
+          paste("MSE(",2*h,")",sep=""),paste("DFP ",lead_vec,sep=""),"DFP FD")
 
 
 # ─────────────────────────────────────────────────────────────────────
