@@ -5,16 +5,18 @@
 
 # A brief overview of the DFP is provided in tutorial_3_DFP_overview.r.
 
-# We consider the application to PAYEMS in tutorial 8. The only differences are
-# 1. A different (simpler) ARMA(1,1) model
-# 2. A slightly different computation of gammah
+# We consider the application to PAYEMS initiated in Tutorial 8. The relevant 
+# differences are
+# 1. A (simpler) ARMA(1,1) model: in contrast to the ARMA(2,2) in Tutorial 8, 
+#   the ARMA(1,1) is `aperiodic', the MSE predictor cannot exploit the phase effect 
+#   and is `stuck at present' 
+# 2. A slight modification of the MSE predictor gammah.
 
-# Modification 1 will lead to a  `non standard' case 
-# where the MSE predictor is lagging the nowcast, a practically rather uncommon 
+# Modification 1 will lead to the so-called   `non-standard' case addressed in Wildi (2026), Appendix A. 
+# In the non-standard case  the MSE predictor is effectively LAGGING the nowcast, a practically rather uncommon 
 # situation.
 
-# Modification 1 and 2 together will
-# a) reinstall the standard case
+# The minor modification of gammah will reinstall the standard case 
 # b) but generate solutions whose time-shifts comply with the DFp constraint
 #   but whose outputs lag (because the shift does not spill over to business-cycle 
 #   frequencies).
@@ -673,7 +675,7 @@ box()
 ###################################################################################
 ###################################################################################
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: Same as Exercise 1 but a Different Model
+# Exercise 2: Same as Exercise 1 but a slight modification of gammah
 # ════════════════════════════════════════════════════════════════════
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 Load the Data
