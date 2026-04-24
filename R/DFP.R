@@ -149,7 +149,7 @@ mse_dfp_from_alpha0_func<-function(gamma0,gammah,alpha0)
     print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
     return()
   }
-  
+# See proposition 1 in Wildi 2026  
   lambda<-as.double((alpha0-t(gamma0)%*%gammah)/(t(gamma0)%*%gamma0))
   b<-gammah+lambda*gamma0
   return(list(lambda=lambda,b=b))
