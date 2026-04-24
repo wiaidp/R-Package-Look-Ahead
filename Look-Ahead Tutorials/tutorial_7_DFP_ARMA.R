@@ -623,6 +623,71 @@ for (i in 1:ncol(mplot))
 #                     frequency zero, see tutorial 6. Like the correlation, 
 #                     the time-shift is scale-free.
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.1 Time-Shifts of MSE Predictors
+# ─────────────────────────────────────────────────────────────────────
+
+
+tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)       # nowcast filter (gamma0)
+tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)       # h-step MSE predictor (gammah)
+tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon MSE predictor (gammahtilde)
+
+
+# Display tau0 and tauh:
+tau0
+tauh
+tauhtilde
+
+# Outcome:
+# Increasing the forecast horizon does not markedly reduce the time-shift:
+# The 20-step ahead predictor has nearly the same shift as the nowcast.
+
+# Standard-case. Although MSE(h) is nearly coincident with nowcast, its shift 
+# is nevertheless marginally smaller (by 1/10 of a time-unit). Therefore, the 
+# problem is in standard form; see Wildi (2026) appendix A for treatment of the 
+# non-standard form and tutorial 9 for a full treatment.
+tau0-tauh
+
+
+# The above leads are minor (approximately half a time unit), and are
+# therefore insufficient for practical look-ahead purposes. We impose a
+# larger lead via the DFP constraint. The desired leads of the DFP over
+# the MSE predictor at frequency zero are specified as an increasing sequence:
+
+lead_vec <- -(1:h)
+
+# Note: a negative lead signifies that a linear trend will be left-sifted by 
+# abs(lead) time points when compared to gammah (DFP anticipates the MSE(h) 
+# predictor on a linear trend signal).
+b_mat<-lambda_vec<-NULL
+for (i in 1:length(tau_vec))
+{
+  tau<-tau_vec[i]
+  
+  dfp_obj <- mse_dfp_from_tau_func(gamma0, gammah, tau)
+
+  # Extract the components returned by the function
+  tau0    <- dfp_obj$tau0     # frequency-zero time-shift of gamma0
+  tauh    <- dfp_obj$tauh     # frequency-zero time-shift of gammah
+  lambda0 <- dfp_obj$lambda0  # DFP regularisation weight on gamma0
+  b       <- dfp_obj$b        # raw DFP filter coefficients
+  
+  b_mat<-cbind(b_mat,b)
+  lambda_vec<-c(lambda_vec,lambda0)
+}
+
+colnames(b_mat)<-names(lambda_vec)<-paste("Lead ",lead_vec,sep="")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.2 Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# The following differences should vanish
+for (i in 1:ncol(b_mat))
+{
+  print(sum(b_mat[,i]*(0:(L-1))) / sum(b_mat[,i])-(tauh+lead_vec[i]))
+}
 
 # ════════════════════════════════════════════════════════════════════
 # Main Take-Aways
