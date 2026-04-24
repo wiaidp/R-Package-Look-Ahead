@@ -5,8 +5,16 @@
 # ════════════════════════════════════════════════════════════════════
 
 # This Tutorial applies the procedure of Tutorial 6 to an ARMA process. 
-# The ARMA process is `difficult' to forecast in the sense 
-# It applies the DFP based on a time-shift constraint in frequency zero.
+# The ARMA process is `difficult' to forecast
+# - Increasing the forecast horizon (from h=3 to h=20 in the exercise) does 
+#   improve look ahead behaviour of the MSE(20). The only significant 
+#   effect of increasing h is a zero-shrinkage of the predictor (signaling incresing uncertainty)
+# - Imposing decoupling from x_t (at the present) induces significant zero- shrinkage
+#    of the DFP predictors.
+# - Imposing a substantial reduction of the cross correlation function at lag 0 
+#   (decoupling) requires strong decrease of the DFP constraint parameter alpha0.
+
+
 
 #
 
@@ -31,7 +39,7 @@ library(xts)
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 1: ARMA(3,2)
+# Exercise 1: MSE-DFP Applied ARMA(3,2)
 # ════════════════════════════════════════════════════════════════════
 # ─────────────────────────────────────────────────────────────────────
 # 1.1 Process specification
@@ -73,6 +81,8 @@ gammah<-gamma[h+(1:L)]
 # For reference we also use a long forecast horizon MSE predictor
 htilde<-20
 gammahtilde<-gamma[htilde+(1:L)]
+
+max_lag<-0
 
 # Compute CCF of h-step MSE predictor: for reference against DFP
 cor_vec<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,gamma0)$cor_vec
@@ -118,7 +128,7 @@ for (i in 1:length(alpha0_vec))#i<-1
 }
 
 # Assemble MSE and DFP predictors and CCFs
-colnames(b_mat)<-paste("alph0=",alpha0_vec,sep="")
+colnames(b_mat)<-paste("alpha0=",alpha0_vec,sep="")
 filter_mat<-cbind(gammah,gammahtilde,b_mat)
 colnames(filter_mat)<-c(paste("MSE(",h,")",sep=""),paste("MSE(",htilde,")",sep=""),colnames(b_mat))
 
@@ -305,18 +315,32 @@ axis(2)
 box()
 
 
+
 # Outcome:
-# CCF: 
-#   -Difficult estimation problem: alpha0 must be decreased heavily to affect CCF at lag 0 
-# see first column in cor_vec
-round(cor_vec_2,4)
-#   -As alpha0 decreases, the CCF at lag 0 decreases (stronger decoupling).
-#   -This loss spills over to the forecast horizon h=3 but the DFP minimizes this loss.
-# Coefficients:
+# Coefficients: 
+# -Enforcing decoupling, i.e., decreasing alpha0, generates relatively strong zero-shrinkage 
+#   of the DFP predictors. The sum of squared parameters decreases markedly:  
+
+apply(filter_mat^2,2,sum)
+
+# -The decreasing scale means that alpha0 (the covariance between the DFP and the nowcast gamma0)
+#   will be affected correspondingly: we need to decrease alpha0 markedly to compensat for the zero-shrinkage 
+#   in order to obtain a sizeable reduction of the CCF (left plot) at lag 0 (correlation of DFP and nowcast gamma0).
 #   -As decoupling increases (smaller alpha0) the original smooth pattern of 
 #    the MSE predictor (green) becomes increasingly unsmooth and ragged.
 #   -Increased look ahead behaviour of the DFP emphasizes features of the 
 #     data generating process that are hidden by the MSE predictor.
+
+# CCF: 
+#   -The CCF at lag zero stays close to 1 (strong coupling) despite substantial decrease of alpha0.
+#     This is because alpha0 measures the scale dependent covariance and because the DFP is subject 
+#     to strong shrinkage.
+#   - With the exception of the fully decoupled DFP, all otehr DFPs generate only modeste decoupling
+#   -Difficult estimation problem: alpha0 must be decreased heavily to affect CCF at lag 0 
+# see first column in cor_vec
+round(cor_vec_2,4)
+#   -As alpha0 decreases, the CCF at lag 0 slowly decreases. This loss spills over to the forecast horizon h=3 but the DFP minimizes this loss.
+# Coefficients:
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.6 Verification: 
@@ -349,6 +373,11 @@ colnames(y_out_mat)<-colnames(filter_mat)
 t(perf_mat)
 # Compare with true (expected) CCF of DFP
 cor_vec_2
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.7 Look Ahead Behaviour
+# ─────────────────────────────────────────────────────────────────────
+
 
 anf<-650
 enf<-750
@@ -413,6 +442,12 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i],line=-i,col=coli[i])
 
 
+# ════════════════════════════════════════════════════════════════════
+# Exercise 2: Interpretability (Time-Shift DFP Constraint)
+# ════════════════════════════════════════════════════════════════════
+# MSE-DFP is sensitive to scale.
+# Unitary DFP is invariant to scale
+# Time-shift is invariant to scale
 
 
 
