@@ -10,12 +10,26 @@
 #
 #   1. A simpler ARMA(1,1) model: unlike the ARMA(2,2) used in
 #      Tutorial 8, the ARMA(1,1) is 'aperiodic', meaning the MSE
-#      predictor cannot exploit any phase effect and is effectively
-#      'stuck at the present' (i.e., it behaves as a nowcast).
+#      predictor cannot exploit any phase effect and therefore behaves
+#      as a nowcast — it is effectively 'stuck at the present'
+#      regardless of the forecast horizon.
 #
 #   2. A minor modification applied to the original h-step-ahead MSE
-#      predictor (see Section 1.3 below), which restores the standard
-#      DFP case.
+#      predictor, which markedly affects the DFP solution.
+#
+# Unlike the ARMA(2,2) in Tutorial 8, the aperiodic ARMA(1,1) does
+# not support phase hunting: increasing the forecast horizon has no
+# effect on lead/lag, so the MSE predictor cannot deliver genuine
+# look-ahead behaviour.
+#
+# The DFP, by contrast, is able to generate a genuine lead even in
+# the absence of phase or periodicity. This look-ahead behaviour is
+# intrinsic to the optimisation principle: tracking the target
+# optimally subject to a time-shift constraint (a lead) at frequency
+# zero.
+#
+#
+# Implications of the two modifications:
 #
 # Modification 1 gives rise to the so-called 'non-standard' case
 # discussed in Wildi (2026), Appendix A. This case has two defining
@@ -31,25 +45,30 @@
 #       theoretical background.
 #
 # Modification 2 reinstates the standard case via a minor adjustment
-# to the MSE predictor. However, DFP solutions whose time-shifts
-# satisfy the zero-frequency lead constraint may still lag at
-# business-cycle frequencies, because the imposed phase restriction
-# does not propagate beyond frequency zero.
+# to the MSE predictor. However, DFP solutions optimised for larger
+# leads tend to lag behind the classical MSE predictor — a
+# counterintuitive outcome. This effect stems from the inherent
+# difficulty of the prediction problem: the DFP exploits every
+# available opportunity to satisfy the time-shift constraint while
+# maximising target correlation, an uncompromising strategy that can
+# lead to overfitting and, consequently, undesirable lagging rather
+# than genuine look-ahead.
 #
-# This suggests that, in some applications, anchoring the DFP
-# constraint at frequency zero alone is insufficient to generate an
-# effective lead across the full range of policy-relevant frequencies.
+# This suggests that, in applications prone to overfitting, anchoring
+# the DFP constraint at frequency zero alone is insufficient to
+# generate an effective lead across the full range of
+# policy-relevant frequencies.
 #
 # Two potential remedies:
 #
-#   1. Optimise over an aggregate lead measure (rather than a
-#      zero-frequency lead constraint alone); see the PCS criterion
+#   1. Optimise over an aggregate lead measure rather than a
+#      zero-frequency lead constraint alone; see the PCS criterion
 #      introduced in Tutorial 10.
 #
 #   2. Anchor the time-shift constraint at a frequency other than
 #      zero — for example, at the business-cycle frequency — to
 #      directly target the frequency band of primary interest.
-#
+
 
 # ════════════════════════════════════════════════════════════════════
 
