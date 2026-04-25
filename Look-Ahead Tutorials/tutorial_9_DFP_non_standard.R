@@ -971,7 +971,7 @@ lead_vec <- -2^(0:6)
 tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
 tauh <- sum((0:(L-1)) * gammah) / sum(gammah)
 
-# In contrast to exercise 3 above, tauh>tau0: standard case
+# In contrast to exercise 1 above, tauh>tau0: standard case
 if (tauh>tau0)
 {
   print("Non-standard case: the MSE predictor lags the nowcast at frequency zero")
