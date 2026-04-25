@@ -1,6 +1,6 @@
 # ════════════════════════════════════════════════════════════════════
 # TUTORIAL 7 — MSE-DFP APPLIED TO ARMA
-# PART 4: Exploiting Hidden Structure in a Difficult Forecast Framework
+# PART 4: Emphasizing Unexplored Structure in a Difficult Forecast Framework
 # ════════════════════════════════════════════════════════════════════
 
 # Overview:
@@ -150,7 +150,7 @@ alpha0_vec <- round(c(0.7, 0.45, 0.22, 0.1, 0) * alpha0_mse, 2)
 
 # Initialise storage matrices for filter coefficients and CCF summaries
 max_lag        <- 0
-b_mat          <- b_mat_unscaled <- a_mat <- lambda_vec2 <- NULL
+b_mat          <- b_mat_unscaled <-  NULL
 cor_vec_mat_1  <- cor_vec_1 <- NULL
 
 # Loop over alpha0 values and compute the corresponding MSE-DFP filter
@@ -434,8 +434,8 @@ apply(filter_mat^2, 2, sum)
 #     tighter decoupling demands an increasingly strict alpha0 bound to
 #     compensate for the simultaneous zero-shrinkage effect.
 #
-#   - As alpha0 decreases the smooth, regular shape of the MSE filter (green)
-#     becomes progressively more unsmooth and ragged.
+#   - As alpha0 decreases the smooth, regular shapes of the MSE filters (green,
+#     darkgreen) become progressively more unsmooth and ragged. 
 #
 #   - Increased decoupling (look-ahead behaviour) emphasises features of the 
 #     data-generating process that are obscured/ignored by the unconstrained 
@@ -550,10 +550,22 @@ lines(mplot[, 2], col = "green", lty = 2, lwd = 2)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], line = -i, col = coli[i])
 
-# Outcome: after standardisation, MSE(htilde) offers no timing advantage
-# over MSE(h). Increasing the forecast horizon in the MSE framework does
-# NOT unlock genuine look-ahead behaviour — confirming that this is a
-# difficult forecast problem.
+
+# Outcome: After standardisation, MSE(h_tilde) offers no timing advantage
+# over MSE(h). Increasing the forecast horizon within the MSE framework does
+# NOT unlock genuine look-ahead behaviour, confirming that this remains a
+# fundamentally difficult forecasting problem.
+
+# Further check: The correlation between the h = 3 step-ahead predictor and
+# the h_tilde = 20 step-ahead predictor is nearly 1, indicating that
+# increasing h has no meaningful effect on MSE(h) — with the sole exception
+# of zero-shrinkage:
+cor(na.exclude(y_out_mat[, 1]), na.exclude(y_out_mat[, 2]))
+
+# Explanation: The dominant AR(1) root of the ARMA process implies that
+# gammah is nearly proportional to gammahtilde. The proportionality
+# constant, given by |lambda|^(htilde - h), mainly drives the zero-shrinkage
+# effect, where |lambda| denotes the modulus of the dominant root.
 
 
 # ── Step 3: Add DFP designs ───────────────────────────────────────────
@@ -628,6 +640,11 @@ for (i in 1:ncol(mplot))
 # ─────────────────────────────────────────────────────────────────────
 
 
+# ─────────────────────────────────────────────────────────────────────
+# IT IS ASSUMED THAT THE CODE IN EXERCISE 1 HAS BEEN RUN TO INITIALIZE ALL
+# RELEVANT VARIABLES.
+# ─────────────────────────────────────────────────────────────────────
+
 tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)       # nowcast filter (gamma0)
 tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)       # h-step MSE predictor (gammah)
 tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)  # long-horizon MSE predictor (gammahtilde)
@@ -654,15 +671,17 @@ tau0-tauh
 # larger lead via the DFP constraint. The desired leads of the DFP over
 # the MSE predictor at frequency zero are specified as an increasing sequence:
 
-lead_vec <- -(1:h)
+lead_vec <- c(-0.25,-0.5,-(1:h))
 
 # Note: a negative lead signifies that a linear trend will be left-sifted by 
 # abs(lead) time points when compared to gammah (DFP anticipates the MSE(h) 
 # predictor on a linear trend signal).
-b_mat<-lambda_vec<-NULL
-for (i in 1:length(tau_vec))
+b_mat<-lambda_vec<-alpha_vec<-NULL
+cor_vec_mat_2  <- cor_vec_2 <- NULL
+
+for (i in 1:length(lead_vec))
 {
-  tau<-tau_vec[i]
+  tau<-lead_vec[i]
   
   dfp_obj <- mse_dfp_from_tau_func(gamma0, gammah, tau)
 
@@ -674,153 +693,259 @@ for (i in 1:length(tau_vec))
   
   b_mat<-cbind(b_mat,b)
   lambda_vec<-c(lambda_vec,lambda0)
+  alpha_vec<-c(alpha_vec,compute_alpha_0_func(gamma0,gammah,lambda0)$alpha0)
+  # Compute the CCF of the current DFP predictor output with x_t
+  cor_vec       <- compute_acf_at_lags_zero_delta_func(
+    max_lag, h, b_mat[, ncol(b_mat)], gamma0)$cor_vec
+  cor_vec_mat_2 <- cbind(cor_vec_mat_2, cor_vec)
+  
+
 }
 
-colnames(b_mat)<-names(lambda_vec)<-paste("Lead ",lead_vec,sep="")
+colnames(b_mat)<-names(lambda_vec)<-names(alpha_vec)<-paste("Lead ",lead_vec,sep="")
+
+# Combine reference MSE filters with all DFP filters into one matrix
+filter_mat <- cbind(gammah, gammahtilde, b_mat)
+colnames(filter_mat) <- c(
+  paste("MSE(", h,      ")", sep = ""),
+  paste("MSE(", htilde, ")", sep = ""),
+  colnames(b_mat)
+)
+
+
+# Full CCF matrix across all lags for all designs
+cor_vec_mat_shift <- cbind(cor_vec_mat_mse, cor_vec_mat_2)
+colnames(cor_vec_mat_shift) <- colnames(filter_mat)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Checks
+# 2.2 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
-# The following differences should vanish
+# CHECK 1 — Lead verification: The following differences should all vanish
+# (i.e., evaluate to zero). For each i, the i-th DFP has an effective lead
+# of lead_vec[i] relative to tauh, the phase shift of the MSE predictor.
 for (i in 1:ncol(b_mat))
 {
-  print(sum(b_mat[,i]*(0:(L-1))) / sum(b_mat[,i])-(tauh+lead_vec[i]))
+  print(sum(b_mat[, i] * (0:(L - 1))) / sum(b_mat[, i]) - (tauh + lead_vec[i]))
 }
+
+# CHECK 2 — Sign/orientation preservation: If the sum of filter weights 
+# is strictly positive, the DFP does not reverse
+# the direction (sign) of a trend signal.
+apply(b_mat, 2, sum)
+# Note: When the DFP constraint is formulated in terms of the lead at frequency
+# zero, as in this exercise, the resulting filter is guaranteed not to invert
+# the trend direction. This is a practically useful property of expressing the
+# DFP constraint through the lead rather than through alpha0, as in Exercise 1.
+# However, full decoupling is not guaranteed: even as lead -> -Inf, the
+# predictor may remain positively correlated with x_t (which is the case here). 
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.3 Coefficient Weights and CCF
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+
+colo <- c("green", "darkgreen", rainbow(ncol(b_mat)))
+
+mplot <- filter_mat
+
+# Left panel: filter coefficient weights for all designs
+ts.plot(mplot,
+        main = "ARMA(3,2) — Predictor Weights",
+        col  = colo, xlab = "", ylab = "")
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], line = -i, col = colo[i])
+abline(h = 0)
+
+# Right panel: CCF of each predictor output with x_t
+# Scale by the ratio of filter norms to obtain a unit-free correlation measure
+mplot <- cor_vec_mat_shift[1:22, ] *
+  as.double(sqrt(gamma0 %*% gamma0) / sqrt(gamma %*% gamma))
+
+plot(mplot[, 1], axes = F, type = "l",
+     xlab = "", ylab = "", main = "CCF",
+     col = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+# Solid vertical line marks lag 0 (contemporaneous coupling)
+abline(v = max_lag + 1,     lty = 1)
+# Dashed vertical line marks the target forecast horizon h
+abline(v = max_lag + 1 + h, lty = 2)
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:(nrow(mplot)))
+axis(2)
+box()
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.4 Apply Predictors
+# ─────────────────────────────────────────────────────────────────────
+# Apply each filter to a long ARMA(3,2) realisation and compute empirical
+# CCF values at lag 0 and at the target horizon h. With len = 100 000 the
+# empirical estimates should be very close to the theoretical values in
+# cor_vec_2, confirming the analytical derivations above.
+
+len     <- 100000
+set.seed(932)
+
+x <- eps <- rnorm(len)
+for (i in 4:len)
+  x[i] <- ar1*x[i-1] + ar2*x[i-2] + ar3*x[i-3] +
+  eps[i] + b1*eps[i-1] + b2*eps[i-2]
+
+y_out_mat <- NULL
+perf_mat  <- matrix(ncol = ncol(filter_mat), nrow = 2)
+colnames(perf_mat) <- colnames(filter_mat)
+rownames(perf_mat) <- c("Lag 0", paste("h=", h, sep = ""))
+
+for (i in 1:ncol(filter_mat))
+{
+  # Apply the i-th filter (in MA form) to the innovation sequence
+  y <- filter(eps, filter_mat[, i], side = 1)
+  y_out_mat <- cbind(y_out_mat, y)
+  
+}
+colnames(y_out_mat) <- colnames(filter_mat)
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.5 Look-Ahead Behaviour
+# ─────────────────────────────────────────────────────────────────────
+
+# Define the sample window to plot (indices into the simulated series)
+anf <- 650
+enf <- 750
+
+# ── Step 1:  ───────────────────
+select_filters <- 1:(ncol(y_out_mat))
+
+mplot <- scale(cbind(x[(h + 1):len],
+                     y_out_mat[1:(len - h), select_filters])[anf:enf, ])
+colnames(mplot) <- c(paste("Data left-shifted by h =", h),
+                     colnames(y_out_mat)[select_filters])
+
+par(mfrow = c(1, 1))
+coli <- c("black", colo)
+
+ts.plot(mplot, col = coli,
+        main = "Standardised: Target, MSE and DFP Predictors")
+lines(mplot[, 2], col = "green", lty = 2, lwd = 2)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], line = -i, col = coli[i])
+
+
+# ── Step 2: Magnifying glass around a turning point ───────────────────
+# Zoom into a short window that contains a local turning point to assess
+# whether the DFP predictors anticipate the direction change earlier than
+# the MSE predictor.
+# Note: the black data line is left-shifted by h = 3, so a predictor that
+# tracks the black line closely exhibits true h-step look-ahead behaviour.
+anf <- 730
+enf <- 750
+
+select_filters <- 1:(ncol(y_out_mat))
+
+mplot <- scale(cbind(x[(h + 1):len],
+                     y_out_mat[1:(len - h), select_filters])[anf:enf, ])
+colnames(mplot) <- c(paste("Data left-shifted by h =", h),
+                     colnames(y_out_mat)[select_filters])
+par(mfrow = c(1, 1))
+coli <- c("black", colo)
+
+ts.plot(mplot, col = coli, main = "Magnifying glass: turning-point region")
+lines(mplot[, 2], col = "green", lty = 2, lwd = 2)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], line = -i, col = coli[i])
+
+# A stronger lead generates a left-shift in the filter output but at the cost
+# of increased noise. This is a direct consequence of the Accuracy-Timeliness-
+# Smoothness (ATS) trilemma in real-time prediction.
+#
+# The MSE predictor represents a single fixed point on this tradeoff surface:
+# it optimises accuracy alone, ignoring timeliness and smoothness objectives.
+# The DFP framework can replicate the MSE solution and, beyond that, navigate
+# along the efficient frontier defined by the Accuracy-Timeliness (A-T) tradeoff;
+# see Wildi (2026), Sections 3.4 and 3.5.
+
 
 # ════════════════════════════════════════════════════════════════════
 # Main Take-Aways
 # ════════════════════════════════════════════════════════════════════
 #
-#   1. DIFFICULT FORECAST PROBLEM:
+#   1. DIFFICULT FORECAST PROBLEM
 #      The ARMA(3,2) process studied here is inherently difficult to forecast.
-#      Neither increasing the forecast horizon (MSE(htilde) vs. MSE(h)) nor
-#      applying the unconstrained MSE predictor achieves meaningful look-ahead
-#      behaviour: the predictor remains strongly coupled to x_t at lag 0.
+#      Increasing the forecast horizon (MSE(h_tilde) vs. MSE(h)) does not
+#      achieve meaningful look-ahead behaviour: the predictor remains strongly
+#      coupled to x_t at lag 0.
 #
-#   2. DFP INDUCES ZERO-SHRINKAGE:
+#   2. DFP INDUCES ZERO-SHRINKAGE
 #      Imposing the decoupling constraint drives strong zero-shrinkage of the
 #      DFP coefficients. This shrinkage is itself diagnostic — it quantifies
 #      how much information must be sacrificed in order to reduce contemporaneous
 #      coupling, and serves as a direct measure of forecast difficulty.
 #
-#   3. AGGRESSIVE alpha0 REDUCTION REQUIRED:
-#      Because of the zero-shrinkage effect, alpha0 (the scale-dependent
+#   3. AGGRESSIVE alpha_0 REDUCTION REQUIRED
+#      Because of the zero-shrinkage effect, alpha_0 (the scale-dependent
 #      covariance constraint) must be reduced very substantially before the
 #      lag-0 CCF decreases noticeably. This sensitivity underscores the
-#      difficulty of decoupling from x_t for this process.
+#      inherent difficulty of decoupling from x_t for this process.
 #
-#   4. SCALE INTERPRETABILITY:
-#      The MSE-DFP criterion is scale-dependent. Scale-invariant formulations
-#      (Unitary DFP, Time-shift DFP) are preferable when comparing designs
-#      across processes or when a directly interpretable decoupling measure
-#      is required.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ─────────────────────────────────────────────────────────────────────
-# 1.7 Look Ahead Behaviour
-# ─────────────────────────────────────────────────────────────────────
-
-
-anf<-650
-enf<-750
-
-# Compare data left-shifted by h=3 with MSE(3) and MSE(20)
-select_filters<-1:2
-mplot<-cbind(x[(h+1):len],y_out_mat[1:(len-h),select_filters])[anf:enf,]
-colnames(mplot)<-c("Data",colnames(y_out_mat)[select_filters])
-par(mfrow=c(1,1))
-coli<-c("black",colo)
-
-ts.plot(mplot,col=coli,main="Target, MSE and DFP Predictors")
-lines(mplot[,2],col="green",lty=2,lwd=2)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],line=-i,col=coli[i])
-# The main effect is scaling: MSE(20) has a smaller variance than MSE(3)
-
-# To better evaluate the `look ahead' effect of the MSE(20) over MSE(3) we now standardize the series 
-mplot<-scale(cbind(x[(h+1):len],y_out_mat[1:(len-h),select_filters])[anf:enf,])
-colnames(mplot)<-c("Data",colnames(y_out_mat)[select_filters])
-par(mfrow=c(1,1))
-coli<-c("black",colo)
-
-ts.plot(mplot,col=coli,main="Target, MSE and DFP Predictors")
-lines(mplot[,2],col="green",lty=2,lwd=2)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],line=-i,col=coli[i])
-# Outcome: increasing the forecast horizon in MSE does not allow to look ahead.
-# The forecast problem is `difficult'.
-
-
-# We now add the DFP designs. all DFP except fully decoupled (the latter inverts 
-# trend orientation)
-
-# Select all filters except fully decoupled
-select_filters<-1:(ncol(y_out_mat)-1)
-mplot<-scale(cbind(x[(h+1):len],y_out_mat[1:(len-h),select_filters])[anf:enf,])
-colnames(mplot)<-c(paste("Data left-shifted by h=",h,sep=""),colnames(y_out_mat)[select_filters])
-par(mfrow=c(1,1))
-coli<-c("black",colo)
-
-ts.plot(mplot,col=coli,main="Target, MSE and DFP Predictors")
-lines(mplot[,2],col="green",lty=2,lwd=2)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],line=-i,col=coli[i])
-
-
-# Let's apply a magnifying glass at a `turning point':
-# Note that the data (black line) is left shifted by h=3
-anf<-710
-enf<-720
-# Select all filters except fully decoupled
-select_filters<-1:(ncol(y_out_mat)-1)
-mplot<-scale(cbind(x[(h+1):len],y_out_mat[1:(len-h),select_filters])[anf:enf,])
-colnames(mplot)<-c(paste("Data left-shifted by h=",h,sep=""),colnames(y_out_mat)[select_filters])
-par(mfrow=c(1,1))
-coli<-c("black",colo)
-
-ts.plot(mplot,col=coli,main="Magnifying glass")
-lines(mplot[,2],col="green",lty=2,lwd=2)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],line=-i,col=coli[i])
-
-
+#   4. TREND AND LEVEL INVERSION
+#      Aggressive decoupling — for example, pursuing full decoupling — may
+#      induce undesirable side effects: inversion of the trend direction or
+#      a sign change in constant levels (see Exercise 1). While such aggressive
+#      look-ahead behaviour may not be achievable without these effects, trend
+#      and level inversions are generally considered undesirable in typical
+#      forecasting applications, as they undermine the explainability and
+#      interpretability of the predictor output.
+#
+#   5. TIME-SHIFT DFP CONSTRAINT
+#      Expressing the DFP constraint in terms of the zero-frequency lead (exercise 2)
+#      provides a natural safeguard against trend and level inversion.
+#      Although full decoupling may not always be achievable, the resulting
+#      look-ahead dynamics are likely to be sufficient for many practical
+#      forecasting applications, offering a favourable balance between
+#      timeliness and interpretability.
+#
+#   5. ATS TRILEMMA
+#      A stronger dfp lead generates a left-shift in the filter output but at 
+#      the cost of increased noise. This is a direct consequence of the ATS 
+#      trilemma in prediction. The MSE predictor represents a single fixed 
+#      point on this tradeoff surface: it optimises accuracy alone, ignoring 
+#      timeliness (lead) and smoothness (noise suppression) objectives. The 
+#      DFP framework can replicate the MSE solution and, beyond that, navigate
+#      along the efficient frontier defined by the Accuracy-Timeliness (A-T) 
+#      tradeoff; see Wildi (2026), Sections 3.4 and 3.5.
+#      Additional tutorials (MDFA and M-SSA) explore alternative aspects of this 
+#      fundamental prediction tradeoff.
+#
+#
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: Interpretability (Time-Shift DFP Constraint)
-# ════════════════════════════════════════════════════════════════════
-# MSE-DFP is sensitive to scale.
-# Unitary DFP is invariant to scale
-# Time-shift is invariant to scale
 
 
 
-# ════════════════════════════════════════════════════════════════════
-# Main Take Aways
-# ════════════════════════════════════════════════════════════════════
-# The 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
