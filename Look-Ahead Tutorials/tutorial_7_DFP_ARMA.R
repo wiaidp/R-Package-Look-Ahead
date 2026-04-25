@@ -1,43 +1,70 @@
 # ════════════════════════════════════════════════════════════════════
 # TUTORIAL 7 — MSE-DFP APPLIED TO ARMA
-# PART 4: Emphasizing Unexplored Structure in a Difficult Forecast Framework
+# PART 4: EXPLOITING NON-UTILISED STRUCTURE IN A DIFFICULT FORECAST PROBLEM
 # ════════════════════════════════════════════════════════════════════
 
 # Overview:
-# This tutorial applies the DFP procedure introduced in Tutorial 6 to an
+# This tutorial applies the DFP procedure introduced in Tutorials 5 and 6 to an
 # ARMA process designed specifically  for presenting inherent forecasting 
 # challenges. 
 
-# Key findings:
+# ════════════════════════════════════════════════════════════════════
+# Main Take-Aways
+# ════════════════════════════════════════════════════════════════════
 #
-#   1. FORECAST HORIZON EFFECT:
-#      Increasing the forecast horizon (from h = 3 to h = 20) does NOT
-#      meaningfully improve the look-ahead behaviour of MSE(20).
-#         - The MSE predictor remains strongly tied to x_t regardless of h:
-#           the cross-correlation at lag 0 stays high, confirming that the
-#           predictor cannot disengage from the current observation: MSE is 
-#           "stuck at present".
-#         - The primary observable effect of a longer horizon is zero-shrinkage
-#           of the predictor coefficients — a signal of growing forecast
-#           uncertainty as h increases.
-#      Taken together, both findings are symptomatic of a difficult forecast
-#      problem in which the MSE predictor is unable to achieve genuine
-#      look-ahead behaviour.
+#   1. DIFFICULT FORECAST PROBLEM
+#      The ARMA(3,2) process studied here is inherently difficult to forecast.
+#      Increasing the forecast horizon (MSE(h_tilde) vs. MSE(h)) does not
+#      achieve meaningful look-ahead behaviour: the predictor remains strongly
+#      coupled to x_t at lag 0.
 #
-#   2. DECOUPLING EFFECT:
-#      Imposing the DFP constraint (decoupling the predictor from x_t at the
-#      present time point) induces significant zero-shrinkage in the DFP
-#      predictor coefficients, reflecting the cost of enforcing independence
-#      from the current observation. This is a further indication of the
-#      inherent difficulty of the forecast problem.
 #
-#   3. CROSS-CORRELATION CONTROL:
-#      Achieving a substantial reduction in the cross-correlation function
-#      (CCF) at lag 0 — i.e., enforcing decoupling — requires a
-#      strong decrease of the DFP constraint parameter alpha0. This
-#      sensitivity is another sign of the complexity of the forecast problem.
+#   2. EXPLOITING NON-UTILISED STRUCTURE IN THE DATA-GENERATING PROCESS
+#      A direct comparison of predictor weights illustrates that the DFP
+#      exploits structure in the data-generating process that is left unused
+#      by the MSE predictor. As decoupling (Exercise 1) or lead (Exercise 2)
+#      increases, the predictor (filter) weights become increasingly irregular,
+#      reflecting structure in the data-generating process that is
+#      otherwise masked by the single dominant AR root.
+#
+#   3. TREND AND LEVEL INVERSION
+#      Aggressive decoupling — for example, pursuing full decoupling — may
+#      induce undesirable side effects: inversion of the trend direction or
+#      a sign change in constant levels (see Exercise 1). While such aggressive
+#      look-ahead behaviour may not be achievable without these effects, trend
+#      and level inversions are generally considered undesirable in typical
+#      forecasting applications, as they undermine the explainability and
+#      interpretability of the predictor output.
+#
+#   4. TIME-SHIFT DFP CONSTRAINT
+#      Expressing the DFP constraint in terms of the zero-frequency lead (exercise 2)
+#      provides a natural safeguard against trend and level inversion.
+#      Although full decoupling may not always be achievable, the resulting
+#      look-ahead dynamics are likely to be sufficient for many practical
+#      forecasting applications, offering a favourable balance between
+#      timeliness and interpretability.
+#
+#   5. ATS TRILEMMA
+#      A stronger dfp lead generates a left-shift in the filter output but at 
+#      the cost of increased noise. This is a direct consequence of the ATS 
+#      trilemma in prediction. The MSE predictor represents a single fixed 
+#      point on this tradeoff surface: it optimises accuracy alone, ignoring 
+#      timeliness (lead) and smoothness (noise suppression) objectives. The 
+#      DFP framework can replicate the MSE solution and, beyond that, navigate
+#      along the efficient frontier defined by the Accuracy-Timeliness (A-T) 
+#      tradeoff; see Wildi (2026), Sections 3.4 and 3.5.
+#      Additional tutorials (MDFA and M-SSA) explore alternative aspects of this 
+#      fundamental prediction tradeoff.
+#
+# ════════════════════════════════════════════════════════════════════
 
-# ─────────────────────────────────────────────────────────────────────
+# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     https://doi.org/10.48550/arXiv.2602.23087
+# ════════════════════════════════════════════════════════════════════
+
 
 # ── INITIALISATION ────────────────────────────────────────────────────
 rm(list = ls())
@@ -885,19 +912,16 @@ for (i in 1:ncol(mplot))
 #      achieve meaningful look-ahead behaviour: the predictor remains strongly
 #      coupled to x_t at lag 0.
 #
-#   2. DFP INDUCES ZERO-SHRINKAGE
-#      Imposing the decoupling constraint drives strong zero-shrinkage of the
-#      DFP coefficients. This shrinkage is itself diagnostic — it quantifies
-#      how much information must be sacrificed in order to reduce contemporaneous
-#      coupling, and serves as a direct measure of forecast difficulty.
 #
-#   3. AGGRESSIVE alpha_0 REDUCTION REQUIRED
-#      Because of the zero-shrinkage effect, alpha_0 (the scale-dependent
-#      covariance constraint) must be reduced very substantially before the
-#      lag-0 CCF decreases noticeably. This sensitivity underscores the
-#      inherent difficulty of decoupling from x_t for this process.
+#   2. EXPLOITING NON-UTILISED STRUCTURE IN THE DATA-GENERATING PROCESS
+#      A direct comparison of predictor weights illustrates that the DFP
+#      exploits structure in the data-generating process that is left unused
+#      by the MSE predictor. As decoupling (Exercise 1) or lead (Exercise 2)
+#      increases, the predictor (filter) weights become increasingly irregular,
+#      reflecting structure in the data-generating process that is
+#      otherwise masked by the single dominant AR root.
 #
-#   4. TREND AND LEVEL INVERSION
+#   3. TREND AND LEVEL INVERSION
 #      Aggressive decoupling — for example, pursuing full decoupling — may
 #      induce undesirable side effects: inversion of the trend direction or
 #      a sign change in constant levels (see Exercise 1). While such aggressive
@@ -906,7 +930,7 @@ for (i in 1:ncol(mplot))
 #      forecasting applications, as they undermine the explainability and
 #      interpretability of the predictor output.
 #
-#   5. TIME-SHIFT DFP CONSTRAINT
+#   4. TIME-SHIFT DFP CONSTRAINT
 #      Expressing the DFP constraint in terms of the zero-frequency lead (exercise 2)
 #      provides a natural safeguard against trend and level inversion.
 #      Although full decoupling may not always be achievable, the resulting
@@ -926,6 +950,17 @@ for (i in 1:ncol(mplot))
 #      Additional tutorials (MDFA and M-SSA) explore alternative aspects of this 
 #      fundamental prediction tradeoff.
 #
+#   6. DFP INDUCES ZERO-SHRINKAGE
+#      Imposing the decoupling constraint drives strong zero-shrinkage of the
+#      DFP coefficients. This shrinkage is itself diagnostic — it quantifies
+#      how much information must be sacrificed in order to reduce contemporaneous
+#      coupling, and serves as a direct measure of forecast difficulty.
+#
+#   7. AGGRESSIVE alpha_0 REDUCTION REQUIRED
+#      Because of the zero-shrinkage effect, alpha_0 (the scale-dependent
+#      covariance constraint) must be reduced very substantially before the
+#      lag-0 CCF decreases noticeably. This sensitivity underscores the
+#      inherent difficulty of decoupling from x_t for this process.
 #
 # ════════════════════════════════════════════════════════════════════
 

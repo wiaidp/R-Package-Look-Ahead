@@ -52,29 +52,37 @@
 # Notes on the chosen model:
 #
 #   - Data generating process:
-#       This tutorial uses an AR(2,2) model as the data generating process.
+#       This tutorial uses an ARMA(2,2) model as the data generating process.
 #
 #   - Business-cycle periodicity:
 #       The AR(2) component exhibits periodicity with a cycle length of
-#       approximately 5 to 6 years, consistent with typical business-cycle
+#       approximately 6 years, consistent with typical business-cycle
 #       frequencies.
 #
 #   - Natural decoupling via periodicity:
 #       As a direct consequence of this periodicity, the MSE predictor
 #       naturally decouples from the concurrent observation x_t in this
-#       example — without any additional constraints.
+#       example — without any additional constraints. Therefore, decoupling 
+#       by the DFP is not strictly required in this framework.
+#
+#   - Motivation for using the DFP:
+#       Although explicit decoupling via the DFP is not strictly necessary
+#       in this example — since the MSE predictor already decouples naturally —
+#       applying the DFP here is nonetheless instructive, as it underscores 
+#       interpretability.
 #
 #   - Upcoming comparison:
 #       A simpler, aperiodic ARMA(1,1) model will be examined in tutorial 9,
 #       providing a useful contrast to the periodic AR(2,2) setting.
-#
-#   - Pedagogical motivation for using the DFP:
-#       Although explicit decoupling via the DFP is not strictly necessary
-#       in this example — since the MSE predictor already decouples naturally —
-#       applying the DFP here is nonetheless instructive, as it helps build
-#       intuition for the approach and its behavior in a well-understood setting.
 
-# ─────────────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════
+
+# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     https://doi.org/10.48550/arXiv.2602.23087
+# ════════════════════════════════════════════════════════════════════
 
 # ── INITIALISATION ───────────────────────────────────────────────────
 rm(list = ls())
@@ -259,7 +267,13 @@ gammahtilde <- gamma[htilde + 1:L]
 
 # Increasing the forecast horizon shifts the cyclical pattern in the predictor
 # progressively to the left:
-#
+
+ts.plot(scale(cbind(gamma0, gammah, gammahtilde)), col = c("black", "green", "orange"))
+mtext("Wold decomposition",col="black",line=-1)
+mtext(paste("MSE(",h,") predictor",sep=""),col="green",line=-2)
+mtext(paste("MSE(",htilde,") predictor",sep=""),col="orange",line=-3)
+
+
 #   - Decoupling via horizon selection:
 #       Arbitrarily strong decoupling from the concurrent observation x_t
 #       can be achieved simply by increasing the forecast horizon h,
@@ -268,11 +282,10 @@ gammahtilde <- gamma[htilde + 1:L]
 #   - Out-of-phase predictor at h ~ 36:
 #       At approximately h = 36 (roughly half the cycle period of ~72 months),
 #       the MSE predictor becomes out-of-phase with x_t. At this horizon,
-#       the correlation between the predictor and x_t turns negative,
+#       the correlation between the predictor and x_t is negative,
 #       reflecting the anti-phase relationship between the predictor
 #       and the concurrent observation.
 
-ts.plot(scale(cbind(gamma0, gammah, gammahtilde)), col = c("black", "green", "orange"))
 
 # Desired lead of the DFP predictor over the MSE predictor at frequency zero
 # (negative value = the DFP output leads by |lead| time steps at the zero 
@@ -289,10 +302,10 @@ lead_vec <- c(-2^(0:5),-200)
 #       See tutorial 6 for theoretical background on this constraint.
 #
 #   - Instructive stress test:
-#       It is particularly informative to observe how the DFP manages
+#       It is informative to observe how the DFP manages
 #       the relatively large leads imposed via lead_vec — balancing the
 #       zero-frequency time-shift requirement against optimal tracking
-#       of the target x_{t+h}.
+#       of the target x_{t+h} (conflicting requirements).
 
 lead_vec
 
@@ -391,6 +404,9 @@ for (i in 1:length(lead_vec))
 # The sums of the coefficients are positive (the transfer functions at 
 # frequency zero are positive, see Wildi 2026, section 4.1). 
 apply(b_mat,2,sum)
+# Technical note: when imposing the DFP constraint in terms of left-shift at 
+# frequency zero, the DFP cannot invert trend orientation, i.e., the above sums 
+# must be positive.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -431,11 +447,12 @@ t(b_cd) %*% gamma0
 # Note on phase reversal:
 # As in Tutorial 6 (Exercise 1.9), the fully decoupled DFP inverts the
 # orientation of the trend (i.e., changes the sign of the mean): the sum
-# of its filter coefficients is negative, as confirmed below.
+# of its filter coefficients is negative:
 sum(b_cd)
 
-# Note: in Exercise 3 below, the fully decoupled design preserves trend 
-# orientation: the sum of filter coefficients will be positive.
+# Note: in Exercise 3 below, which addresses a more interesting forecast target,
+# the fully decoupled design preserves trend orientation: the sum of filter 
+# coefficients will be positive.
 
 # Despite this inversion, the usual time-shift formula (evaluated at frequency
 # zero) can still be applied. Note, however, that the result corresponds to
@@ -515,8 +532,8 @@ mat_perf
 #
 #     - The estimated lambda governs the rotation between the MSE predictor
 #       and the decoupling direction.
-#     - A negative lambda implies that gammah lies between b and gamma0
-#       in the relevant geometric sense.
+#     - In the standard case, a negative lambda implies that gammah lies 
+#       between b and gamma0 in the common plane.
 #     - More negative values of lambda correspond to a stronger rotation,
 #       as illustrated in tutorial 5, exercise 1.6.
 #
@@ -532,6 +549,12 @@ mat_perf
 #       vanishing alpha0 (i.e., alpha0 = 0). In this case, however, the fully 
 #       decoupled DFP inverts trend orientation, which is undesirable.
 
+# Note:
+#   The fully decoupled design cannot be recovered by imposing a suitable
+#   time-shift constraint in this exercise. Full decoupling is a strictly
+#   stronger requirement than imposing an infinite lead at frequency zero.
+#   This contrasts with Exercise 3 below, where the fully decoupled design
+#   is commensurate with imposing a finite lead at frequency zero.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -552,7 +575,7 @@ colnames(mplot) <- col_names
 apply(mplot^2, 2, sum)
 lty_vec<-lwd_vec<-c(2,2,2,rep(1,ncol(filter_mat)-3))
 
-# --- Top-left panel: filter coefficient profiles ---
+# --- Left panel: filter coefficient profiles ---
 plot(mplot[, 1],
      main = "Scaled Predictors", axes = F, type = "l",lty=lty_vec[1],lwd=lwd_vec[1],
      xlab = "Lags", ylab = "",
@@ -569,7 +592,7 @@ axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
 axis(2)
 box()
 
-# --- Top-right panel: cross-correlation functions (CCF) ---
+# --- Right panel: cross-correlation functions (CCF) ---
 # Compute the CCF between each predictor and the AR(3) process at lags
 # surrounding lag 0 and the h-step-ahead lag
 max_lag<-20
@@ -635,9 +658,10 @@ box()
 #     one-year horizon in this example.
 #     An explanation will be provided in the frequency-domain analysis
 #     (see exercise 1.12): the time-shift at frequency zero changes very
-#     rapidly for omega > 0, meaning that the large imposed lead at frequency
+#     steeply for omega > 0, meaning that the large imposed lead at frequency
 #     zero spills over to business-cycle frequencies only in substantially
-#     reduced form. 
+#     reduced form, enabling optimal tracking of x_{t+h} (subject to the 
+#     imposed constraint). 
 
 # Coefficients (left panel):
 #   Increasing the lead at frequency zero has three main effects on the
@@ -646,13 +670,14 @@ box()
 #     1. Phase advancement (left-shift):
 #          The minimum of the right half-cycle shifts to the left, reflecting
 #          an increased lead. However, this phase advancement is less aggressive
-#          than that of MSE(24), which exhibits the most pronounced phase shift
-#          among all predictors shown.
+#          than that of MSE(24) (red, shaded), which exhibits the most 
+#          pronounced phase shift among all predictors shown.
 #
 #     2. Strengthened negative half-cycle:
 #          The negative portion of the cyclical pattern in the coefficients
 #          becomes more pronounced, contributing to the larger time-shift
-#          at frequency zero through increased band-pass behavior.
+#          at frequency zero through increased band-pass behavior (see amplitude 
+#          functions below).
 #
 #     3. Reduced weight on the innovation epsilon_t:
 #          In the MA representation of the predictor, the weight assigned
@@ -668,7 +693,7 @@ box()
 #         through enhanced band-pass behavior, i.e., a stronger negative
 #         half-cycle in the filter coefficients.
 #
-#   Note: The DFP adopts a markedly different `strategy' to comply with the 
+#   Note: The DFP adopts a markedly different `strategy' to reconcile  
 #   mutually conflicting requirements in tutorial 9,
 #   where the underlying ARMA(1,1) model is aperiodic and the periodic
 #   structure exploited here is absent.
@@ -831,6 +856,8 @@ perf_mat
 #   - For a comparable level of decoupling from x_t (row 1), the DFP with
 #     lead -200 achieves strictly higher tracking of x_{t+12} at h = 12
 #     (row 2) than MSE(24) — confirming the theoretical optimality of the DFP.
+#     No other predictor can improve tracking of x_{t+12} under the imposed 
+#     decoupling.
 #
 #   - Increasing the forecast horizon of the MSE predictor causes the predictor
 #     to become progressively out-of-phase with x_{t+12}: the predicted cycle
@@ -839,9 +866,10 @@ perf_mat
 #     horizons. However, this apparent lead is a mechanical phase artifact
 #     rather than genuine forecasting skill — and once the phase reversal
 #     (sign inversion) sets in, the resulting predictor is uninterpretable
-#     in meaningful terms (at least in the absence of strong periodicity).
+#     in meaningful terms (at least in the absence of strong periodicity in the 
+#     data).
 #
-#   - The DFP preserves interpretability by keeping the focus firmly on the
+#   - THE DFP PRESERVES INTERPRETABILITY by keeping the focus firmly on the
 #     intended forecast horizon h: it looks ahead of the classic MSE(h) design
 #     — achieving greater decoupling from x_t — while ensuring that the
 #     predictor remains anchored to x_{t+h} as the primary optimization target.
@@ -972,18 +1000,18 @@ box()
 #     difficult to interpret in economic terms, as discussed previously.
 #
 #   - The fully decoupled DFP also inverts the trend direction, highlighting
-#     that full decoupling represents an extreme DFP design. While useful for
-#     exploring the theoretical limits of the approach and understanding the
-#     decoupling-tracking trade-off, it is generally too restrictive to be
-#     practically recommended as a forecasting tool.
+#     that full decoupling represents an extreme DFP design in this example. 
+#     While useful for exploring the theoretical limits of the approach and 
+#     understanding the decoupling-tracking trade-off, it is generally too 
+#     extreme to be practically recommended as a forecasting tool.
 
 
 # The next exercise replicates the above analysis in the more natural AR form
 # of the predictors: rather than applying the MA-form filters to the model
-# residuals (Wold innovations), the equivalent AR-form filters are applied
-# directly to the original observed data x_t. This representation is more
-# transparent and practical, as it expresses each predictor as a weighted
-# sum of past observations rather than past innovations.
+# residuals (Wold innovations, see exercise 1.10), the equivalent AR-form 
+# filters are applied directly to the original observed data x_t. This 
+# representation is more natural and practical, as it expresses each predictor 
+# as a weighted sum of past observations rather than past innovations.
 
 # ─────────────────────────────────────────────────────────────────────
 # Exercise 2. AR Form
@@ -1037,8 +1065,7 @@ theta<-c(1,-ar_inv)
 conv_two_filt_func(xi, theta)$conv[1:10]
 
 
-# Visualise theta: the slow decay confirms the longer-memory character of the
-# post-1990 log-returns relative to the full post-WWII sample.
+# Visualise theta: 
 par(mfrow = c(1, 1))
 ts.plot(theta, main = "AR inversion (Post-1990)")
 
@@ -1063,8 +1090,8 @@ for (i in 1:ncol(filter_mat))
 colnames(filter_mat_ar)<-colnames(filter_mat)
 
 # Check: the first column (the nowcast) should be the identity.
-# Note however that we scaled gamma0 to unit length: so the first weight below 
-# differs from one. 
+# Note however that we scaled gamma0 to unit length: so the first weight 
+# generally differs from one. 
 filter_mat_ar[1:10,1]
 
 # --------------------------------------------------------------------------
@@ -1091,9 +1118,6 @@ colo <- c("black", "green", rainbow(ncol(filter_mat_ar) - 2))
 first_lags <- 10
 
 # Plot the first first_lags AR coefficients of each predictor.
-# In the unscaled case, only the first coefficient would differ across
-# DFP designs (structural invariance); all higher-order coefficients
-# would be identical — see theoretical justification above.
 ts.plot(
   filter_mat_ar[1:first_lags, ],
   col  = colo,
@@ -1157,13 +1181,14 @@ colnames(y_out_mat_ar) <- col_names
 # Compare predictors in MA form (y_out_mat) and in AR form (y_out_mat_ar)
 # 1. They are virtually identical up to an offset (the mean) which is ignored 
 # by the MA form.
-# 2. The small deviations after scaling can be made vanishingly small by increasing L
+# 2. The small deviations after scaling can be made vanishingly small by increasing L.
 # Select any of the columns in y_out_mat and y_out_mat and compare standardized series.
 # Standardization removes the mean offset.
 k<-4
 # k cannot be larger than the number of columns of y_out_mat
 k<-min(k,ncol(y_out_mat))
-ts.plot(scale(cbind(y_out_mat[,k],y_out_mat_ar[,k])))
+
+ts.plot(scale(cbind(y_out_mat[,k],y_out_mat_ar[,k])),main="MA- and AR-forms of DFP overlap")
 
 
 
@@ -1544,7 +1569,7 @@ box()
 #       phase. In this smoother setting, the performance loss of MSE(24) at h = 12
 #       relative to the optimal DFP designs (for identical decoupling of x_t)
 #       is marginal. This stands in contrast to exercises 1.9 and 1.11, where
-#       MSE(24) suffered a meaningful loss in target tracking at h = 12
+#       MSE(24) suffered a loss in target tracking at h = 12
 #       compared to the DFP with equivalent decoupling.
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1616,7 +1641,8 @@ for (i in 1:ncol(y_out_mat))
 #
 #   - Higher-lead DFPs now anticipate MSE(24):
 #       Unlike in exercise 1, the DFP variants with larger imposed leads
-#       now visibly lead MSE(24) in the time domain. 
+#       now visibly lead MSE(24) in the time domain. Tracking the target 
+#       does not (less) refrain from leading in this exercise.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1798,4 +1824,4 @@ box()
 #   - Tutorial 9 analyzes non-standard configurations and other challenging
 #     DFP settings, including the aperiodic ARMA(1,1) model where the
 #     periodic structure exploited here is absent.
-#   - Tutorial 10 introduces the Penalized Criterion for Smoothness (PCS).
+#   - Tutorial 10 introduces the Peak Correlation Shifting (PCS) approach.

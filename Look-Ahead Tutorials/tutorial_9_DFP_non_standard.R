@@ -26,6 +26,15 @@
 
 # Alternatively, one might consider the time-shift at another frequency than 0 (e.g., business-cycle frequency)
 
+# ════════════════════════════════════════════════════════════════════
+
+# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     https://doi.org/10.48550/arXiv.2602.23087
+# ════════════════════════════════════════════════════════════════════
+
 
 # ── INITIALISATION ───────────────────────────────────────────────────
 rm(list = ls())
