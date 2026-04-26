@@ -365,7 +365,7 @@ mtext("MSE-DFP",     col = "blue", line = -2)
 # common scale.
 #
 # By contrast, imposing the same raw numerical value of alpha0 (assuming 
-# |alpha0|<1) in both formulations does not impose the same
+# |alpha0|<1) in both formulations does generally not impose the same
 # degree of decoupling, because alpha0 carries a different meaning in
 # each framework (correlation vs. covariance).
 #

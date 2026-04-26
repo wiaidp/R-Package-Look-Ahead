@@ -234,9 +234,9 @@ gammahtilde <- gamma[htilde + 1:L]
 # Desired lead of the DFP output over the MSE predictor at frequency zero.
 # Negative values indicate that the DFP leads the MSE predictor by 
 # |lead| time steps at the zero (trend) frequency.
-lead_vec <- -2^(0:3)
+lead_vec <- -2^((-1):3)
 
-lead_vec
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Time-Shifts: NON-STANDARD CASE
@@ -299,7 +299,7 @@ tauh-tau0
 unit_length <- TRUE
 
 b_mat      <- lambda_vec <- alpha_vec <- NULL
-for (i in 1:length(lead_vec))
+for (i in 1:length(lead_vec))#i<-1
 {
   # Target lead of the DFP filter over the MSE predictor at frequency zero
   lead <- lead_vec[i]
@@ -343,6 +343,8 @@ for (i in 1:length(lead_vec))
 }
 
 
+
+
 # ─────────────────────────────────────────────────────────────────────
 # 1.6 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
@@ -371,111 +373,174 @@ apply(b_mat, 2, sum)
 # However, full decoupling is not guaranteed: even as lead -> -Inf, the
 # predictor may remain positively correlated with x_t (which is the case here). 
 
+# CHECK 3 — Positive Target Covariance
+
+t(b_mat)%*%gammah
+
+
 # ─────────────────────────────────────────────────────────────────────
-# 1.7 Standard vs. Non-Standard DFP Solutions
+# 1.7 Standard vs. Non-Standard DFP Solutions (very tricky!)
 # ─────────────────────────────────────────────────────────────────────
 
-# ── Verification of the non-standard case sign correction ─────────────────
-# This block manually reconstructs the DFP solution for the first entry of
-# lead_vec. Its purpose is to illustrate, step by step, why the sign of the
-# DFP objective must be inverted when the non-standard case applies
-# (i.e., when tauh > tau0; see Wildi 2026, Appendix A).
+# This exercise is delicate and may be skipped initially. 
+# It illustrates the complexity of the look-ahead DFP design.
 
-# Select the first lead for illustration
+# For intuition, refer to the geometric interpretation of DFP (see Tutorial 5, ex. 1.6).
+
+# Standard case (tauh < tau0): the MSE predictor gammah leads gamma0.
+# To obtain a DFP lead over gammah, rotate b away from gammah in the direction opposite to gamma0:
+# gammah lies between b and gamma0.
+
+# b = gammah + lambda0 * gamma0 with lambda0 < 0
+
+# Non-standard case (relevant here): rotate b the other way round. Two sub-cases:
+# a) b rotates away from gammah towards gamma0: b lies between gammah and gamma0 and approaches gamma0.
+# b) b rotates away from gamma0 on the side opposite to gammah: in this case gamma0 lies between b and gammah.
+
+# Case a) ⇒ the DFP leads gammah but lags gamma0.
+# Case b) ⇒ the DFP leads gammah and gamma0.
+
+# Alternative representations of the problem:
+# i) b = gamma0 + lambda_h * gammah with lambda_h < 0  or
+# ii) b = -gammah + lambda0 * gamma0 with lambda0 > 0.
+# Both formulations can be used (we use ii) in our code)
+
+# To ensure MSE optimality in the non-standard case, rescale b: 
+# b <- b * (gammah' %*% b)/b%*%b
+# In the atndard case, the scaling is alread MSE optimal.
+
+# The non-standard problem effectively inverts the optimization: maximize MSE.
+# Finite-length constraint is implicit via fixing a weight -1 on gammah in case ii.
+# Then lambda0 must satisfy the DFP constraint.
+
+# Advantage: in i) lambda_h -> 0 as b -> gamma0.
+# In ii) the formulation becomes singular: lambda0 -> infty as b aligns with gamma0.
+# Both are trackable in practice.
+
+# Examine the imposed leads and compare with tau0 - tauh:
+abs(lead_vec)
+tauh - tau0
+
+# Observation:
+# - The first lead (0.5) is smaller in magnitude than tau0 - tauh; this corresponds to case a).
+# - All other leads are larger in magnitude and correspond to case b:
+#   gamma0 lies between gammah and b.
+
+# Case a): b lies between gammah and gamma0
+# Case b): gamma0 lies between gammah and b
+
+# Note: in both cases the length of b must be corrected for MSE optimality:
+# b <- b * (gammah' %*% b)/b%*%b
+# In the non-standard case the MSE is maximized, hence the scaling is wrong.
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.7.1 Case a) b between gammah and gamma0
+# ─────────────────────────────────────────────────────────────────────
+
+# Case a) corresponds to the first lead
 k   <- 1
 tau <- lead_vec[k]
 
-# ── Step 1: Standard-case DFP ─────────────────────────────────────────────
-# In the standard case, the DFP filter takes the form
-#
-#   b = gammah + lambda0 * gamma0
-#
-# where lambda0 is chosen so that the frequency-zero time-shift of b
-# equals tauh + tau (i.e., the MSE time-shift plus the desired lead).
-# The expression below follows directly from the time-shift constraint;
-# see Wildi (2026), Theorem 2, for the derivation.
-lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
+# ── Step 1: Construct b ──────────────────────────────
 
-# Construct the standard-case DFP filter
+# Standard formula for lambda0 (Wildi 2026, Theorem 2). Assumptions:
+# 1) sum(gammah) > 0 and sum(gamma0) > 0 (gammah and gamma0 do not invert trend)
+# 2) tauh - tau0 reflects the non-standard case
+# 3) (tau + tauh - tau0) > 0 ⇒ case a) holds
+# In this case, lambda0 > 0 as geometrically required for case a)
+lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
+# Check: lambda0 > 0
+lambda0
+
+# Construct the standard-case DFP filter for case a): b lies between gamma0 and gammah
+# in the plane spanned by (gamma0, gammah).
 b <- gammah + lambda0 * gamma0
 
 # ── Step 2: Verify the time-shift constraint ──────────────────────────────
 # The frequency-zero time-shift of b is its coefficient-weighted centroid.
-# The achieved lead over the MSE predictor (taub - tauh) should equal tau;
-# the printed residual should therefore be numerically zero.
-taub         <- sum((0:(L-1)) * b) / sum(b)   # frequency-zero time-shift of b
-lead_dfp_mse <- taub - tauh                   # achieved lead over the MSE predictor
-print(lead_dfp_mse - tau)                     # expected output: ~0
+# The achieved lead over the MSE predictor (taub - tauh) should equal tau.
+# The printed residual should be numerically zero.
+taub         <- sum((0:(L-1)) * b) / sum(b)   # freq-zero time-shift of b
+lead_dfp_mse <- taub - tauh                   # achieved lead over MSE predictor
+print(lead_dfp_mse - tau)                     # expected: ~0
 
 # ── Step 3: Diagnose the sign of the target correlation ───────────────────
-# In the standard case, the DFP filter maximises the target correlation
-# (inner product between b and gammah, normalised to [-1, 1]) subject to
-# the time-shift constraint. In the non-standard case (tauh > tau0),
-# however, this correlation is NEGATIVE, which means the standard formula
-# inadvertently MINIMISES tracking accuracy instead of maximising it.
-# The standard DFP solution is therefore misspecified here.
-b %*% gammah / sqrt(b %*% b * gammah %*% gammah)   # expected output: negative value
+# In case a), the correlation is positive
+b %*% gammah / sqrt(b %*% b * gammah %*% gammah)   # positive target correlation
 
-# ── Step 4: Apply the non-standard sign correction ────────────────────────
-# Negating both lambda0 and the gammah term flips the objective from
-# minimisation back to maximisation, yielding the correct DFP solution
-# for the non-standard case (Wildi 2026, Appendix A).
-lambda0 <- -lambda0
-b       <- -gammah + lambda0 * gamma0
+# ─────────────────────────────────────────────────────────────────────
+# 1.7.2 Case b) gamma0 between gammah and b
+# ─────────────────────────────────────────────────────────────────────
 
-# Confirm that the corrected target correlation is now positive,
-# confirming that the filter maximises (rather than minimises) tracking accuracy.
-b %*% gammah / sqrt(b %*% b * gammah %*% gammah)   # expected output: positive value
+# Case b) corresponds to larger leads
+k   <- 2
+tau <- lead_vec[k]
+
+# Apply the same lambda0 formula as in 1.7.1
+lambda0 <- -(tau * sum(gammah)) / ((tau + tauh - tau0) * sum(gamma0))
+# Lambda0 is positive
+lambda0
+
+# Construct b as in case a) (this is incorrect for case b)
+b <- gammah + lambda0 * gamma0
+
+# ── Step 2: Verify the time-shift constraint ──────────────────────────────
+taub         <- sum((0:(L-1)) * b) / sum(b)
+lead_dfp_mse <- taub - tauh
+print(lead_dfp_mse - tau)                     # expected: ~0
+
+# ── Step 3: Diagnose the sign of the target correlation ───────────────────
+b %*% gammah / sqrt(b %*% b * gammah %*% gammah)   # expected: negative
+
+# Outcome: applying the case-a formula in case b) yields a negative target correlation.
+
+# ── Step 4: Apply the sign correction for case b) ───────────────────────
+b <- -gammah - lambda0 * gamma0
+
+# Confirm corrected target correlation is positive
+b %*% gammah / sqrt(b %*% b * gammah %*% gammah)   # expected: positive
 
 # ── Step 5: Re-verify the time-shift constraint after sign correction ──────
-# The sign correction must not disturb the time-shift constraint.
-# The residual below should again be numerically zero.
-taub         <- sum((0:(L-1)) * b) / sum(b)   # frequency-zero time-shift of corrected b
-lead_dfp_mse <- taub - tauh                   # achieved lead over the MSE predictor
-print(lead_dfp_mse - tau)                     # expected output: ~0
+taub         <- sum((0:(L-1)) * b) / sum(b)
+lead_dfp_mse <- taub - tauh
+print(lead_dfp_mse - tau)                     # expected: ~0
 
-# ── Geometric interpretation of the sign correction ───────────────────────
-# In the standard formulation
+# ── Geometric interpretation of the sign correction ─────────────────────
+# In standard formulation: b = gammah + lambda0 * gamma0 with lambda0 < 0.
+# The negative lambda0 rotates b away from gammah opposite to gamma0; gammah sits
+# between b and gamma0 in filter space. If tauh < tau0 (standard case), this
+# rotation yields an additional lead with positive target correlation (though
+# the correlation is reduced).
 #
-#   b = gammah + lambda0 * gamma0
+# In the non-standard case (tauh > tau0), gammah lags gamma0. Rotating b away from
+# gamma0 in the same direction magnifies the lag rather than producing a lead.
+# Technically, a lead is possible but would come with a negative target
+# correlation, i.e., the filter would minimize tracking accuracy.
 #
-# a negative lambda0 rotates b away from gammah in the direction opposite to
-# gamma0. Geometrically, gammah sits between b and gamma0 in filter space
-# (see Tutorial 5, Exercise 1.6). In the standard case (tauh < tau0), gammah
-# already leads gamma0, so this rotation introduces an additional lead at
-# the cost of a reduced (but still positive) target correlation.
+# To obtain a genuine lead with POSITIVE TARGET CORRELATION, the rotation must go the
+# other way:
+# - Case a): b lies between gammah and gamma0: b = gammah + lambda0 * gamma0, lambda0 > 0
+# - Case b): gamma0 lies between gammah and b: b = -gammah + lambda0 * gamma0, lambda0 > 0
 #
-# In the non-standard case (tauh > tau0), the roles are reversed: gammah
-# LAGS gamma0. Rotating b away from gamma0 in the same direction therefore
-# magnifies the existing lag of gammah rather than introducing a lead —
-# the opposite of what is intended. Technically, a lead can still be obtained
-# via this construction (as demonstrated above), but only at the cost of a
-# NEGATIVE target correlation, meaning the filter minimises rather than
-# maximises tracking accuracy.
+# This non-standard case can be contrasted with the standard case (tauh < tau0):
+# - Standard: b = gammah + lambda0 * gamma0 with lambda0 < 0
 #
-# To achieve a genuine LEAD with a POSITIVE TARGET CORRELATION, the rotation
-# must go the other way: gamma0 should sit between b and gammah. This is
-# accomplished by the sign correction
-#
-#   b = -gammah + lambda0 * gamma0,   lambda0 > 0
-#
-# Negating gammah reflects the construction about gamma0, rotating b in the
-# opposite direction — away from the lagging gammah and toward (and beyond)
-# leading (in relative terms) gamma0. The result is a DFP predictor (filter)
-# that leads the MSE predictor (as well as the nowcast gamma0) at frequency
-# zero while maintaining a POSITIVE target correlation, as required.
-#
-# Rotating in the opposite direction (to the standard-case without the 
-# sign correction) is equivalent to negating the target
-# correlation in the DFP objective. Interestingly, and perhaps
-# counterintuitively, this does NOT yield a negative target correlation.
-# Instead, the negated objective attains a factually positive value under
-# the time-shift constraint — meaning the non-standard case filter does achieve
-# a positive correlation with gammah, despite objective minimization, and does 
-# so by rotating b in the anti-direction: generating a lead rather than 
-# magnifying a pre-existing lag. The time-shift constraint is satisfied in 
-# both cases, but only the sign-corrected (minimizing) non-standard solution 
-# keeps the target correlation positive.
+# Main differences: standard vs non-standard
+# - Standard: lambda0 < 0; b is MSE-optimal.
+# - Non-standard:
+#   - lambda0 > 0
+#   - Depending on case a) or b), gammah or -gammah participates
+#   - b must be re-scaled for MSE optimality
+
+# Rotating in the opposite direction (without the sign correction) is equivalent
+# to negating the target correlation in the DFP objective. Surprisingly, this does
+# not yield a negative target correlation on its own; the negated objective can yield
+# a positive value under the time-shift constraint. The non-standard case can
+# achieve a positive correlation with gammah by rotating b in the anti-direction;
+# however, the time-shift constraint is satisfied in both cases, and only the
+# sign-corrected (minimizing) non-standard solution preserves a positive target correlation.
+
+
 
 
 
@@ -735,10 +800,32 @@ box()
 #     time-shift constraint.
 #
 # Filter coefficient panel (left):
+# To understand what is happening here recall that in the standard case, we rotate 
+# b away from gammah to the side opposite to gamma0: gammah lies between b and gamma0, see exercise 1,6 in Tutorial 5.
+# In the non-standard case relevant here, we rotate b the other way round. We distinguish two cases:
+# a) b rotates away from gammah towards gamma0: b lies between gammah and gamma0 and approaches gamma0. 
+# b) b rotates away from gamma0 on the side opposite to gammah: in thsi case gamma0 lies between b and gammah.
+
+# In case a), the DFP leads gammah but lags gamma0.
+# In case b), the DFP leads gammah and gamma0.
+
+# See appendix A in Wildi (2026) for technical details. 
+
+# 
+
+
+#   - Recall that this problem emphasizes a non-standard situation, where 
+#     the MSE predictor actually lags the nowcast at frequency zero, see exercise 1.4.
+#   - In this case, a higher moderate lead is not obtained by decoupling from x_t but by 
+#     coupling: as we can see, DFP for lead=-1 (red) is nearly the same as the nowcast (dashed black).
+#   - However, for increasing lead < -1, decoupling is required, since otherwise 
+#     the DFP would be stuck at present. 
 #   - As the specified lead increases (more negative entries in lead_vec, 
 #     stronger decoupling), the mass is progressively shifted to epsilon_t, 
 #     the most recent innovation — an intuitively sensible strategy for 
 #     gaining timeliness.
+#   - 
+#   - Compare with the AR form  in exercise 1.16.
 
 
 
@@ -916,7 +1003,7 @@ filter_mat_ar[1:10,1]
 colo <- c("black", "green", rainbow(ncol(filter_mat_ar) - 2))
 
 first_lags <- 10
-
+par(mfrow=c(1,1))
 # Plot the first first_lags AR coefficients of each predictor.
 ts.plot(
   filter_mat_ar[1:first_lags, ],
@@ -932,6 +1019,7 @@ gammah[2:L]/gammah[1:(L-1)]
 # - Mild decoupling (small lead) gives more weight to x_t, which is intuitive.
 # - Stronger decoupling (larger leads) further increases the weight on x_t
 #   but assigns increasingly negative weights to lagged observations.
+# -Compare with the MA form  in exercise 1.11.
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------

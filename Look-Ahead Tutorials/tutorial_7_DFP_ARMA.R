@@ -768,6 +768,11 @@ apply(b_mat, 2, sum)
 # However, full decoupling is not guaranteed: even as lead -> -Inf, the
 # predictor may remain positively correlated with x_t (which is the case here). 
 
+# CHECK 3 — Positive Target Covariance
+
+t(b_mat)%*%gammah
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────

@@ -384,7 +384,7 @@ for (i in 1:length(lead_vec))
   }
 }
 # ─────────────────────────────────────────────────────────────────────
-# 1.5 Validation
+# 1.5 Rotine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # --- Check 1: verify that the achieved leads match the specified leads ---
@@ -407,6 +407,11 @@ apply(b_mat,2,sum)
 # Technical note: when imposing the DFP constraint in terms of left-shift at 
 # frequency zero, the DFP cannot invert trend orientation, i.e., the above sums 
 # must be positive.
+
+# CHECK 3 — Positive Target Covariance
+
+t(b_mat)%*%gammah
+
 
 
 # ─────────────────────────────────────────────────────────────────────

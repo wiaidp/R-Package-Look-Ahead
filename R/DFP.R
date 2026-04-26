@@ -115,20 +115,43 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 
   tau<-lead
   # Formula for lambda0
-  lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
-  b<-gammah+lambda0*gamma0
-  if (tauh>tau0)
+  if (abs(((tau+tauh-tau0)*sum(gamma0)))<10^(-10))
   {
-    print("Non-standard case: tauh>tau0")
-    print("The MSE predictors lags the nowcast at frequency zero")
-    print("This requires inversion of the DFP solution")
-    print("b must lie on side of gamma0 opposite to gammah")
-    print("Equivalently, we minimize the target correlation")
-    print("This means b=-gammah+lambda0*gamma0")
-    print("The sign of gammah is inverted in the non-standard case")
-    lambda0<--lambda0
-    b<--gammah+lambda0*gamma0
+    print("Formula for lambda0 is near singularity")
+    print("b is aligned with gamma0")
+    b<-gamma0
+  } else
+  {
+    lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+    b<-gammah+lambda0*gamma0
+# Differentiate standard and non-standard cases    
+    if (tauh>tau0)
+    {
+      print("Non-standard case: tauh>tau0")
+      print("The MSE predictors lags the nowcast at frequency zero")
+      print("This requires inversion of the DFP solution")
+      print("b must lie on side of gamma0 opposite to gammah")
+      print("Equivalently, we minimize the target correlation")
+      print("This means b=-gammah+lambda0*gamma0")
+      print("The sign of gammah is inverted in the non-standard case")
+  # If b is between gamma0 and gammah, the ordinary formula (without sign inversion) applies.
+  # If b is on side of gamma0 opposite to gammah, the sign inversion must be applied.
+      if ((tau+tauh-tau0)>0)
+      {
+        lambda0<-lambda0
+        b<-gammah+lambda0*gamma0
+      } else
+      {
+        lambda0<--lambda0
+        b<--gammah+lambda0*gamma0
+      }
+# In the non-standard case the MSE is inverted: minimization is replaced by maximization.
+# Therefore the scaling is wrong: we re-scale to ensure MSE optimality:
+      b<-b*as.double(gammah%*%b/b%*%b)
+      
+    }
   }
+  
 
   if (b%*%gammah<0)
   {
