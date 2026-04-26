@@ -1070,7 +1070,7 @@ par(mfrow = c(1, 1))
 ts.plot(theta, main = "AR inversion (Post-1990)")
 
 
-# Having confirmed the identity, we now convolve the AR(3) operator with
+# Having confirmed the identity, we now convolve the AR operator with
 # the MSE and DFP predictors (in MA form) to obtain their AR equivalents.
 
 # --------------------------------------------------------------------------
@@ -1083,6 +1083,7 @@ ts.plot(theta, main = "AR inversion (Post-1990)")
 # deviations become vanishing with increasing L (length of finite MA and AR inversions)
 conv_two_filt_func(theta, gamma0)$conv
 
+# b. DFP predictors
 filter_mat_ar<-NULL
 for (i in 1:ncol(filter_mat))
   filter_mat_ar<-cbind(filter_mat_ar,conv_two_filt_func(theta, filter_mat[,i])$conv)
@@ -1111,8 +1112,7 @@ filter_mat_ar[1:10,1]
 #   affects only the first AR coefficient, leaving all higher-order
 #   coefficients unchanged across DFP designs.
 
-# Assign colors: black for MSE(24), green for the MSE(12) baseline,
-# and a rainbow palette for the DFP variants.
+# Assign colors
 colo <- c("black", "green", rainbow(ncol(filter_mat_ar) - 2))
 
 first_lags <- 10
