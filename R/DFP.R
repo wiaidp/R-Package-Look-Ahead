@@ -108,21 +108,38 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
     print("Warning: gammah and gamma0 are nearly collinear: the DFP predictor is not computed")
     return()
   }
+  if (abs(sum(gamma0))<10^(-10))
+  {
+    print("gamma0 eliminates the trend or reverts its direction: using the time-shift formulation in frequency zero is not meaningful")
+    print("Use classic DFP functions based on alpha0, e.g., mse_dfp_from_alpha0_func or compute_mse_dfp")
+    return()
+  }
+  if (abs(sum(gammah))<10^(-10))
+  {
+    print("gammah eliminates the trend or reverts its direction: using the time-shift formulation in frequency zero is not meaningful")
+    print("Use classic DFP functions based on alpha0, e.g., mse_dfp_from_alpha0_func or compute_mse_dfp")
+    return()
+  }
   
   # Compute shifts at frequency zero
   tau0<-sum((0:(L-1))*gamma0)/sum(gamma0)
   tauh<-sum((0:(L-1))*gammah)/sum(gammah)
 
   tau<-lead
-  # Formula for lambda0
-  if (abs(((tau+tauh-tau0)*sum(gamma0)))<10^(-10))
+  # Formula for lambda0: avoid potential singularity when b is proportional to gamma0:
+  if (abs(((tau+tauh-tau0)))<10^(-10))
   {
     print("Formula for lambda0 is near singularity")
     print("b is aligned with gamma0")
     b<-gamma0
+# Re-scale to ensure MSE optimality:
+    b<-b*as.double(gammah%*%b/b%*%b)
+    
   } else
   {
+# Non singular case: b is not proportional to gamma0    
     lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
+# In the standard case, the following formula is the MSE optimal DFP:    
     b<-gammah+lambda0*gamma0
 # Differentiate standard and non-standard cases    
     if (tauh>tau0)
@@ -138,15 +155,17 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
   # If b is on side of gamma0 opposite to gammah, the sign inversion must be applied.
       if ((tau+tauh-tau0)>0)
       {
+# b between gamma0 and gammah        
         lambda0<-lambda0
         b<-gammah+lambda0*gamma0
       } else
       {
+# gamma0 between b and gammah        
         lambda0<--lambda0
         b<--gammah+lambda0*gamma0
       }
 # In the non-standard case the MSE is inverted: minimization is replaced by maximization.
-# Therefore the scaling is wrong: we re-scale to ensure MSE optimality:
+# Therefore the scaling is wrong (scaling is arbitrary): we re-scale to ensure MSE optimality:
       b<-b*as.double(gammah%*%b/b%*%b)
       
     }
