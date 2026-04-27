@@ -211,7 +211,7 @@ if (FALSE) {
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.3 DFP Settings
+# 1.3 MSE Benchmark(s) and DFP Settings
 # ─────────────────────────────────────────────────────────────────────
 
 # Two forecast horizons are considered:
