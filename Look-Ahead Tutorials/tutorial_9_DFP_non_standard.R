@@ -1783,7 +1783,8 @@ axis(2); box()
 #   b = lambda_h * gamma_h + lambda_0 * gamma_0
 #
 # That is, the optimal DFP is always a linear combination of exactly two
-# filters: the h-step MSE filter (gamma_h) and the nowcast filter (gamma_0).
+# filters/predictors: the h-step MSE filter (gamma_h) and the nowcast
+# filter (gamma_0).
 #
 # Standard case (the MSE predictor leads the nowcast at frequency zero,
 # i.e., a trend component is left-shifted):
@@ -1797,28 +1798,43 @@ axis(2); box()
 #     degree of decoupling can achieve a lower MSE.
 #
 # Non-standard case (the MSE predictor lags the nowcast at frequency zero):
-#   - The sign of lambda_h flips and that of lambda_0 may flip depending on whether
-#     the problem falls into sub-case (a) or sub-case (b)
-#     (see main text for details).
+#   - The sign of lambda_h flips, and that of lambda_0 may also flip
+#     depending on whether the problem falls into sub-case (a) or
+#     sub-case (b) (see main text for details).
 #   - In this regime the DFP is no longer MSE-optimal and must be
 #     re-scaled to restore optimality.
 
 
 # ── 2. Core Idea and Computational Complexity ─────────────────────────
 # The DFP approach rests on a simple, intuitive principle:
-#   reduce the attraction of the forecast toward the nowcast (x_t).
+#   reduce the attraction of the forecast toward the nowcast (x_t)
+#   while maintaining optimal alignment with the h-step MSE filter (gamma_h).
 #
-# This decoupling requirement leads to a tractable optimisation problem:
+# This dual objective is particularly challenging when gamma_h and gamma_0
+# are nearly collinear:
+#   - The difficulty of a forecast problem can be characterised by the
+#     proximity of gamma_h to gamma_0 in filter space.
+#   - A necessary condition for the DFP approach is that gamma_0 and
+#     gamma_h are linearly independent, so that they span a plane within
+#     which the optimal DFP b resides. If this condition fails, the two
+#     defining requirements of the DFP — decoupling from gamma_0 and
+#     optimal alignment with gamma_h — cannot be satisfied simultaneously,
+#     rendering the DFP construction infeasible.
+#
+# Optimal target tracking (of gamma_h) subject to decoupling (from gamma_0)
+# yields a tractable optimisation problem:
 #   - Unitary DFP  → quadratic optimisation problem.
 #   - MSE DFP      → linear optimisation problem.
 #
-# Despite this apparent simplicity, the structure of look-ahead
-# optimisation is considerably more intricate than it first appears,
-# and a number of counter-intuitive results can emerge — particularly
-# in difficult forecast settings. A striking example from Exercise 1
-# is the non-standard case, in which the DFP criterion effectively
-# maximises (rather than minimises) the MSE, an outcome that runs
-# directly counter to classical intuition.
+# Despite this apparent simplicity, the structure of look-ahead optimisation
+# is considerably more intricate than it first appears, and a number of
+# counter-intuitive results can emerge — particularly in difficult forecast
+# settings. A striking example from Exercise 1 is the non-standard case,
+# in which the DFP criterion effectively maximises (rather than minimises)
+# the MSE, an outcome that runs directly counter to classical intuition.
+# Such counter-intuitive outcomes typically reflect the conflicting
+# requirements of simultaneous decoupling and target tracking, whose
+# tension intensifies as the forecast problem becomes more difficult.
 
 
 # ── 3. When Counter-Intuitive Results Arise ───────────────────────────
