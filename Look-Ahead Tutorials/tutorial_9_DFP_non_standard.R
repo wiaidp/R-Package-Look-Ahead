@@ -1778,96 +1778,101 @@ axis(2); box()
 # ═════════════════════════════════════════════════════════════════════
 
 # ── 1. Structural Form ────────────────────────────────────────────────
-# The DFP filter has a remarkably compact closed form:
+# The DFP filter admits a remarkably compact closed form:
 #
 #   b = lambda_h * gamma_h + lambda_0 * gamma_0
 #
-# i.e., the optimal DFP is always a linear combination of just two filters:
-# the h-step MSE filter (gamma_h) and the nowcast filter (gamma_0).
+# That is, the optimal DFP is always a linear combination of exactly two
+# filters: the h-step MSE filter (gamma_h) and the nowcast filter (gamma_0).
 #
-# Standard case (well-behaved forecast problem):
-#   - MSE optimality corresponds to lambda_0 = 0 (no decoupling penalty).
-#   - Imposing a look-ahead constraint yields lambda_0 < 0, which down-
-#     weights the contemporaneous component and induces the desired lead.
-#   - The DFP is MSE optimal subject to the imposed decoupling constraint.
+# Standard case (the MSE predictor leads the nowcast at frequency zero,
+# i.e., a trend component is left-shifted):
+#   - The pure MSE predictor is recovered by setting lambda_0 = 0
+#     (no decoupling penalty) and lambda_h = 1.
+#   - Imposing a look-ahead constraint yields lambda_0 < 0, which
+#     down-weights the contemporaneous component and induces the
+#     desired lead relative to x_t.
+#   - With lambda_h = 1 fixed, the DFP is MSE-optimal subject to the
+#     imposed decoupling constraint: no other predictor with the same
+#     degree of decoupling can achieve a lower MSE.
 #
 # Non-standard case (the MSE predictor lags the nowcast at frequency zero):
-#   - The signs of lambda_h and lambda_0 may flip depending on whether the
-#     problem falls into case (a) or case (b) (see main text for details).
-#   - In this regime the DFP is no longer MSE-optimal and must be re-scaled
-#     to recover optimality.
+#   - The sign of lambda_h flips and that of lambda_0 may flip depending on whether
+#     the problem falls into sub-case (a) or sub-case (b)
+#     (see main text for details).
+#   - In this regime the DFP is no longer MSE-optimal and must be
+#     re-scaled to restore optimality.
 
 
-# ── 2. Core Idea and Complexity ───────────────────────────────────────
-# The DFP approach rests on a simple intuitive principle:
-#   reduce the attraction of the forecast to the nowcast (x_t).
+# ── 2. Core Idea and Computational Complexity ─────────────────────────
+# The DFP approach rests on a simple, intuitive principle:
+#   reduce the attraction of the forecast toward the nowcast (x_t).
 #
-# This decoupling leads to a tractable optimisation problem:
-#   - Unitary DFP  → quadratic problem.
-#   - MSE DFP      → linear problem.
+# This decoupling requirement leads to a tractable optimisation problem:
+#   - Unitary DFP  → quadratic optimisation problem.
+#   - MSE DFP      → linear optimisation problem.
 #
-# Despite this apparent simplicity, the structure of look-ahead optimisation
-# is considerably more intricate than it first appears, and a number of
-# counter-intuitive results can emerge — particularly in difficult forecast
-# problems. A striking example from Exercise 1 is the non-standard case,
-# in which the DFP criterion effectively maximises (rather than minimises)
-# the MSE, an outcome that is deeply at odds with classical intuition.
+# Despite this apparent simplicity, the structure of look-ahead
+# optimisation is considerably more intricate than it first appears,
+# and a number of counter-intuitive results can emerge — particularly
+# in difficult forecast settings. A striking example from Exercise 1
+# is the non-standard case, in which the DFP criterion effectively
+# maximises (rather than minimises) the MSE, an outcome that runs
+# directly counter to classical intuition.
 
 
 # ── 3. When Counter-Intuitive Results Arise ───────────────────────────
-# Unexpected behaviour is most prevalent when the underlying forecast problem
-# is inherently difficult — i.e., when the classic MSE predictor is
-# essentially "stuck at the present" and unable to look ahead effectively.
-# In such cases the decoupling constraint may force the optimiser into regions
-# of the parameter space that can violate standard expectations about 
-# properties, patterns and profiles of the predictor (overfitting).
+# Unexpected behaviour is most prevalent when the underlying forecast
+# problem is inherently difficult — i.e., when the classical MSE
+# predictor is essentially anchored to the present and unable to look
+# ahead effectively. In such cases the decoupling constraint may force
+# the optimiser into regions of the parameter space that violate
+# standard expectations regarding the properties, patterns, and profiles
+# of the resulting predictor, a phenomenon akin to overfitting.
 
 
 # ── 4. Role of Full Decoupling ────────────────────────────────────────
-# The fully decoupled DFP (alpha0 = 0, zero contemporaneous correlation)
-# represents a natural extremal design within the DFP family. It defines
-# a natural outer boundary for meaningful look-ahead behaviour.
+# The fully decoupled DFP (alpha_0 = 0, i.e., zero contemporaneous
+# correlation between the predictor and x_t) represents a natural
+# extremal design within the DFP family, defining an outer boundary
+# for meaningful look-ahead behaviour.
 #
 # In practice, full decoupling is often too extreme to be directly useful:
-#   - It can invert the sign of a non-zero mean level and reverse the direction
-#     of a linear trend (as demonstrated in Section 1.3).
-#   - It may not be practically implementable in difficult forecast settings.
+#   - It can invert the sign of a non-zero mean level and reverse the
+#     direction of a linear trend (as demonstrated in Section 1.3).
+#   - It may not be practically attainable in difficult forecast settings.
 #
-# Even more aggressive designs (requiring *negative* correlation with x_t
-# at lag 0) are theoretically possible but lie outside the standard DFP
-# framework and are rarely of practical relevance.
+# Even more aggressive designs — requiring *negative* contemporaneous
+# correlation with x_t — are theoretically possible but lie outside the
+# standard DFP framework and are rarely of practical relevance.
 
 
-# ── 5. Interpretability of the Constraint Parameter alpha0 ────────────
-# The interpretation of alpha0 differs between the two DFP variants:
+# ── 5. Interpretability of the Constraint Parameter alpha_0 ───────────
+# The interpretation of alpha_0 differs across the two DFP variants:
 #
-#   - Unitary DFP:  alpha0 is a *correlation* (bounded in [-1, 1]) and
-#                   therefore directly interpretable as the degree of
+#   - Unitary DFP:  alpha_0 is a *correlation* (bounded in [-1, 1]) and
+#                   is therefore directly interpretable as the degree of
 #                   contemporaneous coupling between the predictor and x_t.
 #
-#   - MSE DFP:      alpha0 is a *covariance*, whose magnitude depends on the
-#                   scale of the process, making cross-process or cross-design
-#                   comparisons less straightforward.
+#   - MSE DFP:      alpha_0 is a *covariance*, whose magnitude depends on
+#                   the scale of the process, making comparisons across
+#                   processes or design choices less straightforward.
 #
-# To restore interpretability in the MSE DFP, one can re-express alpha0
-# (equivalently, lambda_0, the weight placed on
-# gamma_0) as an implied *time-shift at frequency zero*. This frequency-
-# domain re-parameterisation is meaningful provided that the look-ahead
-# gain spills over from frequency zero to frequencies of practical interest — for
-# example, business-cycle frequencies in macroeconomic applications.
+# To restore interpretability in the MSE DFP, alpha_0 (equivalently,
+# lambda_0, the weight placed on gamma_0) can be re-expressed as an
+# implied *time-shift at frequency zero*. This frequency-domain
+# re-parameterisation is meaningful provided that the look-ahead gain
+# at frequency zero spills over to frequencies of practical interest —
+# for example, business-cycle frequencies in macroeconomic applications.
 
 
-# ── 6. AR Form ───────────────────────────────────────
-# In the standard case, the effect of decoupling on the AR form
-# of the MSE-optimal DFP is straightforward: only the first (contemporaneous)
-# weight is affected, leaving all remaining AR coefficients unchanged.
+# ── 6. AR Form ────────────────────────────────────────────────────────
+# In the standard case, the effect of decoupling on the AR form of the
+# MSE-optimal DFP is straightforward: only the first (contemporaneous)
+# coefficient is affected, leaving all remaining AR coefficients unchanged.
 # Although this result has intuitive appeal, we argue that examining the
 # effect of decoupling on the MA form of the DFP is more informative.
-# The reason is that the MA representation is driven by white-noise
-# innovations (epsilon_t), whose i.i.d. structure ensures that every
-# coefficient directly and transparently reflects the impact of decoupling,
-# without the confounding influence of the serial dependence inherent in
-# the AR-form regressor x_t.
-
-
-
+# The MA representation is driven by white-noise innovations (epsilon_t),
+# whose i.i.d. structure ensures that every coefficient directly and
+# transparently reflects the impact of decoupling, without the confounding
+# influence of the serial dependence inherent in the AR-form regressor x_t.
