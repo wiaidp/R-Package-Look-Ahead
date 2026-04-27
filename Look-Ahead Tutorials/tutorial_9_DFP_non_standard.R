@@ -1775,20 +1775,22 @@ axis(2); box()
 
 # The DFP approach relies on a basic idea: reducing the attraction of the
 # forecast to the nowcast. This decoupling leads to a simple quadratic or
-# linear optimisation problem (unitary vs. MSE DFP). $
-# However, the structure of this allegedly simple
-# look-ahead approach is more complex than assumed, and many counter-intuitive
-# results arise from its structure. In particular, the non-standard case raises
-# several unexpected and deeply counter-intuitive issues (e.g., maximising MSE).
-# These unexpected results mostly arise in the context of difficult forecast
+# linear optimisation problem (unitary vs. MSE DFP). However, the structure 
+# of this allegedly simple look-ahead approach is more complex than assumed, 
+# and many counter-intuitive results arise from its structure. In particular, 
+# the non-standard case in the above exercise 1 raises several unexpected and 
+# deeply counter-intuitive issues (e.g., maximising MSE).
+# Unexpected results mostly arise in the context of difficult forecast
 # problems, where the classic MSE predictor tends to be stuck at the present,
-# i.e., it is unable to effectively look ahead. Finally, full decoupling is an
-# interesting extremal DFP design which is sometimes too extreme to be
-# implemented. We suggest that it represents the outer limit of look-ahead
+# i.e., it is unable to effectively look ahead. 
+
+# Full decoupling is often an interesting extremal DFP design which is 
+# sometimes too extreme to be implemented or of practical relevance. We suggest 
+# that it represents the outer limit of look-ahead
 # designs in the DFP context, though even more extreme designs could be obtained
 # by requiring negative correlation with x_t at lag 0.
 
-
+# DFP congtraint alph0 interpreted as time-shift: interpretability. In some extreme examples not usable, with counter-intuitive (laggin)
 
 
 
