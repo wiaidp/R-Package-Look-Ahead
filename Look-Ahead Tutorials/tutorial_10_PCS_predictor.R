@@ -186,6 +186,7 @@ gammah <- gamma[h + 1:L]
 gamma_constraint<-gamma0-gammah
 #gamma_constraint<-gammah-gamma0
 gamma_target<-gammah
+max_lag<-0
 
 ts.plot(gamma_constraint,main="PCS: gamma_constraint")
 
@@ -210,7 +211,7 @@ for (i in 1:length(beta_vec))
   lambda2_vec<-c(lambda2_vec,b_obj$lambda2)
   
   # Compute CCF of PCS predictors  
-  cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b0_mat[,i],hp_trend)$cor_vec)
+  cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,i],gamma0)$cor_vec)
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -305,11 +306,12 @@ box()
 # 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
 # a horizontal line marks zero correlation.
 max_lag <- 20
-mplot   <- NULL
+mplot  <-ccf_mat <- NULL
 
 for (i in 1:ncol(filter_mat))
   mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
 colnames(mplot) <- col_names
+ccf_mat<-mplot
 
 plot(mplot[, 1],
      main = "CCF", axes = F, type = "l",
@@ -340,10 +342,10 @@ box()
 # in the Wold decomposition). Therefore we apply the filters to model residuals.
 x_filt   <- arima.obj$residuals
 
-len<-10000
-set.seed(461)
-eps<-x_filt<-rnorm(len)
-x<-rep(NA,len)
+# Simulated data ARMA(1,1): empirical CCFs converge to expected values.
+len<-1000000
+set.seed(462)
+eps<-x<-x_filt<-rnorm(len)
 for (i in 2:len)
   x[i]<-a1*x[i-1]+eps[i]+b1*eps[i-1]
 
@@ -383,15 +385,30 @@ for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 
-cor(na.exclude(x),na.exclude(y_out_mat[,ncol(y_out_mat)]))
 
-mat<-cbind(na.exclude(x),na.exclude(y_out_mat[,ncol(y_out_mat)]))
+# Compute empirical CCF
+k<-ncol(y_out_mat)
+mat<-na.exclude(cbind(x,y_out_mat[,k]))
+cor(mat[,1],mat[,2])
+mat<-na.exclude(cbind(x[(h+1):(len)],y_out_mat[1:(len-h),k]))
 cor(mat[,1],mat[,2])
 
+# Matches expected (true) CCF when the model is true (simulated ARMA(1,1))
+ccf_mat[c(1,h+1),k]
 
-# Discussion:
-# With increasing imposed lead, the DFP predictors are more systematically and 
-# strongly left-shifted but noisier. 
+
+# Compute empirical CCF
+k<-3
+mat<-na.exclude(cbind(x,y_out_mat[,k]))
+cor(mat[,1],mat[,2])
+mat<-na.exclude(cbind(x[(h+1):(len)],y_out_mat[1:(len-h),k]))
+cor(mat[,1],mat[,2])
+
+# Matches expected (true) CCF when the model is true (simulated ARMA(1,1))
+ccf_mat[c(1,h+1),k]
+
+
+
 
 
 
