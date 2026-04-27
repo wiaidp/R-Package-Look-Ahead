@@ -132,6 +132,7 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
     print("Formula for lambda0 is near singularity")
     print("b is aligned with gamma0")
     b<-gamma0
+    b_unscaled<-b
 # Re-scale to ensure MSE optimality:
     b<-b*as.double(gammah%*%b/b%*%b)
     
@@ -141,6 +142,7 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
     lambda0<--(tau*sum(gammah))/((tau+tauh-tau0)*sum(gamma0))
 # In the standard case, the following formula is the MSE optimal DFP:    
     b<-gammah+lambda0*gamma0
+    b_unscaled<-b
 # Differentiate standard and non-standard cases    
     if (tauh>tau0)
     {
@@ -158,11 +160,13 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 # b between gamma0 and gammah        
         lambda0<-lambda0
         b<-gammah+lambda0*gamma0
+        b_unscaled<-b
       } else
       {
 # gamma0 between b and gammah        
         lambda0<--lambda0
         b<--gammah+lambda0*gamma0
+        b_unscaled<-b
       }
 # In the non-standard case the MSE is inverted: minimization is replaced by maximization.
 # Therefore the scaling is wrong (scaling is arbitrary): we re-scale to ensure MSE optimality:
@@ -179,7 +183,7 @@ mse_dfp_from_tau_func<-function(gamma0,gammah,lead)
 #    b<--b
   }
   
-  return(list(tau0=tau0,tauh=tauh,lambda0=lambda0,b=b))
+  return(list(tau0=tau0,tauh=tauh,lambda0=lambda0,b=b,b_unscaled=b_unscaled))
 }
 
 

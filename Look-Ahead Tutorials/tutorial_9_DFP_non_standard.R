@@ -40,13 +40,13 @@
 #
 #   (b) As a consequence, the sign of the optimisation objective must
 #       be inverted: the DFP solution is obtained by minimising
-#       (rather than maximising) tracking accuracy. This is a highly
-#       unusual outcome; see Wildi (2026), Appendix A, for the
+#       (rather than maximising) tracking accuracy. This is an unusual 
+#       and counter-intuitive outcome; see Wildi (2026), Appendix A, for the
 #       theoretical background.
 #
 # Modification 2 reinstates the standard case via a minor adjustment
 # to the MSE predictor. However, DFP solutions optimised for larger
-# leads tend to lag behind the classical MSE predictor — a
+# leads tend to lag behind the classical MSE predictor — another
 # counterintuitive outcome. This effect stems from the inherent
 # difficulty of the prediction problem: the DFP exploits every
 # available opportunity to satisfy the time-shift constraint while
@@ -231,11 +231,16 @@ gammah <- gamma[h + 1:L]
 # Analogous htilde- (=24) MSE predictor 
 gammahtilde <- gamma[htilde + 1:L]
 
+# After scaling, the two MSE predictors align perfectly.
+#   - Increasing the forecast horizon cannot generate look ahead behaviour.
+ts.plot(scale(cbind(gammah,gammahtilde),scale=T,center=F),
+        ain="After scaling, 12-step and 24-step MSE predictors overlap")
+
 # Desired lead of the DFP output over the MSE predictor at frequency zero.
 # Negative values indicate that the DFP leads the MSE predictor by 
 # |lead| time steps at the zero (trend) frequency.
 lead_vec <- -2^((-1):3)
-
+lead_vec
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -260,32 +265,38 @@ if (tauh > tau0)
   print("Non-standard case: the MSE predictor lags the nowcast at frequency zero")
 }
 
-#---------------------------------------------------------------------
-# VERIFICATION:
+# ── VERIFICATION ─────────────────────────────────────────────────────────────
 
-# 1. Compute linear trend
-trend<--50:50
-# 2. Normalize: disentangle the time-shift effect from the compouned filter effect.
-normalized_gammah<-gammah/sum(gammah)
-normalized_gamma0<-gamma0/sum(gamma0)
-# 3. Apply filters 
-trend_h<-filter(trend,normalized_gammah,side=1)
-trend_0<-filter(trend,normalized_gamma0,side=1)
-# 4. Plot
-par(mfrow=c(1,1))
-ts.plot(na.exclude(cbind(trend_0,trend_h)),col=c("black","green"),
-        main=paste("Outputs of MSE(",h,") (green) and Nowcast (black)",sep=""))
-abline(h=0)
-# Outcome: the MSE predictor (green) is lagging (right shifted)
-# 5. Time difference: lag of MSE predictor
-(trend_0-trend_h)[length(trend_0)]
-# 6. Matches exactly the difference of time-shifts at frequency zero:
-tauh-tau0
+# 1. Compute a linear trend.
+trend <- -50:50
+
+# 2. Normalize the filters to isolate the time-shift effect from the
+#    compounded filter effect.
+normalized_gammah <- gammah / sum(gammah)
+normalized_gamma0 <- gamma0 / sum(gamma0)
+
+# 3. Apply the normalized filters to the linear trend.
+trend_h <- filter(trend, normalized_gammah, side = 1)
+trend_0 <- filter(trend, normalized_gamma0, side = 1)
+
+# 4. Plot the filtered outputs.
+par(mfrow = c(1, 1))
+ts.plot(na.exclude(cbind(trend_0, trend_h)), col = c("black", "green"),
+        main = paste("Outputs of MSE(", h, ") (green) and Nowcast (black)", sep = ""))
+abline(h = 0)
+# Outcome: the MSE predictor (green) is lagging (right-shifted).
+
+# 5. Compute the time difference as the lag of the MSE predictor
+#    relative to the nowcast at the last available observation.
+(trend_0 - trend_h)[length(trend_0)]
+
+# 6. Confirm that this matches the difference of time-shifts at frequency zero.
+tauh - tau0
 
 #---------------------------------------------------------------------
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.5 Run MSE-DFP Based on Zero-Frequency Lead
+# 1.5 Run MSE-DFP Based on (Zero-Frequency) Lead Constraint
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Compute the time-shift DFP filter for each specified lead ──────────────
@@ -500,6 +511,9 @@ tauh - tau0
 # In the non-standard case the raw scaling from formulations i), ii), or iii)
 # is arbitrary and must always be corrected.
 
+# Our function mse_dfp_from_tau_func() differentiates all cases and generates 
+# an MSE optimal solution in stndard as well as in non-standard cases.
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.7.3 Case a): b sits between gammah and gamma0
@@ -654,12 +668,13 @@ b <- b * optimal_scaling
 #     - b must be rescaled to restore MSE optimality
 #
 # The non-standard case is intriguing because of the inversions required to
-# recover the optimal design: leading and with a positive (maximized) target 
-# correlation. In particular, swapping gamma0 and gammah in the
-# objective and constraints, or replacing minimisation of MSE by maximisation,
-# is counter-intuitive. Yet the structure of the problem ensures a well-defined
-# solution even under these seemingly contradictory requirements, 
-# see Appenix A in Wildi (2026).
+# recover the optimal design: a filter that is both leading and has a positive
+# (maximised) target correlation. In particular, swapping gamma0 and gammah in
+# the objective and constraints, or replacing minimisation of MSE by
+# maximisation, is counter-intuitive. Yet the structure of the problem ensures
+# a well-defined solution even under these seemingly contradictory requirements;
+# see Appendix A in Wildi (2026).
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -827,15 +842,23 @@ mat_perf
 # lambda column:
 #   - The regularisation weight lambda governs the rotation of b relative to
 #     gammah in filter space (see Tutorial 5, Exercise 1.6). In the standard
-#     case (tauh < tau0), a negative lambda places gammah between b and
-#     gamma0. In the non-standard case (tauh > tau0) addressed here, lambda
-#     is positive, placing gamma0 between gammah and b — the opposite
+#     case (tauh < tau0), a negative lambda places gammah between b and gamma0.
+#     In the non-standard case (tauh > tau0) addressed here, lambda is positive,
+#     placing b between gamma0 and gammah (case a: lead = -0.5), or gamma0
+#     between gammah and b (case b: leads < -0.5 in the table) — the opposite
 #     rotation direction required to generate a genuine lead.
+#   - In formulation iii) of the non-standard case, lambda0 can become
+#     arbitrarily large when b aligns with gamma0. This effect can be observed
+#     for shift = -1 in the table: the imposed lead of -1 is close to the
+#     shift between gamma0 and gammah (tau0 - tauh ~ -0.94). At exactly this
+#     shift, b would be perfectly aligned with gamma0 (see the discussion
+#     in Section 1.7.1 above).
+
 #
 # alpha0 column:
 #   - The DFP constraint parameter <gamma0, b>. It should not be interpreted
 #     as a correlation coefficient except when it equals zero. Expressing the
-#     DFP constraint in terms of tau (time-shift) rather than alpha0 is
+#     DFP constraint in terms of lead (at frequency zero) rather than alpha0 is
 #     generally more interpretable. 
 
 
@@ -911,7 +934,9 @@ box()
 #   - The MSE filter (green shaded) decays slowly (the exponential decay rate
 #     is governed by a1, which is large).
 #   - With increasing lead, the DFP designs assign progressively more weight
-#     to the last innovation epsilon_t. This is intuitively appealing.
+#     to the last innovation epsilon_t (recall that we are looking at the 
+#     MA form of the predictor: the predictor is applied to epsilon_t, not x_t). 
+#     This outcome is intuitively appealing.
 #
 # CCF panel (right):
 #   - MSE predictor (green dashed): the CCF peaks at the target horizon h = 12,
@@ -926,24 +951,19 @@ box()
 #     The DFP minimises this loss in target correlation subject to the
 #     time-shift constraint.
 #
-#   - Compare these findings with Exercise 2.8: the target is almost the same
+#   - Compare these findings with Exercise 1.16 (AR form) and 2.8. In the 
+#     latter exercise, the target is almost the same
 #     but the predictors are very different, and the CCFs differ accordingly.
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.12 Compare Predictors
+# 1.12 Compare Forecasts
 # ─────────────────────────────────────────────────────────────────────
 #----------------------------------------------------------------------
 # 1.12.1 Apply Predictors to data
 #----------------------------------------------------------------------
-# Assemble the filter matrix, normalising gamma0 and gammah to unit L2-norm
-# so that all four filters are on a comparable amplitude scale.
-# Note: b_cd remains phase-reversing at frequency zero even after normalisation.
-
-
-# All filters are defined in MA form (as applied to the einnovations eps_t in the Wold decomposition)
-# Therefore we apply the filters to model residuals.
-# Note: example 2.4 in tutorial 6 applied the MA form to x_t instead, which is not optimal.
+# All filters are defined in MA form (as applied to the einnovations eps_t 
+# in the Wold decomposition). Therefore we apply the filters to model residuals.
 x_filt   <- arima.obj$residuals
 
 y_out_mat<-NULL
@@ -958,7 +978,8 @@ colnames(y_out_mat) <- col_names
 par(mfrow = c(1, 1))
 # Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
 ts.plot(y_out_mat,
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
@@ -966,20 +987,24 @@ for (i in 1:ncol(y_out_mat))
 
 # Dotcom recession
 ts.plot(y_out_mat[120:170,],
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 # Financial crisis
 ts.plot(y_out_mat[200:250,],
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 
 # Discussion:
+# With increasing imposed lead, the DFP predictors are more systematically and 
+# strongly left-shifted but noisier. 
 
 
 
@@ -1001,6 +1026,7 @@ colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
 
 # Plot time-shift functions for both filters across frequencies [0, π]
 par(mfrow = c(1, 2))
+# Scale amplitudes for better visual inspection.
 mplot <- amp_mat
 lty_vec<-c(2,2,rep(1,ncol(filter_mat)-2))
 plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
@@ -1039,10 +1065,20 @@ axis(1, at = 1 + 0:6 * K / 6,
 axis(2)
 box()
 
+# Amplitude functions:
+#   - Increasing the lead assigns progressively less weight to lower frequencies.
+#     This aligns with the filter coefficients plotted in Exercise 1.11: more
+#     weight is assigned to epsilon_t, making the predictor increasingly noisy.
+#
+# Time shifts:
+#   - The decrease in time-shift at frequency zero corresponds exactly to
+#     lead_vec as imposed by the DFP constraint.
+#   - Part of the lead propagates to business-cycle frequencies, so that the
+#     forecasts effectively lead at recessions; see Exercise 1.12.
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.14 AR Inversion of ARMA(1,1)
+# 1.14 AR Form: AR Inversion of ARMA(1,1)
 # ─────────────────────────────────────────────────────────────────────
 
 # AR inversion:
@@ -1109,7 +1145,7 @@ par(mfrow=c(1,1))
 ts.plot(
   filter_mat_ar[1:first_lags, ],
   col  = colo,
-  main = "DFP Predictors in AR Form",
+  main = "DFP (MSE-Optimal) Predictors in AR Form",
   lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
 for (i in 1:ncol(filter_mat_ar))
   mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
@@ -1122,56 +1158,53 @@ gammah[2:L]/gammah[1:(L-1)]
 #   but assigns increasingly negative weights to lagged observations.
 # -Compare with the MA form  in exercise 1.11.
 
-#---------------------------------------------------------------------------
-#---------------------------------------------------------------------------
-# Technical note on AR form and scaling 
-#   -When when unit_length==T (as above) the DFP are scaled to unit length.
-#   -For unscaled DFP, only the first AR coefficient differs across DFP designs
-#     (see exercise 2.3, tutorial 5). 
-#   -We here briefly verify this claim
+# ─────────────────────────────────────────────────────────────────────────────
+# Technical note on AR form and scaling
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# In the standard case, only the first weight of the AR-form of the DFP is
+# affected (see Exercise 2.3, Tutorial 5). In the non-standard case this rule
+# does not hold in general: it depends on whether the MSE-optimal scaling is
+# applied and on whether case a) or case b) holds (see Exercise 1.7.1).
+#
+# We show here that when the MSE-optimal scaling is NOT applied, only the first
+# weight is affected for all case b) designs.
 
-# 1. Recompute unscaled DFP predictors
-b_mat_unscaled<-NULL
+# ── Step 1: Recompute the unscaled DFP predictors ────────────────────────────
+b_mat_unscaled <- NULL
 for (i in 1:length(lead_vec))
 {
-  # Lead over MSE at frequency zero  
-  lead<-lead_vec[i]
+  # Lead over the MSE predictor at frequency zero
+  lead <- lead_vec[i]
   
   dfp_obj <- mse_dfp_from_tau_func(gamma0, gammah, lead)
   
   if (!is.null(dfp_obj))
   {
-    b       <- dfp_obj$b        # raw DFP filter coefficients
-    b_mat_unscaled<-cbind(b_mat_unscaled,b)
+    b              <- dfp_obj$b_unscaled   # Raw (unscaled) DFP filter coefficients
+    b_mat_unscaled <- cbind(b_mat_unscaled, b)
   } else
   {
     print("Warning: gammah and gamma0 are nearly collinear")
   }
 }
-# 2. AR form of unscaled DFP
-filter_mat_ar_unscaled<-NULL
+
+# ── Step 2: Compute the AR form of the unscaled DFP filters ──────────────────
+filter_mat_ar_unscaled <- NULL
 for (i in 1:ncol(b_mat_unscaled))
-  filter_mat_ar_unscaled<-cbind(filter_mat_ar_unscaled,conv_two_filt_func(theta, b_mat_unscaled[,i])$conv)
+  filter_mat_ar_unscaled <- cbind(filter_mat_ar_unscaled,
+                                  conv_two_filt_func(theta, b_mat_unscaled[, i])$conv)
 
-# 3. Plot: only the first weight is affected by the DFP approach:
-ts.plot(filter_mat_ar_unscaled,col=rainbow(ncol(filter_mat_ar_unscaled)),main="Only the first weight is affected")
+# ── Step 3: Plot ──────────────────────────────────────────────────────────────
+# For the unscaled case b) designs, only the first weight differs across filters.
+# The case a) design (red line) is an exception, as expected.
+ts.plot(filter_mat_ar_unscaled, col = rainbow(ncol(filter_mat_ar_unscaled)),
+        main = "Un-scaled (non MSE-optimal) DFP Predictors:
+        Only the first weight of unscaled case b) designs is affected.
+        Case a), red line, is different, though.")
+# Note: the scaling in the last plot is not MSE optimal. The MSE optimal 
+# predictors were shown in the previous plot.
 
-# Incidentally, the first plot (based on the AR form of scaled DFP) is more 
-# informative, which is the very purpose of applying scaling.
-
-
-# Background on AR form of DFP:
-# Only the FIRST AR coefficient varies across DFP designs; all higher-order
-# AR coefficients are identical regardless of the chosen lambda.
-#
-# Theoretical justification (Wildi 2026, Section 3.1, Equation 19):
-#   The DFP filter is defined as:
-#     b = gammah + lambda * gamma0
-#   When b is converted to AR form by inverting gamma0, the term
-#   lambda * gamma0 maps to lambda * identity (a pure scalar shift).
-#   Because gammah is fixed and convolution is linear, this scalar shift
-#   affects only the first AR coefficient, leaving all higher-order
-#   coefficients unchanged across DFP designs.
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
 
@@ -1191,10 +1224,10 @@ ts.plot(filter_mat_ar_unscaled,col=rainbow(ncol(filter_mat_ar_unscaled)),main="O
 #      standard case (tauh < tau0), restoring the conventional DFP
 #      optimisation direction without requiring a sign correction.
 #
-#   2. The fully decoupled DFP design becomes usable and practically
-#      relevant: it no longer inverts trend orientation and achieves a
-#      positive target correlation, making it a viable predictor rather
-#      than a degenerate boundary solution.
+#   2. The fully decoupled DFP design becomes usable: it no longer inverts 
+#      trend orientation and achieves a positive target correlation, 
+#      making it a viable predictor rather than a degenerate solution, 
+#      as in exercise 1 above.
 #
 #   3. Larger leads imposed at frequency zero do not translate into an
 #      effective lead of the predictor at business-cycle or other
