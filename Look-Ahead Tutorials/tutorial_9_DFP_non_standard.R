@@ -1818,9 +1818,9 @@ axis(2); box()
 # Unexpected behaviour is most prevalent when the underlying forecast problem
 # is inherently difficult — i.e., when the classic MSE predictor is
 # essentially "stuck at the present" and unable to look ahead effectively.
-# In such cases the decoupling constraint forces the optimiser into regions
+# In such cases the decoupling constraint may force the optimiser into regions
 # of the parameter space that can violate standard expectations about 
-# properties, patterns and profiles of the predictor.
+# properties, patterns and profiles of the predictor (overfitting).
 
 
 # ── 4. Role of Full Decoupling ────────────────────────────────────────
@@ -1857,9 +1857,17 @@ axis(2); box()
 # example, business-cycle frequencies in macroeconomic applications.
 
 
-
-
-
+# ── 6. AR Form ───────────────────────────────────────
+# In the standard case, the effect of decoupling on the AR form
+# of the MSE-optimal DFP is straightforward: only the first (contemporaneous)
+# weight is affected, leaving all remaining AR coefficients unchanged.
+# Although this result has intuitive appeal, we argue that examining the
+# effect of decoupling on the MA form of the DFP is more informative.
+# The reason is that the MA representation is driven by white-noise
+# innovations (epsilon_t), whose i.i.d. structure ensures that every
+# coefficient directly and transparently reflects the impact of decoupling,
+# without the confounding influence of the serial dependence inherent in
+# the AR-form regressor x_t.
 
 
 
