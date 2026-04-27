@@ -115,6 +115,8 @@ ma_order <- 1
 
 arima.obj <- arima(x, order = c(ar_order, 0, ma_order))
 tsdiag(arima.obj)
+a1<-arima.obj$coef[1:ar_order]
+b1<-arima.obj$coef[ar_order+1:ma_order]
 
 # --- Wold Decomposition (MA-infinity representation) ---
 # Compute the infinite-order MA coefficients (impulse response weights)
@@ -182,6 +184,7 @@ gammah <- gamma[h + 1:L]
 
 
 gamma_constraint<-gamma0-gammah
+#gamma_constraint<-gammah-gamma0
 gamma_target<-gammah
 
 ts.plot(gamma_constraint,main="PCS: gamma_constraint")
@@ -195,16 +198,16 @@ ts.plot(gamma_constraint,main="PCS: gamma_constraint")
 beta_vec<-c(0.8,0.6,0.3,0,-0.1)
 
 
-cor_vec_mat<-b0_mat<-lambda1_vec<-lambda2_vec<-NULL
+cor_vec_mat<-b_mat<-lambda1_vec<-lambda2_vec<-NULL
 for (i in 1:length(beta_vec))
 { 
   beta<-beta_vec[i]
   # Compute quadratic in lambda and then unit length DFP  
-  b0_obj<-unitary_DFP_func(gamma_constraint,gamma_target,beta)
+  b_obj<-unitary_DFP_func(gamma_constraint,gamma_target,beta)
   
-  b0_mat<-cbind(b0_mat,b0_obj$b0)
-  lambda1_vec<-c(lambda1_vec,b0_obj$lambda1)
-  lambda2_vec<-c(lambda2_vec,b0_obj$lambda2)
+  b_mat<-cbind(b_mat,b_obj$b0)
+  lambda1_vec<-c(lambda1_vec,b_obj$lambda1)
+  lambda2_vec<-c(lambda2_vec,b_obj$lambda2)
   
   # Compute CCF of PCS predictors  
   cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b0_mat[,i],hp_trend)$cor_vec)
@@ -217,7 +220,7 @@ for (i in 1:length(beta_vec))
 
 # --- Check 1: verify unity length ---
 
-apply(b0_mat^2,2,sum)
+apply(b_mat^2,2,sum)
 
 
 # --- Check 2: verify that the PCS conntraint is met ---
@@ -225,7 +228,7 @@ apply(b0_mat^2,2,sum)
 # Compute the correlation with gamma_constraint. In the DFP (previous tutorials)
 # gamma_constraint = gamma0 is the nowcast. Here, gamma_constraint = gamma0 - gammah
 # Note that b%*%b=1 (unit length) so that we do not need to scale with b%*%b to obtain the correlation     
-correlation_0<-t(b0_mat)%*%gamma_constraint/as.double(sqrt(gamma_constraint%*%gamma_constraint))
+correlation_0<-t(b_mat)%*%gamma_constraint/as.double(sqrt(gamma_constraint%*%gamma_constraint))
 # This difference should vanish
 correlation_0-beta_vec
 
@@ -252,6 +255,301 @@ b_mat_mse<-t(t(b_mat)*(optimal_mse_scaling))
 
 # The optimally scaled PCS minimizes MSE (assuming a standardized white noise input)
 apply((b_mat_mse-gammah)^2,2,sum)
+
+# We now assemble all relevant predictors, skipping the fully decoupled design
+# which is unusable in this example.
+filter_mat<-cbind(gamma0,gammah,b_mat)
+colnames(filter_mat)<-c("Nowcast","MSE",paste("PCS ",beta_vec,sep=""))
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.6 Plot Predictor Filters
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+
+colo     <- c("black", "green", rainbow(ncol(filter_mat) - 2))
+col_names <- colnames(filter_mat)
+
+# ── Left panel: filter coefficient profiles ───────────────────────────
+# Display original nowcast and MSE as well as unit-length DFP filter coefficients.
+mplot <- filter_mat
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag <- 20
+mplot   <- NULL
+
+for (i in 1:ncol(filter_mat))
+  mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
+colnames(mplot) <- col_names
+
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.7 Compare Forecasts
+# ─────────────────────────────────────────────────────────────────────
+#----------------------------------------------------------------------
+# 1.7.1 Apply Predictors to data
+#----------------------------------------------------------------------
+# All filters are defined in MA form (as applied to the einnovations eps_t 
+# in the Wold decomposition). Therefore we apply the filters to model residuals.
+x_filt   <- arima.obj$residuals
+
+len<-10000
+set.seed(461)
+eps<-x_filt<-rnorm(len)
+x<-rep(NA,len)
+for (i in 2:len)
+  x[i]<-a1*x[i-1]+eps[i]+b1*eps[i-1]
+
+y_out_mat<-NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat<-cbind(y_out_mat,filter(x_filt,filter_mat[, i], side = 1))
+colnames(y_out_mat) <- col_names
+
+#----------------------------------------------------------------------
+# 1.7.2 Plot
+#----------------------------------------------------------------------
+
+par(mfrow = c(1, 1))
+# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
+ts.plot(y_out_mat,
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+# Dotcom recession
+ts.plot(y_out_mat[120:170,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+# Financial crisis
+ts.plot(y_out_mat[200:250,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+cor(na.exclude(x),na.exclude(y_out_mat[,ncol(y_out_mat)]))
+
+mat<-cbind(na.exclude(x),na.exclude(y_out_mat[,ncol(y_out_mat)]))
+cor(mat[,1],mat[,2])
+
+
+# Discussion:
+# With increasing imposed lead, the DFP predictors are more systematically and 
+# strongly left-shifted but noisier. 
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.8 Amplitude and Time-Shifts
+# ─────────────────────────────────────────────────────────────────────
+
+K      <- 600      # number of frequency grid points
+plot_T <- FALSE    # suppress internal plotting; we build a custom plot below
+amp_mat<-shift_mat<-NULL
+for (i in 1:ncol(filter_mat))
+{
+  as_obj <- amp_shift_func(K, filter_mat[,i], plot_T)   # time-shift for lagged filter (b1)
+  amp_mat<-cbind(amp_mat,as_obj$amp)
+  shift_mat<-cbind(shift_mat,as_obj$shift)
+}
+colnames(amp_mat)<-colnames(shift_mat)<-colnames(filter_mat)
+
+
+# Plot time-shift functions for both filters across frequencies [0, π]
+par(mfrow = c(1, 2))
+# Scale amplitudes for better visual inspection.
+mplot <- amp_mat
+lty_vec<-c(2,2,rep(1,ncol(filter_mat)-2))
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
+     xlab = "Frequency", ylab = "Amplitude",
+     main = "Amplitude functions",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+
+mplot <- shift_mat
+mplot[which(mplot[,ncol(mplot)]<(-2)),ncol(mplot)]<-NA
+
+plot(mplot[, 1], type = "l", axes = FALSE,lty=lty_vec[1],
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Time-shift functions",
+     ylim = c(min(na.exclude(mplot)), max(na.exclude(mplot))), col = colo[1])
+#mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lty=lty_vec[i])
+  #  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# Amplitude functions:
+#   - Increasing the lead assigns progressively less weight to lower frequencies.
+#     This aligns with the filter coefficients plotted in Exercise 1.11: more
+#     weight is assigned to epsilon_t, making the predictor increasingly noisy.
+#
+# Time shifts:
+#   - The decrease in time-shift at frequency zero corresponds exactly to
+#     lead_vec as imposed by the DFP constraint.
+#   - Part of the lead propagates to business-cycle frequencies, so that the
+#     forecasts effectively lead at recessions; see Exercise 1.12.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.9 AR Form: AR Inversion of ARMA(1,1)
+# ─────────────────────────────────────────────────────────────────────
+
+# AR inversion:
+
+ar_inv <- -ARMAtoMA(ar = -arima.obj$coef[ar_order + 1:ma_order], 
+                    ma = -arima.obj$coef[1:ar_order], lag.max = L)
+# AR-filter
+theta<-c(1,-ar_inv)
+
+# Verify the approach via a known identity:
+# Convolving the AR inversion with the Wold (MA) decomposition must
+# yield the identity filter (i.e., the convolution output is 1 followed
+# by zeros). 
+conv_two_filt_func(xi, theta)$conv[1:10]
+
+
+# Visualise theta: 
+par(mfrow = c(1, 1))
+ts.plot(theta, main = "AR inversion")
+
+# The first weight is always 1 (the weight assigned to x_t)
+# The other weights are decaying: the decay is very regular
+theta[2:L]/theta[1:(L-1)]
+# First element matches a1+b1 (up to sign)
+arima.obj$coef[ar_order + 1:ma_order]+arima.obj$coef[1:ar_order]
+# After that, the exponential decay matches b1 (up to sign)
+arima.obj$coef[ar_order + 1:ma_order]
+
+# Having confirmed the identity, we now convolve the AR operator with
+# the MSE and DFP predictors (in MA form) to obtain their AR form equivalents.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.10 Convolution of the AR inversion with the Predictors
+# ─────────────────────────────────────────────────────────────────────
+
+# a. MSE predictor: convolve the AR operator with the predictors.
+
+# Check: convolution of theta with gamma0 should be the identity: smaller 
+# deviations become vanishing with increasing L (length of finite MA and AR inversions)
+conv_two_filt_func(theta, gamma0)$conv[1:10]
+
+# b. DFP predictors
+filter_mat_ar<-NULL
+for (i in 1:ncol(filter_mat))
+  filter_mat_ar<-cbind(filter_mat_ar,conv_two_filt_func(theta, filter_mat[,i])$conv)
+
+colnames(filter_mat_ar)<-colnames(filter_mat)
+
+# Check: the first column (corresponding to the nowcast gamma0) should be the identity.
+filter_mat_ar[1:10,1]
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.11 Analysis and Plot of DFP Predictors in AR Form
+# ─────────────────────────────────────────────────────────────────────
+#
+
+# Assign colors
+colo <- c("black", "green", rainbow(ncol(filter_mat_ar) - 2))
+
+first_lags <- 10
+par(mfrow=c(1,1))
+# Plot the first first_lags AR coefficients of each predictor.
+ts.plot(
+  filter_mat_ar[1:first_lags, ],
+  col  = colo,
+  main = "DFP (MSE-Optimal) Predictors in AR Form",
+  lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+for (i in 1:ncol(filter_mat_ar))
+  mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
+
+# Outcome:
+# - The MSE predictor decays monotonically, following an exponential form a1^k:
+gammah[2:L]/gammah[1:(L-1)]
+# - Mild decoupling (small lead) gives more weight to x_t, which is intuitive.
+# - Stronger decoupling (larger leads) further increases the weight on x_t
+#   but assigns increasingly negative weights to lagged observations.
+# -Compare with the MA form  in exercise 1.11.
+
+
+
+
+
+
 
 
 
