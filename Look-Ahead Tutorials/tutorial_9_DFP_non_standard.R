@@ -1822,7 +1822,8 @@ axis(2); box()
 #     rendering the DFP construction infeasible.
 #
 # Optimal target tracking (of gamma_h) subject to decoupling (from gamma_0)
-# yields a tractable optimisation problem:
+# yields a tractable optimisation problem provided gamma0 and gammah are not 
+# collinear:
 #   - Unitary DFP  → quadratic optimisation problem.
 #   - MSE DFP      → linear optimisation problem.
 #
@@ -1859,8 +1860,8 @@ axis(2); box()
 #   - It may not be practically attainable in difficult forecast settings.
 #
 # Even more aggressive designs — requiring *negative* contemporaneous
-# correlation with x_t — are theoretically possible but lie outside the
-# standard DFP framework and are rarely of practical relevance.
+# correlation with x_t — are theoretically possible but lie outside a sensible
+# (interpretable) look-ahead perspective, being rarely of practical relevance.
 
 
 # ── 5. Interpretability of the Constraint Parameter alpha_0 ───────────
@@ -1874,12 +1875,12 @@ axis(2); box()
 #                   the scale of the process, making comparisons across
 #                   processes or design choices less straightforward.
 #
-# To restore interpretability in the MSE DFP, alpha_0 (equivalently,
-# lambda_0, the weight placed on gamma_0) can be re-expressed as an
-# implied *time-shift at frequency zero*. This frequency-domain
-# re-parameterisation is meaningful provided that the look-ahead gain
-# at frequency zero spills over to frequencies of practical interest —
-# for example, business-cycle frequencies in macroeconomic applications.
+# To restore interpretability in the MSE variant of the DFP, alpha_0 
+# (equivalently, lambda_0, the weight placed on gamma_0) can be re-expressed 
+# as an implied *time-shift at frequency zero* (Tutorial 6). This 
+# re-parameterisation is meaningful provided that the look-ahead gain at 
+# frequency zero spills over to frequencies of practical interest 
+# — for example, business-cycle frequencies in macroeconomic applications.
 
 
 # ── 6. AR Form ────────────────────────────────────────────────────────
