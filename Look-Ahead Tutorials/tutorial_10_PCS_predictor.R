@@ -1,5 +1,8 @@
 # Leading indicator PCS
 
+# Aggreagte lead instead of lead at frewuency zero (overfittting, DFP)
+# PCS relies also on decoupling but not from xt. Instead it decouples from hammah-gamma_{h-1}
+
 
 
 # ════════════════════════════════════════════════════════════════════

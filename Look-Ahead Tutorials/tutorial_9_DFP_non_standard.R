@@ -1259,29 +1259,32 @@ ts.plot(filter_mat_ar_unscaled, col = rainbow(ncol(filter_mat_ar_unscaled)),
 # the frequency-zero time-shift and thereby reinstating tauh < tau0
 # (the standard case).
 
-# Modified h-step-ahead MSE predictor
+# Modified h-step-ahead MSE predictor: truncate MA expansion at length L-h.
 gammah <- c(gamma[h + (1:(L - h))], rep(0, h))
 
 # Modified long-horizon MSE predictor (same construction, horizon htilde)
 gammahtilde <- c(gamma[htilde + (1:(L - htilde))], rep(0, htilde))
 
+# The only difference between Exercise 1 and Exercise 2 is that we now truncate
+# the last h weights of the MSE predictor. The intuition is that this modification
+# should have negligible effects on the DFP, since the last few weights are small
+# and therefore possibly negligible. However, these last few weights are in fact
+# non-negligible, and the effect on the DFP will be substantial — a rather
+# unexpected result confirming that decoupling is non-trivial.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Compute Frequency-Zero Time-Shifts
+# 2.2 Compute Frequency-Zero Time-Shifts: A SURPRISING OUTCOME
 # ─────────────────────────────────────────────────────────────────────
 # Recompute the frequency-zero time-shifts for the modified predictors.
-# In contrast to Exercise 1, the modification ensures tauh < tau0, which
-# defines the standard DFP case.
 
 tauhtilde <- sum((0:(L-1)) * gammahtilde) / sum(gammahtilde)
 tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)
 
-# Diagnose whether the standard or non-standard case applies.
-# No output here confirms the standard case (tauh < tau0).
-if (tauh > tau0)
-{
-  print("Non-standard case: the MSE predictor lags the nowcast at frequency zero")
-}
+tauh-tau0
+# -------------- A SURPRISING OUTCOME --------------------------
+
+# In contrast to Exercise 1, the modification ensures tauh < tau0, which
+# defines the standard DFP case. 
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1373,6 +1376,11 @@ for (i in 1:length(lead_vec))
 # predictor may remain positively correlated with x_t in this example.
 apply(b_mat, 2, sum)
 
+# CHECK 3 — Positive Target Covariance
+
+t(b_mat)%*%gammah
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.5 Compute Completely Decoupled DFP (Reference Benchmark)
@@ -1409,6 +1417,7 @@ if (unit_length)
 }
 
 
+
 # ─────────────────────────────────────────────────────────────────────
 # 2.6 Checks: Completely Decoupled DFP
 # ─────────────────────────────────────────────────────────────────────
@@ -1442,8 +1451,14 @@ b_cd%*%gammah
 # target correlation. Furthermore, full decoupling lies within the range
 # of solutions attainable by the time-shift DFP: it is less extreme than
 # DFP filters with very large specified leads, confirming that alpha0 = 0
-# is an interior (rather than degenerate) point of the DFP solution space
+# is an interior (rather than outer/extreme) point of the DFP solution space
 # in this standard-case example.
+
+# We now assemble all relevant predictors, skipping the fully decoupled design
+# which is unusable in this example.
+filter_mat_2<-cbind(gamma0,gammah,b_mat,b_cd)
+colnames(filter_mat_2)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"Fully decoupled")
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1491,10 +1506,10 @@ mat_perf
 # The table mirrors Exercise 1 in structure but differs in two important
 # respects:
 #
-#   1. MSE(htilde) now has a strictly smaller time-shift than MSE(h):
+#   1. MSE(htilde=24) now has a strictly smaller time-shift than MSE(h):
 #      the predictor modification allows the longer forecast horizon to
 #      meaningfully reduce the frequency-zero lag, a gain that was absent
-#      in the original ARMA(1,1) setting of Exercise 1.
+#      in the original ARMA(1,1) setting of Exercise 1, see 1.10.
 #
 #   2. The fully decoupled DFP yields a usable predictor with an effective
 #      absolute lead at frequency zero (tau_cd < tau0), without inverting
@@ -1508,13 +1523,13 @@ mat_perf
 
 par(mfrow = c(1, 2))
 
-colo      <- c("black", "green", rainbow(ncol(filter_mat) - 2))
-col_names <- colnames(filter_mat)
+colo      <- c("black", "green", rainbow(ncol(filter_mat_2) - 2))
+col_names <- colnames(filter_mat_2)
 
 # ── Left panel: filter coefficient profiles ───────────────────────────────
 # Display the unit-normalised filter coefficients for every predictor.
 # The sum of squared coefficients (filter energy) is printed as a diagnostic.
-mplot <- filter_mat
+mplot <- filter_mat_2
 apply(mplot^2, 2, sum)
 
 plot(mplot[, 1],
@@ -1545,8 +1560,8 @@ box()
 max_lag <- 20
 mplot   <- NULL
 
-for (i in 1:ncol(filter_mat))
-  mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
+for (i in 1:ncol(filter_mat_2))
+  mplot <- cbind(mplot, compute_ccf_func(filter_mat_2[, i], gamma0)[L - 1 + 1:max_lag])
 colnames(mplot) <- col_names
 
 plot(mplot[, 1],
@@ -1567,27 +1582,44 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
-# ── Discussion ────────────────────────────────────────────────────────────
+
+# ── Discussion ────────────────────────────────────────────────────────────────
 #
 # Filter coefficient panel (left):
 #   - Despite the minor modification to the MSE predictor, the DFP filter
-#     coefficients look markedly different from those in Exercise 1. This
-#     sensitivity illustrates that the DFP optimisation fully exploits
-#     whatever structure is available in the modified predictor to satisfy
-#     the time-shift constraint while maximising tracking accuracy. A small
-#     change in the reference filter can therefore open up substantially
-#     different regions of the DFP solution space.
+#     coefficients look markedly different from those in Exercise 1. 
+#   - The CCF in the right panel explains the unexpected profile of the DFP 
+#     predictors.
 #
 # CCF panel (right):
-#   - DFP filters with very large specified leads have negative CCFs at
-#     lag 0, indicating that they are more extreme than the fully decoupled
-#     design in this example. Full decoupling (alpha0 = 0) therefore
-#     represents an interior solution: it is strictly less aggressive than
-#     the large-lead DFP filters, yet still achieves a meaningful absolute
-#     lead at frequency zero without the pathological properties observed
-#     in Exercise 1.
+#   - The CCF is roughly inverted relative to Exercise 1.11:
+#       - The CCF starts small at lag 0 (strong decoupling).
+#       - It then rises quickly.
+#       - It arrives large at the forecast horizon h.
+#     This means the DFP optimisation performed well: strong decoupling at
+#     lag 0 combined with maximal coupling at forecast horizon h.
+#   - This double score justifies the seemingly counter-intuitive pattern of
+#     the forecast weights in the left panel.
+#   - Strong decoupling combined with a large target correlation suggests a
+#     predictor with desirable properties.
 
 
+# Notes:
+#   1. DFP filters with very large specified leads can have negative CCFs at 
+#      lag 0 (try e.g. lead <- -16, not shown currently), indicating that they
+#      are more extreme than the fully decoupled design in this example.
+#      Full decoupling (alpha0 = 0) therefore represents an interior solution 
+#      in this example (in contrast to exercise 1 above) : it is less 
+#      aggressively look-ahead than large-lead DFP filters (e.g. lead < -16).
+#   2. The sensitivity to small modifications of the target filter (gammah)
+#      illustrates:
+#      a) That the forecast problem is complex and difficult.
+#      b) That the DFP optimisation fully exploits whatever structure is
+#         available in the modified predictor to satisfy the time-shift
+#         constraint while maximising tracking accuracy. A small change in
+#         the reference filter can therefore open up substantially different
+#         regions of the DFP solution space. This behaviour is coupled 
+#         to overfitting in the present case.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.9 Compare Forecasts
@@ -1595,17 +1627,13 @@ box()
 
 # ── 2.9.1 Apply Predictors to Data ───────────────────────────────────────
 # All filters are expressed in MA form (coefficients applied to the Wold
-# innovations eps_t). We therefore filter the model residuals rather than
-# the observed series x_t. This is the correct approach; contrast with
-# Tutorial 6, Example 2.4, which applied the MA form directly to x_t.
-# gamma0 and gammah are normalised to unit L2-norm so that all filters are
-# on a comparable amplitude scale.
+# innovations eps_t). 
 
 x_filt <- arima.obj$residuals
 
 y_out_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
+for (i in 1:ncol(filter_mat_2))
+  y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat_2[, i], side = 1))
 colnames(y_out_mat) <- col_names
 
 # ── 2.9.2 Plot Predictor Outputs ─────────────────────────────────────────
@@ -1620,7 +1648,7 @@ par(mfrow = c(1, 1))
 ts.plot(y_out_mat,
         main = "Predictor Outputs", col = colo,
         xlab = "", ylab = "",
-        lty  = c(2, 2, rep(1, ncol(filter_mat) - 2)))
+        lty  = c(2, 2, rep(1, ncol(filter_mat_2) - 2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
@@ -1629,7 +1657,7 @@ for (i in 1:ncol(y_out_mat))
 ts.plot(y_out_mat[120:170, ],
         main = "Predictor Outputs — Dot-com Recession", col = colo,
         xlab = "", ylab = "",
-        lty  = c(2, 2, rep(1, ncol(filter_mat) - 2)))
+        lty  = c(2, 2, rep(1, ncol(filter_mat_2) - 2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
@@ -1638,7 +1666,7 @@ for (i in 1:ncol(y_out_mat))
 ts.plot(y_out_mat[200:250, ],
         main = "Predictor Outputs — Financial Crisis", col = colo,
         xlab = "", ylab = "",
-        lty  = c(2, 2, rep(1, ncol(filter_mat) - 2)))
+        lty  = c(2, 2, rep(1, ncol(filter_mat_2) - 2)))
 abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i], col = colo[i], line = -i)
@@ -1647,8 +1675,8 @@ for (i in 1:ncol(y_out_mat))
 # Counterintuitively, the DFP filters with the largest specified leads at
 # frequency zero appear to LAG the classic MSE predictor in the time-domain
 # plots. The amplitude and time-shift analysis in Section 2.10 below reveals
-# why: a lead imposed strictly at frequency zero does not propagate to the
-# business-cycle frequencies that dominate the PAYEMS series.
+# why: a lead imposed strictly at frequency zero does not necessarily propagate 
+# to the business-cycle frequencies that are relevant in this application.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1663,15 +1691,15 @@ K      <- 600     # number of frequency grid points
 plot_T <- FALSE   # suppress internal plotting in amp_shift_func
 
 amp_mat <- shift_mat <- NULL
-for (i in 1:ncol(filter_mat))
+for (i in 1:ncol(filter_mat_2))
 {
-  as_obj    <- amp_shift_func(K, filter_mat[, i], plot_T)
+  as_obj    <- amp_shift_func(K, filter_mat_2[, i], plot_T)
   amp_mat   <- cbind(amp_mat,   as_obj$amp)
   shift_mat <- cbind(shift_mat, as_obj$shift)
 }
-colnames(amp_mat) <- colnames(shift_mat) <- colnames(filter_mat)
+colnames(amp_mat) <- colnames(shift_mat) <- colnames(filter_mat_2)
 
-lty_vec <- c(2, 2, rep(1, ncol(filter_mat) - 2))
+lty_vec <- c(2, 2, rep(1, ncol(filter_mat_2) - 2))
 
 # ── Full-range plots: amplitude and time-shift ────────────────────────────
 par(mfrow = c(1, 2))
@@ -1729,7 +1757,7 @@ axis(2); box()
 # constraint strictly at frequency zero:
 #
 #   - At omega = 0, the achieved leads match the specified lead_vec entries
-#     exactly, confirming that the time-shift constraint is satisfied.
+#     exactly, confirming that the time-shift constraint is satisfied. 
 #
 #   - At business-cycle frequencies (around pi/30, corresponding to a
 #     5-year cycle), the DFP filters with the largest specified leads
@@ -1743,6 +1771,22 @@ axis(2); box()
 # timeliness there. This motivates the aggregate lead criteria (PCS)
 # introduced in Tutorial 10, which optimise over a frequency band rather
 # than at a single point.
+
+
+# The DFP approach relies on a basic idea: reducing the attraction of the
+# forecast to the nowcast. This decoupling leads to a simple quadratic or
+# linear optimisation problem (unitary vs. MSE DFP). $
+# However, the structure of this allegedly simple
+# look-ahead approach is more complex than assumed, and many counter-intuitive
+# results arise from its structure. In particular, the non-standard case raises
+# several unexpected and deeply counter-intuitive issues (e.g., maximising MSE).
+# These unexpected results mostly arise in the context of difficult forecast
+# problems, where the classic MSE predictor tends to be stuck at the present,
+# i.e., it is unable to effectively look ahead. Finally, full decoupling is an
+# interesting extremal DFP design which is sometimes too extreme to be
+# implemented. We suggest that it represents the outer limit of look-ahead
+# designs in the DFP context, though even more extreme designs could be obtained
+# by requiring negative correlation with x_t at lag 0.
 
 
 
