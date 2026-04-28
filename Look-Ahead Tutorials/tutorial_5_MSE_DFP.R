@@ -249,7 +249,7 @@ for (i in seq_along(alpha0_vec)) {
 }
 
 colnames(b_mat)<- colnames(cor_vec_mat) <- names(lambda_vec1)  <- paste0("alpha0=", round(alpha0_vec,3))
-colnames(cor_vec_1) <- c("Lag 0", "Lag h")
+colnames(cor_vec_1) <- c("Lag 0", paste("h=",h,sep=""))
 
 # ── Verification checks ───────────────────────────────────────────────
 # Check 1: DFP constraint b0 %*% gamma0 = alpha0 should hold exactly

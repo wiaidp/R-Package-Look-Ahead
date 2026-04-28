@@ -1,54 +1,64 @@
 # Implements the PCS (Phase Change Shift) criterion defined in Appendix D,
-# Equation 46, Wildi 2026.
-# Computes a feasible generalized PC shift even in the case of singular systems.
+# Equation 46, Wildi (2026).
+# Computes a feasible generalized PC shift even when the underlying system is singular.
 #
 # Objective:
 #   Seeks a monotonically increasing Cross-Correlation Function (CCF) over the
 #   set of leads specified in 'Delta'. Rather than imposing an exact constraint
-#   (which may be infeasible), the regularization parameter 'lambda' penalizes
-#   deviations, steering the solution toward the best attainable behaviour.
+#   (which may be infeasible in general), the regularization parameter 'lambda'
+#   penalizes deviations from monotonicity, steering the solution toward the
+#   best attainable behaviour.
 #
 # Arguments:
-#   Delta  : Integer vector of leads over which the CCF should be increasing.
+#   Delta  : Integer vector of leads over which the CCF is required to be increasing.
 #   beta   : Target slope. A positive value shifts the CCF peak to the right
 #            (i.e., toward higher leads).
-#   xi     : Wold decomposition coefficients of the process.
+#   xi     : Wold decomposition coefficients of the target process.
+#   L      : Filter length (number of coefficients to be estimated).
 #   lambda : Regularization (penalty) parameter controlling the strength of the
-#            monotonicity constraint.
+#            monotonicity constraint. Larger values enforce the constraint more
+#            strictly; set to zero to recover the unconstrained solution.
 #
-# Note:
+# Note on scale:
 #   The function operates on covariances rather than correlations. This
-#   distinction is largely immaterial in practice: since the goal is merely
-#   to achieve a zero or mildly positive slope, the scale of the CCF does
-#   not affect the validity of the result. Using correlations instead would
-#   impose a unit-norm constraint on b, introducing additional complexity
-#   and potentially multiple solutions.
+#   distinction is immaterial in practice: since the goal is merely to achieve
+#   a zero or mildly positive slope, the scale of the CCF does not affect the
+#   validity of the result. Working with correlations would impose a unit-norm
+#   constraint on b, introducing additional complexity and potentially yielding
+#   multiple solutions.
 
 
 PCS_shift_func <- function(Delta, xi, L, beta, lambda)
 {
   
-  # The sign of beta is flipped here to align the internal convention with the
-  # paper's definition: a positive beta in the interface corresponds to a
-  # rightward peak shift (toward higher leads).
-  beta <- -beta
+  # Flip the sign of beta to align the internal convention with the paper's
+  # definition: a positive beta in the function interface corresponds to a
+  # rightward peak shift (toward higher leads), which requires a negative
+  # internal slope.
+  slope <- -beta
   
   gamma_all <- xi
   
   # --- Build the shifted covariance matrix 'gammah_mat' ---
-  # Each row contains the covariance vector gamma shifted by a specific lead
-  # in Delta. The first row corresponds to the baseline lead Delta<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[1]</a> - 1,
-  # and subsequent rows correspond to leads Delta<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[1]</a>, Delta<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[2]</a>, ..., Delta[end].
-  gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]
+  # Each row contains the MSE predictor coefficients (gamma_all) shifted by
+  # a specific lead value drawn from 'Delta'. The predictors are normalized to
+  # unit length so that the inner products b' * gamma are proportional to the
+  # CCF regardless of the arbitrary scaling of b. Without normalization, the
+  # differences b' * (gamma_{k-1} - gamma_k) could change sign arbitrarily
+  # due to unequal norms of gamma_{k-1} and gamma_k.
+  gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] /as.double(sqrt(gamma_all[Delta[1] - 1 + 1:L] %*% gamma_all[Delta[1] - 1 + 1:L]))
   if (length(Delta) > 0)
   {
     for (i in 1:length(Delta))
-      gammah_mat <- rbind(gammah_mat, gamma_all[Delta[i] + 1:L])
+      gammah_mat <- rbind(gammah_mat,
+                          gamma_all[Delta[i] + 1:L]/as.double(sqrt(gamma_all[Delta[i] + 1:L] %*%gamma_all[Delta[i] + 1:L])))
   }
   
-  # --- Compute the difference vectors d_delta (denoted d_delta in the paper) ---
-  # Each row of d_delta is the difference between consecutive rows of gammah_mat,
-  # encoding the monotonicity constraint for the corresponding lead pair.
+  # --- Compute consecutive difference vectors ('d_delta') ---
+  # Each row of d_delta is the difference between two consecutive rows of
+  # gammah_mat. These differences encode the pairwise monotonicity constraints:
+  # b' * d_delta[i, ] > 0 requires the CCF to increase from lead Delta[i-1]
+  # to lead Delta[i].
   d_delta <- gammah_mat[1, ] - gammah_mat[2, ]
   if (length(Delta) > 1)
   {
@@ -56,17 +66,28 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
       d_delta <- rbind(d_delta, gammah_mat[i, ] - gammah_mat[i + 1, ])
   }
   
-  # --- Rank diagnostic ---
-  # For an AR(p) process, d_delta %*% t(d_delta) has rank at most p due to the
-  # Yule-Walker equations: only p eigenvalues are non-zero. If p <= length(Delta)
-  # (i.e., the number of constraints meets or exceeds the model order), the
-  # monotonicity constraints may not admit a feasible solution. Inspect the
-  # eigenvalues below to assess the effective rank.
-  eigen(d_delta %*% t(d_delta))$values
+  if (F)
+  {
+    # --- Rank diagnostic (disabled; enable for debugging) ---
+    # For an AR(p) process, d_delta %*% t(d_delta) has rank at most p, because
+    # the Yule-Walker equations confine the covariance vectors to a p-dimensional
+    # subspace. Consequently, only p eigenvalues of d_delta %*% t(d_delta) are
+    # non-zero. When length(Delta) >= p, the monotonicity constraints may be
+    # mutually inconsistent, rendering the system infeasible. Inspect the
+    # eigenvalues below to assess the effective rank of the constraint system.
+    eigen(d_delta %*% t(d_delta))$values
+    # In the presence of zero eigenvalues the exact constraints are infeasible,
+    # but the regularized solution below still yields the best attainable
+    # compromise.
+  }
   
-  # --- Compute the PCS predictor ---
+  # --- Compute the PCS filter coefficients ---
   
-  # a. Assemble the regularized matrix M = I + lambda * sum(d_delta[i,] %o% d_delta[i,])
+  # a. Assemble the regularized normal-equation matrix:
+  #       M = I + lambda * sum_i ( d_delta[i,] %o% d_delta[i,] )
+  #    The identity term ensures M is non-singular even when d_delta is rank-
+  #    deficient, while the outer-product terms penalize deviations from the
+  #    monotonicity target.
   M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
   if (length(Delta) > 1)
   {
@@ -74,132 +95,33 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
       M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
   }
   
-  # b. Assemble the target vector gamma_sol = gamma_h + lambda * beta * sum(d_delta[i,])
-  #    This encodes the desired slope beta into the right-hand side of the linear system.
-  gamma_sol <- gammah_mat[h, ] + lambda * beta * d_delta[1, ]
+  # b. Assemble the right-hand side vector:
+  #       gamma_sol = gamma_h + lambda * slope * sum_i d_delta[i,]
+  #    The second term encodes the desired target slope into the linear system:
+  #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
+  #    provided the system is feasible.
+  gamma_sol <- gammah_mat[h, ] + lambda * slope * d_delta[1, ]
   if (length(Delta) > 1)
   {
     for (i in 2:length(Delta))
-      gamma_sol <- gamma_sol + lambda * beta * d_delta[i, ]
+      gamma_sol <- gamma_sol + lambda * slope * d_delta[i, ]
   }
   
-  # c. Solve the linear system M %*% b = gamma_sol for the PCS filter coefficients b.
+  # c. Solve M %*% b = gamma_sol for the PCS filter coefficient vector b.
+  #    Because M is symmetric positive definite (by construction), the solution
+  #    is unique.
   b <- solve(M) %*% gamma_sol
   
   # --- Feasibility check ---
-  # Computes the residual |d_delta %*% b - beta| for each constraint.
-  # For a feasible system,  residuals should converge to zero as lambda -> Inf.
-  # Persistent non-zero residuals indicate an infeasible constraint system
-  # (e.g., when the number of constraints exceeds the effective rank of d_delta,
-  # as in the AR example above).
-  abs(d_delta %*% b - beta)
+  # Evaluates the residual | b' * d_delta[i,] - slope | for each constraint i.
+  # For a feasible system these residuals converge to zero as lambda -> Inf.
+  # Residuals that remain persistently non-zero as lambda grows indicate an
+  # infeasible constraint system (e.g., caused by rank deficiency of d_delta,
+  # as discussed in the rank diagnostic above).
+  abs(d_delta %*% b - slope)
   
   return(list(b = b, d_delta = d_delta))
   
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# Implements the PCS (Phase Change Shift) criterion defined in Appendix D, 
-# Equation 46, Wildi 2026.
-# Computes a feasible generalized PC shift even in the case of singular systems.
-#
-# Objective:
-#   Seeks a monotonically increasing Cross-Correlation Function (CCF) over the
-#   set of leads specified in 'Delta'. Rather than imposing an exact constraint
-#   (which may be infeasible), the regularization parameter 'lambda' penalizes
-#   deviations, steering the solution toward the best attainable behaviour.
-#
-# Arguments:
-#   Delta  : Integer vector of leads over which the CCF should be increasing.
-#   beta   : Target slope. A positive value shifts the CCF peak to the right
-#            (i.e., toward higher leads).
-#   xi     : Wold decomposition coefficients of the process.
-#   lambda : Regularization (penalty) parameter controlling the strength of the
-#            monotonicity constraint.
-#
-# Note:
-#   The function operates on covariances rather than correlations. This
-#   distinction is largely immaterial in practice: since the goal is merely
-#   to achieve a zero or mildly positive slope, the scale of the CCF does
-#   not affect the validity of the result. Using correlations instead would
-#   impose a unit-norm constraint on b, introducing additional complexity
-#   and potentially multiple solutions.
-
-
-
-PCS_shift_func<-function(Delta,xi,L,beta,lambda)
-{
-  
-# Invert sign of slope or invert sign on gammah_mat[i,]-gammah_mat[i+1,] below. 
-  beta<--beta
-  
-  gamma_all<-xi
-  
-  
-# Stack gammas shifted by increasing lag in matrix
-  gammah_mat<-gamma_all[Delta[1]-1+1:L]
-  if (length(Delta)>0)
-  {
-    for (i in 1:length(Delta))
-      gammah_mat<-rbind(gammah_mat,gamma_all[Delta[i]+1:L])
-  }  
-  
-  # Specify d_delta in paper
-  d_delta<-gammah_mat[1,]-gammah_mat[2,]
-  if (length(Delta)>1)
-  {
-    for (i in 2:(length(Delta)))
-      d_delta<-rbind(d_delta,gammah_mat[i,]-gammah_mat[i+1,])
-  }
-  
-  dim(d_delta)
-  # For an AR(p), the matrix gammas_delta%*%t(gammas_delta) has rank p: only p non-vanishing eigenvalues
-  #   This is because of the Yule-Walker equations
-  # If p<=length(Delta) (number of constraints) the problem does not admit a feasible solution
-  # Check the rank by looking at the non-vanishing eigenevalues
-  eigen(d_delta%*%t(d_delta))$values
-  
-  
-  #------------------
-  # Compute PCS predictor
-  
-  # a. Compute M
-  M<-diag(rep(1,L))+lambda*d_delta[1,]%*%t(d_delta[1,])
-  if (length(Delta)>1)
-  {
-    for (i in 2:(length(Delta)))
-      M<-M+lambda*d_delta[i,]%*%t(d_delta[i,])
-  }  
-  
-  # Compute target vector
-  gamma_sol<-gammah_mat[h,]+lambda*beta*d_delta[1,]
-  if (length(Delta)>1)
-  {
-    for (i in 2:(length(Delta)))
-      gamma_sol<-gamma_sol+lambda*beta*d_delta[i,]
-  }  
-  
-  # PCS predictor
-  b<-solve(M)%*%gamma_sol
-  
-  #---------------
-  # Check: for large lambda and a feasible system the constraints should be (nearly) met (the absolute differences should converge to zero as lambda\to\infty).
-  # For a non-feasible system (check AR example above), the absolute differences do not converge to zero as lambda\to\infty 
-  
-  abs(d_delta%*%b-beta)
-  
-  return(list(b=b,d_delta=d_delta))
-  
-}

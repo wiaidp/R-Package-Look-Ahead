@@ -1,87 +1,462 @@
+# ════════════════════════════════════════════════════════════════════
+# TUTORIAL 10 — PCS: INTRODUCTION
+# ════════════════════════════════════════════════════════════════════
+#
+# Background
+# ──────────
+# As shown in Tutorial 1, Exercise 1.3, the h-step-ahead MSE predictor tends to
+# be "anchored" at the present in difficult forecasting problems, in the sense
+# that its Cross-Correlation Function (CCF) with the target peaks at lag 0.
+# The Peak Correlation Shifting (PCS) approach designs the h-step-ahead
+# predictor so that the CCF peak is shifted toward lag h, thereby improving
+# timeliness. While a full shift from lag 0 to lag h is not always feasible,
+# even a partial attenuation of the original peak at lag 0 can be effective.
+# This weaker objective is precisely the strategy of the DFP (Decoupling From
+# Present) predictor.
+#
+# Remark: PCS generally enforces a stronger look-ahead than DFP, and the two
+# predictors coincide only in special cases.
+#
+# ── Necessary Conditions for a Peak Shift from k = 0 to k = h ───────
+#
+# Two necessary (but not sufficient) conditions must hold for the CCF peak to
+# shift from lag 0 to lag h > 0:
+#
+#   I)  Global monotonicity (stronger condition):
+#       The CCF must be monotonically increasing over the full interval
+#       k = 0, …, h, i.e., CCF(k-1) < CCF(k) for all k = 1, …, h.
+#       See Wildi (2026), Section 3.2 and Appendix E.
+#       This condition is generally not exactly feasible (see Exercise 3);
+#       PCS_shift_func() enforces it as closely as possible via regularization.
+#
+#   II) Local slope at the target lag (weaker condition):
+#       The CCF must be increasing over the final step only, i.e.,
+#       CCF(h-1) < CCF(h).
+#       See Wildi (2026), Section 3.2.
+#       Even this weaker condition is not always exactly feasible. When it is,
+#       it can be imposed by applying DFP optimization with a suitably modified
+#       decoupling constraint.
+#
+# ── Key Identity ─────────────────────────────────────────────────────
+#
+# The CCF at lag k is given by:
+#
+#     CCF(k) = b' * gamma_k
+#
+# where:
+#   b       : filter coefficient vector (the predictor to be designed),
+#   gamma_k : k-step-ahead MSE predictor coefficients (forward-shifted Wold
+#             coefficients), normalized to unit length.
+#
+# Normalizing gamma_k to unit length ensures that b' * gamma_k is proportional
+# to CCF(k) for all k, with the norm of b serving as a common (k-invariant)
+# scaling factor. This makes the slope conditions below well-defined and
+# comparable across lags.
+#
+# ── PCS Optimization Criterion ───────────────────────────────────────
+#
+# Let beta > 0 be the PCS slope parameter. Using the identity above, Conditions
+# I) and II) translate into linear constraints on b:
+#
+#   Condition I)  asks for  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
+#   Condition II) asks for  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
+#
+# Note: the sign convention adopted here is the opposite of Wildi (2026).
+#
+# The PCS criterion enforces these constraints with target slope beta:
+#
+#   max  b' * gamma_h                                  (maximize target correlation)
+#   s.t. b' * (gamma_k - gamma_{k-1}) = beta,  k in Delta
+#
+# where Delta = {h}        corresponds to Condition II) (local slope), and
+#       Delta = {1, …, h}  corresponds to Condition I)  (global monotonicity).
+#
+# Note: in our implementation, the objective function is replaced by minimum MSE 
+# (assuming a standard case, see the discussion in Tutorial 9).
+#
+# ── Regularized PCS (Implemented in PCS_shift_func) ──────────────────
+#
+# Because the equality constraints above may be infeasible when the system is
+# rank-deficient (see Exercise 3), Wildi (2026) proposes a regularized version
+# of the criterion (Equation 46, Appendix D). The regularized formulation
+# replaces the hard constraints with a penalty term, yielding a criterion that
+# is always well-defined and admits a unique solution regardless of feasibility.
+# PCS_shift_func() implements this regularized PCS criterion.
+#
+# ── Tutorial Structure ────────────────────────────────────────────────
+#
+#   Exercise 1 — Condition II) via a modified DFP approach:
+#                Imposes a local slope constraint at lag h using a suitably
+#                adapted DFP decoupling constraint.
+#
+#   Exercise 2 — Replication of Exercise 1 via PCS_shift_func():
+#                Reproduces Exercise 1 using the general regularized PCS
+#                function, confirming consistency between the two approaches.
+#
+#   Exercise 3 — Geometry of the PCS predictor.
+#
+#   Exercise 4 — Infeasibility:
+#                Illustrates cases where the monotonicity constraints are
+#                rank-deficient and the exact PCS criterion has no solution,
+#                demonstrating how regularization recovers a best-effort result.
+#
+# ════════════════════════════════════════════════════════════════════
+# REFERENCE
+# ─────────
+# Wildi, M. (2026).
+#   Forecasting on the Accuracy–Timeliness Frontier:
+#   Two Novel "Look-Ahead" Predictors.
+#   https://doi.org/10.48550/arXiv.2602.23087
+# ════════════════════════════════════════════════════════════════════
 
-# As shown in tutorial 1, exercise 1.3, the h-step ahead MSE predictor tends to 
-# be stuck at present time in difficult forecast problems, in the sense 
-# that its CCF peaks at lag 0. The Peak Correlation Shifting approach 
-# tries to design the h-step ahed predictor so that the peak of the CCF is shifted 
-# towards h. While this shift is not always feasible or practically implementable, 
-# attenuating the original peak at lag 0 can be already effective, as this is the strategy of the 
-# DFP predictor (decoupling from present). 
-
-# We now discuss two necessary (but not sufficient) conditions for the shift to occur from k=0 to k=h 
-# 1. Factually, shifting the peak from zero to h>0 means that the slope must be positive, 
-#   i.e., CCF(k) is increasing for k=0,...,h, see Wildi (section 3.2), Appendix E.
-# 2. The slope from k=h-1 to k=h should be positive, see Wildi (2026), section 3.2.
-
-# The first condition is more stringent since it imposes a monotonic increase 
-# of the CCF over an interval. In general, this criterion is not feasible exactly, 
-# but we enforce behaviour as well (and strong) as possible: function PCS_shift_func().
-
-# The second condition can be obtained by applying the DFP optimization under a  
-# suitable modification of the decoupling constraint. 
-
-# Main ideas: 
-# The CCF at lag k is given by 
 
 
 # ════════════════════════════════════════════════════════════════════
-
-# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
-#   Wildi, M. (2026)
-#     Forecasting on the Accuracy–Timeliness Frontier:
-#     Two Novel "Look-Ahead" Predictors.
-#     https://doi.org/10.48550/arXiv.2602.23087
+# INITIALISATION
 # ════════════════════════════════════════════════════════════════════
 
-# ════════════════════════════════════════════════════════════════════
-
-# ── BACKGROUND / REFERENCES ──────────────────────────────────────────
-#   Wildi, M. (2026)
-#     Forecasting on the Accuracy–Timeliness Frontier:
-#     Two Novel "Look-Ahead" Predictors.
-#     https://doi.org/10.48550/arXiv.2602.23087
-# ════════════════════════════════════════════════════════════════════
-
-
-# ── INITIALISATION ───────────────────────────────────────────────────
 rm(list = ls())
 
 # Load the DFP optimisation routines.
-# Provides DFP_compute_lambda_alpha0_func() and related solvers.
 source(paste(getwd(), "/R/DFP.r", sep = ""))
 
-# Load the tau-statistic utility: measures lead/lag at zero crossings.
-source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
+# Load the PCS optimisation routines.
+source(paste(getwd(), "/R/PCS.r", sep = ""))
 
 # Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
 library(xts)
 
-# Load data from FRED via the alfred package (no API key required).
-install.packages("alfred")
-library(alfred)
-
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 1: PCS Applied to MA(9)
+# EXERCISE 1: PCS APPLIED TO AN MA(9) PROCESS
+# ════════════════════════════════════════════════════════════════════
+#
+# We revisit the MA(9) example from Tutorial 1 and address Condition II)
+# (local slope at the target forecast horizon h) by adapting the DFP decoupling framework.
+# Instead of decoupling b from the nowcast predictor gamma_0 (classic DFP),
+# we decouple b from the difference gamma_{h-1} - gamma_h, which can directly
+# enforce a positive slope (shift) in the CCF at lag h.
+#
+# Data-Generating Process (DGP):
+#   x_t = sum_{k=0}^{9} a1^k * ε_{t-k}        [MA(9) process]
+#
+# The MA(9) is a truncated AR(1) with coefficient a1 = 0.9; its
+# moving-average weights decay geometrically: b_k = a1^k, k = 0, …, 9.
 # ════════════════════════════════════════════════════════════════════
 
-h<-5
 
-Delta<-1:h
-lambda<-10000
-beta<--0.1
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 Process Specification and Data Generation
+# ─────────────────────────────────────────────────────────────────────
+
+# MA order and geometric decay coefficient
+q  <- 9        # MA order (number of lags beyond lag 0)
+a1 <- 0.9      # geometric decay rate (equal to the underlying AR(1) coefficient)
+
+# MA filter weights: b_k = a1^k, k = 0, …, q
+b_ma <- a1^(0:q)
+
+par(mfrow = c(1, 1))
+ts.plot(b_ma,
+        main = "MA(9) filter coefficients (geometrically decaying)",
+        xlab = "Lag", ylab = "Weight")
+
+# Simulate a realisation of the MA(9) process:
+#   x_t = sum_{k=0}^{q} b_k * ε_{t-k},  ε_t ~ i.i.d. N(0,1)
+len <- 100
+set.seed(231)
+eps <- rnorm(len + q + 1)          # innovations (burn-in included)
+
+# Pre-allocate output vectors
+x <- xhat <- rep(NA, len + q + 1)
+
+for (i in (q + 1):(len + q + 1)) {
+  x[i] <- b_ma %*% eps[i:(i - q)]
+}
+
+ts.plot(x, main = "Simulated MA(9) process")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 MSE-Optimal h-Step-Ahead Predictor
+# ─────────────────────────────────────────────────────────────────────
+
+# Filter length and forecast horizon
+L <- 20
+h <- 1
+
+# Feasibility check: for an MA(q) process, the h-step-ahead MSE predictor
+# is identically zero when h > q, because all innovations more than q steps
+# ahead are unobservable.
+if (h > q + 1)
+  print("(q + 1) must exceed h; otherwise the MSE-optimal forecast is zero.")
+
+# Optimal MSE filter: retain MA coefficients from lag h onward; pad to length L.
+# gammah[k] = b_{h+k} for k = 0, …, q-h, and 0 thereafter.
+gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 1.3 PCS Condition II): Setting Up the Modified DFP Constraint
+# ─────────────────────────────────────────────────────────────────────
+# Condition II) requires CCF(h) > CCF(h-1), i.e., the CCF must increase
+# over the final step to lag h. Using CCF(k) = b' * gamma_k, this becomes:
+#
+#   b' * gamma_{h-1} < b' * gamma_h
+#   <=>  b' * (gamma_{h-1} - gamma_h) < 0
+#
+# Equivalently, setting alpha0 = b' * gamma_constraint with
+#   gamma_constraint = gamma_{h-1} - gamma_h,
+# Condition II) requires alpha0 < 0.
+#
+# This maps exactly onto a standard DFP decoupling problem: minimise MSE
+# subject to b' * gamma_constraint = alpha0, with gamma_constraint playing
+# the role of gamma_0. We therefore apply compute_mse_dfp() with
+# gamma_constraint in place of gamma_0, and decrease alpha0 below the MSE
+# baseline to progressively enforce the slope condition.
+#
+# Remark on interpretation:
+#   Unlike the classic DFP constraint (which decouples b from the observable
+#   present via gamma_0), the constraint vector gamma_constraint = gamma_{h-1} - gamma_h
+#   is a difference of two forecast vectors and has no direct physical interpretation
+#   as a "present-value" filter. Its role is purely algebraic: zeroing out
+#   b' * gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
+#   enforces CCF(h-1) < CCF(h). The resulting filter may therefore look
+#   unusual (e.g., non-monotone weights), which is expected and not a cause
+#   for concern: the constraint is meaningful even if gamma_constraint itself
+#   is not intuitively interpretable.
+
+# For h = 1: gamma_{h-1} = gamma_0 (nowcast predictor, padded to length L)
+gammahm1 <- gamma0 <- c(b_ma, rep(0, L - length(b_ma)))
+
+# Constraint vector: difference between consecutive MSE predictors at lags h-1 and h
+gamma_constraint <- gammahm1 - gammah
+
+ts.plot(gamma_constraint,
+        main = expression(gamma[constraint] == gamma[h-1] - gamma[h]),
+        xlab = "Lag", ylab = "",
+        sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
+abline(h = 0)
+
+# Given the above shape, one may seriously question whether decoupling b from 
+# gamma_constraint will effectively enforce look-ahead behaviour of the PCS predictor.
+
+# Baseline coupling: inner product of gammah with gamma_constraint under the
+# unconstrained MSE predictor. DFP will enforce a coupling strictly below this.
+mse_coup <- as.double(gammah %*% gamma_constraint)
+
+# Sequence of decoupling levels alpha0, decreasing from the MSE baseline
+# toward zero and then into negative territory. Smaller (more negative) values
+# enforce progressively stronger CCF slope at lag h (a right-shift of the peak 
+# towards h=1).
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
+
+# The DFP constraint enforces stronger decoupling form gamma_constraint than 
+# the MSE predictor gammah: the last negative value suggests that the peak CCF
+# should be shifted to the right: from k=0 to k=h=1.
+alpha0_vec
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.4 DFP Optimisation over the Decoupling Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each alpha0 in alpha0_vec, compute the MSE-optimal DFP predictor via
+# Proposition 1 (Wildi 2026):
+#
+#   b = gammah + lambda * gamma_constraint,
+#   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
+#
+# This closed-form solution minimises the MSE subject to the modified
+# decoupling constraint b' * gamma_constraint = alpha0.
+
+b_mat       <- NULL    # filter coefficients, one column per alpha0
+lambda_vec1 <- NULL    # corresponding Lagrange multipliers
+cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
+
+# CCF values at lags 0 and h for each alpha0 (for tabular summary)
+cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
+
+# Number of leads on either side of lag 0 to include in the CCF
+max_lag <- 1
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Compute MSE-DFP predictor with modified constraint vector
+  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  b_mat <- cbind(b_mat, b)
+  
+  # Compute the population CCF of b against the process over lags [-max_lag, h]
+  cor_vec <- compute_acf_at_lags_zero_delta_func(
+    max_lag, h, as.vector(b), gamma0)$cor_vec
+  cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
+  cor_vec_1[i, 1] <- cor_vec[1]         # CCF at lag 0 (coupling with present)
+    cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
+}
+
+colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
+colnames(cor_vec_1) <- c("Lag 0", paste0("h=", h))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.5 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: DFP constraint ──────
+
+# Verification: the constraint b' * gamma_constraint = alpha0 should hold
+# exactly for every column of b_mat (residuals should be numerically zero).
+t(b_mat) %*% gamma_constraint - alpha0_vec
+
+# ── Check 2: sign / orientation preservation ──────────────────────────────
+# A strictly positive sum of filter coefficients confirms that none of the
+# PCS filters inverts the direction of a trend or level shift in the data.
+apply(b_mat, 2, sum)
+
+# CHECK 3 — Positive Target Covariance
+t(b_mat)%*%gammah
 
 
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Exercise 2 Geometry of the PCS Predictor
+# 1.6 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo  <- c("green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+# Truncate to the first q+1 lags where the MA process has support.
+mplot <- cbind(gammah, b_mat)[1:(q + 1), ]
+
+ts.plot(mplot, main = "Filter coefficients: MSE and DFP variants",
+        col = colo, xlab = "Lag", ylab = "")
+mtext("MSE", line = -1, col = colo[1])
+for (i in 1:ncol(b_mat))
+  mtext(paste0("DFP: alpha0=", round(alpha0_vec[i], 3)),
+        line = -(i + 1), col = colo[i + 1])
+abline(h = 0)
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+ccf_mse <- compute_acf_at_lags_zero_delta_func(
+  max_lag, h, as.vector(gammah), gamma0)$cor_vec
+mplot   <- cbind(ccf_mse, cor_vec_mat)[1:q, ]
+
+plot(mplot[, 1], main = "Population CCFs: MSE and DFP variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,     lty = 1)   # lag 0
+abline(v = max_lag + 1 + h, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Outcomes ─────────────────────────────────────────────────────────
+# Left panel (filter coefficients):
+#   - Unlike the MSE predictor, the PCS/DFP filters assign non-zero weight
+#     to the farthest lag k = q.
+#   - Stronger decoupling (smaller alpha0) progressively shifts weight away
+#     from recent observations toward the oldest lag. This is counter-intuitive
+#     but is a direct consequence of enforcing the CCF slope constraint.
+#
+# Right panel (CCFs):
+#   - Enforcing the slope constraint via decoupling works as intended: as
+#     alpha0 decreases, the slope between lags 0 and h flattens and eventually
+#     inverts, confirming a peak shift toward lag h.
+#   - The loss in target correlation at lag h is minimised subject to the
+#     modified decoupling constraint.
+
+# Tabular summary: CCF at lag 0 and lag h for each decoupling level
+round(cor_vec_1, 2)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.7 Applying the Filters to Simulated Data
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 1.7.1 Forecast Comparison ────────────────────────────────────────
+
+# Collect all filters (nowcast, MSE, and DFP variants) into a single matrix
+filter_mat <- cbind(gamma0, gammah, b_mat)
+colnames(filter_mat) <- c("Nowcast", "MSE",
+                          paste0("DFP ", round(alpha0_vec, 2)))
+
+# Generate a long white-noise series for a reliable empirical evaluation
+set.seed(17)
+len <- 10000
+eps <- rnorm(len)
+
+# Apply each filter to eps via causal (one-sided) convolution.
+# filter(..., sides = 1) computes the linear filter sum_{k=0}^{L-1} b_k * eps_{t-k}.
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat,
+                     filter(eps, filter_mat[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# Plot a short excerpt to visually compare the temporal alignment of each predictor
+anf <- 390
+enf <- 430
+
+par(mfrow = c(1, 1))
+ts.plot(scale(y_out_mat[anf:enf, ]),
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], col = colo[i], line = -i)
+
+# Outcome:
+#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
+#   output shifts progressively to the left (looks further ahead) relative to
+#   the MSE predictor. This visual lead is confirmed quantitatively by the
+#   empirical CCFs below.
+
+
+# ── 1.7.2 Empirical CCF Comparison ───────────────────────────────────
+# Compute empirical CCFs between the nowcast (x_t) and each predictor to
+# confirm that the population peak shift observed in Section 1.5 is
+# reproduced in finite-sample data.
+
+par(mfrow = c(2, 1))
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, 2]),
+    lag.max = 10, plot = TRUE,
+    main = "CCF: MA(9) vs. MSE predictor\nPeak at lag k = 0 (no look-ahead)")
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: MA(9) vs. strongest PCS predictor\n",
+                  "Peak shifted from k = 0 to k = h = ", h))
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 2: PCS Applied to MA(9): PCS
+# ════════════════════════════════════════════════════════════════════
+
+
+
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# Exercise 3 Geometry of the PCS Predictor
+# ════════════════════════════════════════════════════════════════════
 
 # Vector components (edit these)
 # Vector components (edit these)
@@ -255,7 +630,12 @@ solve_acos_bsin_eq <- function(a, b, c) {
 # Find theta for given a,b,c
 solve_acos_bsin_eq(a, b, c )
 
-#########################################################
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 4: Infeasibility
+# ════════════════════════════════════════════════════════════════════
+# PCS applied to ARMA(1,1)
 
 
 
