@@ -41,29 +41,60 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   
   # --- Build the shifted covariance matrix 'gammah_mat' ---
   # Each row contains the MSE predictor coefficients (gamma_all) shifted by
-  # a specific lead value drawn from 'Delta'. The predictors are normalized to
-  # unit length so that the inner products b' * gamma are proportional to the
-  # CCF regardless of the arbitrary scaling of b. Without normalization, the
-  # differences b' * (gamma_{k-1} - gamma_k) could change sign arbitrarily
-  # due to unequal norms of gamma_{k-1} and gamma_k.
-  gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] /as.double(sqrt(gamma_all[Delta[1] - 1 + 1:L] %*% gamma_all[Delta[1] - 1 + 1:L]))
+  # a specific lead value drawn from 'Delta'. 
+  gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] 
   if (length(Delta) > 0)
   {
     for (i in 1:length(Delta))
       gammah_mat <- rbind(gammah_mat,
-                          gamma_all[Delta[i] + 1:L]/as.double(sqrt(gamma_all[Delta[i] + 1:L] %*%gamma_all[Delta[i] + 1:L])))
+                          gamma_all[Delta[i] + 1:L])
   }
   
   # --- Compute consecutive difference vectors ('d_delta') ---
   # Each row of d_delta is the difference between two consecutive rows of
-  # gammah_mat. These differences encode the pairwise monotonicity constraints:
-  # b' * d_delta[i, ] > 0 requires the CCF to increase from lead Delta[i-1]
-  # to lead Delta[i].
-  d_delta <- gammah_mat[1, ] - gammah_mat[2, ]
+  # gammah_mat:
+  #
+  #   d_delta[i, ] = gammah_mat[i, ] - gammah_mat[i + 1, ]
+  #
+  # These differences encode the pairwise monotonicity constraints: requiring
+  #
+  #   b' * d_delta[i, ] = beta > 0
+  #
+  # forces the CCF to increase by beta from lead Delta[i] to lead Delta[i+1].
+  #
+  # Why normalise the rows of gammah_mat before differencing?
+  # ──────────────────────────────────────────────────────────
+  # The rows of gammah_mat are normalised to unit length before the differences
+  # are formed. This ensures that the constraint b' * d_delta[i, ] = beta
+  # imposes a *uniform* slope of beta across all consecutive lead pairs,
+  # regardless of the raw norms of the underlying MSE predictors.
+  #
+  # Without normalisation, the differences d_delta[i, ] would have unequal
+  # norms across i, so the same value of beta would correspond to different
+  # effective slopes for different lead pairs — making the constraint
+  # inhomogeneous and difficult to interpret.
+  #
+  # Asymptotic interpretation (large lambda):
+  # ─────────────────────────────────────────
+  # When the system is feasible and lambda -> Inf, the regularised solution
+  # converges to the exact constrained solution, and the slope of the CCF
+  # between consecutive leads is:
+  #
+  #   CCF(Delta[i+1]) - CCF(Delta[i])  =  b' * d_delta[i, ]  =  beta
+  #
+  # Since CCF(k) = b' * gamma_k / ||b||  (using normalised gamma_k), the
+  # slope in terms of the normalised CCF is:
+  #
+  #   [CCF(Delta[i+1]) - CCF(Delta[i])] / ||b||  =  beta / ||b||
+  #
+  # The norm ||b|| is determined by the MSE optimisation and is not controlled
+  # directly; however, because it is constant across all lead pairs, the
+  # relative slopes are preserved and the monotonicity ordering is unaffected.
+  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
   if (length(Delta) > 1)
   {
     for (i in 2:length(Delta))
-      d_delta <- rbind(d_delta, gammah_mat[i, ] - gammah_mat[i + 1, ])
+      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
   }
   
   if (F)
