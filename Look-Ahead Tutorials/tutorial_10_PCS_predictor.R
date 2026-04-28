@@ -1,12 +1,27 @@
-# Leading indicator PCS
 
-# Aggreagte lead instead of lead at frewuency zero (overfittting, DFP)
-# PCS relies also on decoupling but not from xt. Instead it decouples from hammah-gamma_{h-1}
+# As shown in tutorial 1, exercise 1.3, the h-step ahead MSE predictor tends to 
+# be stuck at present time in difficult forecast problems, in the sense 
+# that its CCF peaks at lag 0. The Peak Correlation Shifting approach 
+# tries to design the h-step ahed predictor so that the peak of the CCF is shifted 
+# towards h. While this shift is not always feasible or practically implementable, 
+# attenuating the original peak at lag 0 can be already effective, as this is the strategy of the 
+# DFP predictor (decoupling from present). 
 
-# PCS relies on shifting the peak of the CCF. The CCF was considered as 
-# measure for lead/lag, see tutorial ???. In contrast to the previous 
-# zero-freuqnecy lead, the peak correlation is a measure of aggregate lead, 
-# not only at frequency zero.
+# We now discuss two necessary (but not sufficient) conditions for the shift to occur from k=0 to k=h 
+# 1. Factually, shifting the peak from zero to h>0 means that the slope must be positive, 
+#   i.e., CCF(k) is increasing for k=0,...,h, see Wildi (section 3.2), Appendix E.
+# 2. The slope from k=h-1 to k=h should be positive, see Wildi (2026), section 3.2.
+
+# The first condition is more stringent since it imposes a monotonic increase 
+# of the CCF over an interval. In general, this criterion is not feasible exactly, 
+# but we enforce behaviour as well (and strong) as possible: function PCS_shift_func().
+
+# The second condition can be obtained by applying the DFP optimization under a  
+# suitable modification of the decoupling constraint. 
+
+# Main ideas: 
+# The CCF at lag k is given by 
+
 
 # ════════════════════════════════════════════════════════════════════
 
@@ -50,6 +65,12 @@ library(alfred)
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 1: PCS Applied to MA(9)
 # ════════════════════════════════════════════════════════════════════
+
+h<-5
+
+Delta<-1:h
+lambda<-10000
+beta<--0.1
 
 
 

@@ -175,7 +175,19 @@ gamma0 <- gamma[1:L]
 
 # h-step-ahead MSE predictor (gammah):
 # Shift gamma forward by h positions:
-gammah <- gamma[h + 1:L]                        
+gammah <- gamma[h + 1:L]     
+
+tauh      <- sum((0:(L-1)) * gammah)      / sum(gammah)
+tau0      <- sum((0:(L-1)) * gamma0)      / sum(gamma0)
+
+# Diagnose whether we are in the non-standard case:
+# If tauh > tau0, the MSE predictor lags the nowcast at frequency zero,
+# which triggers the sign-inversion logic described in Wildi (2026), Appendix A.
+if (tauh > tau0)
+{
+  print("Non-standard case: the MSE predictor lags the nowcast at frequency zero")
+}
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -202,16 +214,19 @@ ts.plot(gamma_constraint,main="PCS: gamma_constraint")
 beta_vec<-c(0.8,0.6,0.3,0,-0.1)
 
 
-cor_vec_mat<-b_mat<-lambda1_vec<-lambda2_vec<-NULL
+cor_vec_mat<-b_mat<-lambda1_vec<-lambda2_vec<-tau_vec<-NULL
 for (i in 1:length(beta_vec))
 { 
   beta<-beta_vec[i]
   # Compute quadratic in lambda and then unit length DFP  
   b_obj<-unitary_DFP_func(gamma_constraint,gamma_target,beta)
-  
-  b_mat<-cbind(b_mat,b_obj$b0)
+  b<-b_obj$b0
+  b_mat<-cbind(b_mat,b)
   lambda1_vec<-c(lambda1_vec,b_obj$lambda1)
   lambda2_vec<-c(lambda2_vec,b_obj$lambda2)
+# Compute shift at frequency zero  
+  tau_vec<-c(tau_vec, sum((0:(L-1)) * b) / sum(b))
+  
   
   # Compute CCF of PCS predictors  
   cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,i],gamma0)$cor_vec)
@@ -333,6 +348,12 @@ axis(1, at     = 1:nrow(mplot),
      labels = -1 + 1:nrow(mplot))
 axis(2)
 box()
+
+# CCF of strong PCS peaks at h=1. Problem: gammah=gamma1 is lagging.  
+# PCS lies on wrong side of gamma1 (taub>tauh)
+# PCS lags gammah 
+# Compare with CCFs in tutorial 9 exercise 2.8 (the CCFs also peak at lead 1)
+
 
 
 # ─────────────────────────────────────────────────────────────────────

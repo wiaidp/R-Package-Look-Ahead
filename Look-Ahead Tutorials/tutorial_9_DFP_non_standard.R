@@ -238,7 +238,11 @@ ts.plot(scale(cbind(gammah,gammahtilde),scale=T,center=F),
 
 # Desired lead of the DFP output over the MSE predictor at frequency zero.
 # Negative values indicate that the DFP leads the MSE predictor by 
-# |lead| time steps at the zero (trend) frequency.
+# |lead| time steps at the zero (trend) frequency: trend is left-shifted by
+# |lead| compared to MSE predictor. 
+# Note: the lead is relative to the MSE predictor. The absolute shift is 
+# tauh-|lead|. If tauh-|lead|>0 the DFP is still lagging in absolute terms, 
+# but leading compared to gammah.
 lead_vec <- -2^((-1):3)
 lead_vec
 
