@@ -765,9 +765,11 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 3: PCS I) 
+# Variable Beta, Fixed Large Lambda
 # ════════════════════════════════════════════════════════════════════
 
-# We apply the PCS based on case I), assuming h=5.
+# We apply the PCS based on case I), assuming h=5 and regularization weight 
+# lambda large (and fixed).
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 MSE-Optimal h-Step-Ahead Predictor
@@ -998,14 +1000,25 @@ ccf(na.exclude(y_out_mat[, 1]),
                   "Peak shifted from k = 0 to k = h = ", h))
 
 
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 4: PCS I) 
+# Variable Lambda, Fixed Beta 
+# ════════════════════════════════════════════════════════════════════
+
+# We apply the PCS based on case I), assuming h=5 and slope beta fixed. 
+
 # ─────────────────────────────────────────────────────────────────────
-# 3.7 Regularisation Weight
+# 4.1 Fixed Beta, Variable Regularisation Weight Lambda
 # ─────────────────────────────────────────────────────────────────────
 
 # Fix beta and vary lambda
 beta<-0.3
 Delta<-1:h
-lambda_vec<-c(0.1,1,10,100)
+lambda_vec<-c(0.1,0.5,1,5,10,10000)
 
 
 b_mat       <- NULL    # filter coefficients, one column per alpha0
@@ -1035,7 +1048,7 @@ colnames(b_mat) <-  paste0("lambda=", round(lambda_vec, 3),", beta=",beta,sep=""
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.4 Routine Checks
+# 4.2 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS constraint  ──────
@@ -1063,7 +1076,7 @@ colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.5 Plots and Performance Summary
+# 4.3 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
@@ -1118,12 +1131,20 @@ box()
 # the look ahead perspective.
 
 
+
 # ════════════════════════════════════════════════════════════════════
-# Exercise 4 Geometry of the PCS Predictor
+# Exercise 5 PCS vs. DFP
+# ════════════════════════════════════════════════════════════════════
+# Example: full decoupling and one of the PCS with positive slope and near full decoupling
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# Exercise 6 Geometry of the PCS Predictor
 # ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.1 Geometry Case II)
+# 6.1 Geometry Case II)
 # ─────────────────────────────────────────────────────────────────────
 # See Wildi section 3.2 for background.
 #
@@ -1244,7 +1265,7 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.2 Recover Phase Excess Theta From PCS Constraint Beta
+# 6.2 Recover Phase Excess Theta From PCS Constraint Beta
 # ─────────────────────────────────────────────────────────────────────
 # See Appendix C, Wildi (2026).
 
@@ -1303,7 +1324,7 @@ solve_acos_bsin_eq(a, b, c )
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 5: Infeasibility
+# EXERCISE 7: Infeasibility
 # ════════════════════════════════════════════════════════════════════
 # PCS applied to ARMA(1,1)
 
