@@ -1131,6 +1131,24 @@ box()
 # the look ahead perspective.
 
 
+###################################################################################
+# In look ahead applications 
+# 1. lambda not too large:  
+#   -Gives more flexibility, higher target correlation, less overfitting, like 
+#     exercise 3 which regulated the mean-growth (instead of each individual step).
+# 2. beta not too negative. 
+# Idea: we mainly want to displace the peak to obtain look ahead behaviour. 
+# -Important: peak displacement
+# -Maximal peak (target correlation)
+# -Otherwise the shape of the CCF is not relevant.
+# -Giving morre flexibility allows higher peak value.
+
+# Connection to DFP:
+# -Can also achieve full decoupling at lag 0, depending on h and slope. But that's not the purpose of PCS.
+# -Note however that fully decoupled DFP and PCS would generally differ: geometrically, 
+# the spans spanned by (gamma, gamma), i.e. the DFP, differ from (gammah,gamma_{h-1}) in the PCS.
+###################################################################################
+
 
 # ════════════════════════════════════════════════════════════════════
 # Exercise 5 PCS vs. DFP
