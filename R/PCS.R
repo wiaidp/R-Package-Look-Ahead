@@ -30,6 +30,8 @@
 
 PCS_shift_func <- function(Delta, xi, L, beta, lambda)
 {
+# MSE h-step predictor  
+  gammah<-xi[h+1:L]
   
   # Flip the sign of beta to align the internal convention with the paper's
   # definition: a positive beta in the function interface corresponds to a
@@ -151,7 +153,9 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   # as discussed in the rank diagnostic above).
   abs(d_delta %*% b - slope)
   
-  return(list(b = b, d_delta = d_delta))
+  b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
+  
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse))
   
 }
 
