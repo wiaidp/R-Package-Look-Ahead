@@ -4,45 +4,127 @@
 #
 # Background
 # ──────────
-# As shown in Tutorial 1, Exercise 1.3, the h-step-ahead MSE predictor tends to
-# be "anchored" at the present in difficult forecasting problems, in the sense
-# that its Cross-Correlation Function (CCF) with the target peaks at lag 0.
-# The Peak Correlation Shifting (PCS) approach designs the h-step-ahead
-# predictor so that the CCF peak is shifted toward lag h, thereby improving
-# timeliness. While a full shift from lag 0 to lag h is not always feasible,
-# even a partial attenuation of the original peak at lag 0 can be effective.
-# This weaker objective is precisely the strategy of the DFP (Decoupling From
-# Present) predictor.
+# As shown in Tutorial 1, Exercise 1.3, the h-step-ahead MSE predictor tends
+# to be "anchored" at the present in difficult forecasting problems, in the
+# sense that its Cross-Correlation Function (CCF) peaks at
+# lag 0. The Peak Correlation Shifting (PCS) approach designs the h-step-ahead
+# predictor so that the CCF peak is shifted, ideally toward lag h, thereby
+# improving timeliness and look-ahead behaviour. While a full shift from lag 0
+# to lag h is not always feasible, even a partial attenuation of the original
+# peak at lag 0 in difficult forecast problems can be effective. This weaker 
+# objective is precisely the strategy of the DFP (Decoupling From Present) 
+# predictor in earlier tutorials.
 #
-# Remark: PCS generally enforces a stronger look-ahead than DFP, and the two
-# predictors coincide only in special cases.
+# ── DFP Recap ────────────────────────────────────────────────────────
 #
-# ── Necessary Conditions for a Peak Shift from k = 0 to k = h ───────
+# - Decoupling From Present (DFP) weakens the CCF at lag 0 while maximising
+#   it at the forecast horizon h (dilemma, conflicting objectives).
 #
-# Two necessary (but not sufficient) conditions must hold for the CCF peak to
-# shift from lag 0 to lag h > 0:
+#     - In some cases, the CCF peak migrates toward lag h as a by-product.
+#         - As an example, under full decoupling, CCF(0) = 0. If the target 
+#           correlation at lag h remains positive (not always possible; 
+#           see Tutorial 9), the CCF peak can no longer be at lag 0.
 #
-#   I)  Global monotonicity (stronger condition):
-#       The CCF must be monotonically increasing over the full interval
-#       k = 0, …, h, i.e., CCF(k-1) < CCF(k) for all k = 1, …, h.
-#       See Wildi (2026), Section 3.2 and Appendix E.
-#       This condition is generally not exactly feasible (see Exercise 3);
-#       PCS_shift_func() enforces it as closely as possible via regularization.
+#     - However, peak-shifting is not an explicit DFP design objective; it is
+#       an indirect and partially uncontrollable outcome.
 #
-#   II) Local slope at the target lag (weaker condition):
+#     - In terms of lead, DFP directly addresses the time-shift at frequency
+#       zero (see Tutorials 6–9).
+#
+#     - Although DFP can always left-shift a linear trend by an arbitrary 
+#       amount (arbitrarily large lead at frequency zero), the induced lead 
+#       may not extend to adjacent relevant frequencies, e.g., business-cycle
+#       frequencies (see Tutorial 9).
+#
+# ── PCS Approach ─────────────────────────────────────────────────────
+#
+# - Peak Correlation Shifting (PCS) simultaneously addresses two features
+#   of the CCF:
+#
+#     - Peak location: ideally, the CCF peak is moved toward a precise target
+#       location, typically the forecast horizon h.
+#
+#     - Peak height: in addition to relocating the peak, PCS maximises the
+#       CCF value at lag h.
+#
+#     - To obtain an effective peak shift, PCS controls the slope of the CCF
+#       via one of three design choices (Conditions I, II, and III below),
+#       which differ in the number of lags constrained, the specific lags
+#       targeted, and the degree of flexibility allowed in enforcing the
+#       slope requirements.
+#
+#     - Shifting the peak (ideally toward h) and maximising its height
+#       (always evaluated at h) are conflicting requirements, forming an
+#       inherent dilemma: a predictor optimised purely for peak height at h
+#       — i.e., the classic MSE approach — may fail to shift the peak (the
+#       "stuck at present" problem), while one aggressively constrained to
+#       shift the peak may sacrifice height.
+#
+#     - For given slope or average-slope constraints, PCS maximises the target
+#       correlation at h, thereby tracing an efficient frontier that makes the
+#       accuracy–timeliness trade-off explicit and controllable.
+#
+#     - By directly controlling the peak location, PCS addresses one of the
+#       lead measures introduced in Tutorial 2.
+#
+#     - In contrast to DFP, which controls the lead locally at frequency zero
+#       (see Tutorial 6), PCS targets an aggregate lead effect that is ideally
+#       strong enough to relocate the CCF peak. The CCF is itself an aggregate,
+#       frequency-integrated measure of lead, so PCS effectively acts across
+#       the entire frequency band rather than at frequency zero alone.
+#
+#
+# ── DFP vs. PCS ──────────────────────────────────────────────────────
+#
+# - Although in certain applications the resulting CCF profiles may look
+#   similar, DFP and PCS are geometrically distinct:
+#     - DFP: the predictor lies in the plane spanned by (gamma_0, gamma_h).
+#     - PCS: depending on the implementation variant (I, II, or III below),
+#       the predictor lies in the plane spanned by gamma_h and a single
+#       gamma_k for k in {0, …, h-1}, or in a combination of such planes.
+#   - In practice, PCS can often enforce stronger effective look-ahead
+#     behaviour than DFP, though generally at the cost of some reduction in
+#     target correlation.
+#
+# ── Necessary Conditions for a Peak Shift from k = 0 to k = h ────────
+#
+# Three necessary (but not sufficient) conditions must hold for the CCF peak
+# to shift from lag 0 to lag h > 0:
+#
+#   I)  Monotonically increasing CCF over {0, …, h} (most restrictive):
+#       The CCF must be strictly increasing across the full interval, i.e.,
+#       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
+#       and Appendix E. This condition is generally not exactly feasible 
+#       (see Exercise ???); The principal PCS optimization function 
+#       PCS_shift_func() enforces it as closely as possible via regularisation.
+#
+#   II) Local positive slope at the target lag (weaker than I):
 #       The CCF must be increasing over the final step only, i.e.,
-#       CCF(h-1) < CCF(h).
-#       See Wildi (2026), Section 3.2.
+#       CCF(h-1) < CCF(h). See Wildi (2026), Section 3.2.
+#       In some cases where additional structure is imposed by the data-
+#       generating process (e.g., from the Yule-Walker equations of an AR(p)),
+#       conditions I) and II) may become equivalent.
 #
-#   III) Mean slope between lag 0 and the target lag:
-#       The CCF must be increasing in the mean from k=0 to k=h, i.e.,
+#   III) Positive average slope from lag 0 to lag h (weaker than I):
+#       The CCF must be increasing on average from k = 0 to k = h, i.e.,
 #       CCF(0) < CCF(h).
-
-#       Even the weaker conditions I) and II) are not always exactly feasible. 
-#       But when they, they can be imposed by applying decoupling in the DFP 
-#       optimization with a suitably modified constraint.
-
 #
+#   A link to decoupling:
+#       Even the weaker conditions II) and III) are not always exactly
+#       feasible. When they are, however, both can be imposed within the DFP
+#       optimisation framework by using a suitably modified constraint vector
+#       (see Exercise 1 below).
+#
+# Technical note on Condition I):
+#   When the full monotonicity constraint is feasible, strong regularisation
+#   enforces a fixed positive CCF slope uniformly across all lags in {0, …, h},
+#   which may be unnecessarily costly in terms of target correlation. In
+#   practice, therefore, mild regularisation is typically preferred: it nudges
+#   the CCF toward monotonicity while retaining enough flexibility to balance
+#   the inherent dilemma between peak shifting and peak height, see 
+#   exercise 4 below.
+#
+
 # ── Key Identity ─────────────────────────────────────────────────────
 #
 # The CCF at lag k is given by:
@@ -52,59 +134,122 @@
 # where:
 #   b       : filter coefficient vector (the predictor to be designed),
 #   gamma_k : k-step-ahead MSE predictor coefficients (forward-shifted Wold
-#             coefficients), normalized to unit length.
+#             coefficients), normalised to unit length.
 #
-# Normalizing gamma_k to unit length ensures that b' * gamma_k is proportional
-# to CCF(k) for all k, with the norm of b serving as a common (k-invariant)
-# scaling factor. This makes the slope conditions below well-defined and
-# comparable across lags.
+# CCF and unit-length scaling:
+#   - Strictly speaking, the formula above requires both b and gamma_k to be
+#     of unit length.
+#   - In practice, b (the PCS predictor) is generally not of unit length;
+#     imposing this constraint would complicate the geometry and lead to
+#     multiple solutions (cf. the unitary DFP in Tutorial 4).
+#   - Normalising only gamma_k to unit length is sufficient to ensure that
+#     b' * gamma_k is proportional to CCF(k) for all k, with ||b|| serving as
+#     a common (k-invariant) scaling factor. This makes the slope conditions
+#     below well-defined and comparable across lags.
 #
-# ── PCS Optimization Criterion ───────────────────────────────────────
+# ── PCS Optimisation Criterion ────────────────────────────────────────
 #
-# Let beta > 0 be the PCS slope parameter. Using the identity above, Conditions
-# I) and II) translate into linear constraints on b:
+# Let beta > 0 be the PCS slope parameter. Using the key identity above,
+# Conditions I)–III) translate into linear constraints on b:
 #
-#   Condition I)  asks for  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
-#   Condition II) asks for  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
+#   Condition I)   requires  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
+#   Condition II)  requires  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
+#   Condition III) requires  b' * (gamma_h - gamma_0)     > 0   (k = h only)
 #
 # Note: the sign convention adopted here is the opposite of Wildi (2026).
 #
 # The PCS criterion enforces these constraints with target slope beta:
 #
-#   max  b' * gamma_h                                  (maximize target correlation)
+#   max  b' * gamma_h                          (maximise target correlation)
 #   s.t. b' * (gamma_k - gamma_{k-1}) = beta,  k in Delta
 #
-# where Delta = {h}        corresponds to Condition II) (local slope), and
-#       Delta = {1, …, h}  corresponds to Condition I)  (global monotonicity).
+# where:
+#   Delta = {h}       corresponds to Condition II) (local slope at lag h), and
+#   Delta = {1, …, h} corresponds to Condition I)  (monotonicity from 0 to h).
 #
-# Note: in our implementation, the objective function is replaced by minimum MSE 
-# (assuming a standard case, see the discussion in Tutorial 9).
+# Condition III) is handled by setting Delta = {h} and replacing the
+# differencing vector with (gamma_h - gamma_{h-delta}), with delta = h.
 #
-# ── Regularized PCS (Implemented in PCS_shift_func) ──────────────────
+# Note: the objective (maximising target correlation) can alternatively be
+# replaced by minimum MSE (assuming a standard case, see the discussion in 
+# Tutorial 9). The two are equivalent up to simple (MSE-optimal) scaling.
 #
-# Because the equality constraints above may be infeasible when the system is
-# rank-deficient (see Exercise 3), Wildi (2026) proposes a regularized version
-# of the criterion (Equation 46, Appendix D). The regularized formulation
-# replaces the hard constraints with a penalty term, yielding a criterion that
-# is always well-defined and admits a unique solution regardless of feasibility.
-# PCS_shift_func() implements this regularized PCS criterion.
+# ── Regularised PCS (Implemented in the main function PCS_shift_func) ────────
+#
+# The equality constraints above may be infeasible when the system is rank-
+# deficient — for example, because of additional structure imposed by the
+# Yule-Walker equations. To handle this, Wildi (2026) proposes a regularised
+# version of the criterion (Equation 46, Appendix D). The regularised
+# formulation replaces the hard equality constraints with a soft penalty term,
+# yielding a criterion that is always well-defined and admits a unique solution
+# regardless of feasibility. PCS_shift_func() implements this regularised PCS
+# criterion. The regularisation weight acts as the key tuning parameter: a
+# larger weight pushes the solution closer to satisfying the slope constraints
+# (stronger peak shifting) at the expense of target correlation, while a
+# smaller weight relaxes the slope requirements and prioritises correlation
+# height at h. Selecting an appropriate regularisation weight therefore
+# provides the flexibility needed to navigate the inherent accuracy–timeliness
+# dilemma of the PCS look-ahead approach.
 #
 # ── Tutorial Structure ────────────────────────────────────────────────
 #
-#   Exercise 1 — Condition II) via a modified DFP approach:
-#                Imposes a local slope constraint at lag h using a suitably
-#                adapted DFP decoupling constraint.
+#   Exercise 1 — PCS II) via a modified DFP approach (h = 1, one-step ahead):
+#                Imposes a local slope constraint at lag h by replacing the
+#                standard DFP decoupling vector gamma_0 with the difference
+#                (gamma_{h-1} - gamma_h), directly enforcing a positive CCF
+#                slope at the target horizon. While the MSE predictor remains
+#                stuck at the present irrespective of the forecast horizon,
+#                the PCS predictor successfully moves the CCF peak from k = 0
+#                to k = h = 1, inducing effective look-ahead behaviour.
 #
-#   Exercise 2 — Replication of Exercise 1 via PCS_shift_func():
-#                Reproduces Exercise 1 using the general regularized PCS
-#                function, confirming consistency between the two approaches.
+#   Exercise 2 — PCS III) for h = 5 via PCS_shift_func():
+#                Relocates the CCF peak at k=h=5 by enforcing a positive 
+#                average growth of the CCF over lags {0, …, h}, i.e., 
+#                requiring CCF(0) < CCF(h), without constraining intermediate 
+#                lags.
 #
-#   Exercise 3 — Geometry of the PCS predictor.
+#   Exercise 3 — PCS I) for h = 5 with a fixed an very large regularisation 
+#                weight and a range of slope parameters:
+#                Relocates the CCF peak by enforcing a linearly increasing CCF
+#                over the full interval {0, …, h}. This is more constraining
+#                than Exercise 2, as it imposes a uniform positive slope at
+#                every intermediate lag, effectively prescribing a linear path
+#                for the CCF from k = 0 to k = h = 5.
 #
-#   Exercise 4 — Infeasibility:
+#   Exercise 4 — PCS I) for h = 5 with a single (fixed) slope and a range of
+#                regularisation weights:
+#                Repeats Exercise 3 but varies the regularisation strength across
+#                a range of values, holding the target slope fixed. This
+#                illustrates how the penalty strength governs the
+#                accuracy–timeliness trade-off: lighter regularisation permits
+#                departures from the strict linear CCF path imposed in
+#                Exercise 3, providing fine-tuning flexibility to better balance
+#                peak shifting against target correlation.
+#
+#   Exercise 5 — PCS vs. fully decoupled DFP:
+#                Compares the look-ahead behaviour and CCF profiles produced
+#                by PCS and the fully decoupled DFP predictor, highlighting
+#                differences in peak location, peak height, and target
+#                correlation.
+#
+#   Exercise 6 — Geometry of the PCS predictor:
+#                Visualises the PCS II predictor in the plane spanned by
+#                gamma_h and gamma_{h-1}, illustrating the geometric
+#                interpretation of the local slope constraint. A comparison
+#                with Tutorial 5, Exercise 1.6 reveals that DFP and PCS are
+#                conceptually distinct approaches — operating in different
+#                geometric planes and enforcing different constraints — even
+#                when their resulting predictors may appear similar in some 
+#                applications.
+#
+#
+#   Exercise 7 — Infeasibility:???
 #                Illustrates cases where the monotonicity constraints are
-#                rank-deficient and the exact PCS criterion has no solution,
-#                demonstrating how regularization recovers a best-effort result.
+#                rank-deficient and the exact PCS criterion admits no solution,
+#                demonstrating how regularisation recovers a best-effort
+#                approximation in the presence of structural infeasibility.
+#
+
 #
 # ════════════════════════════════════════════════════════════════════
 # REFERENCE
@@ -140,16 +285,17 @@ library(xts)
 # ════════════════════════════════════════════════════════════════════
 #
 # We revisit the MA(9) example from Tutorial 1 and address Condition II)
-# (local slope at the target forecast horizon h) by adapting the DFP decoupling framework.
-# Instead of decoupling b from the nowcast predictor gamma_0 (classic DFP),
-# we decouple b from the difference gamma_{h-1} - gamma_h, which can directly
-# enforce a positive slope (shift) in the CCF at lag h.
+# (local positive slope at the target horizon h) by adapting the DFP
+# decoupling framework. Instead of decoupling b from the nowcast predictor
+# gamma_0 (classic DFP), we decouple b from the difference vector
+# (gamma_{h} - gamma_{h-1}), which directly enforces a positive CCF slope
+# at lag h.
 #
-# Data-Generating Process (DGP):
-#   x_t = sum_{k=0}^{9} a1^k * ε_{t-k}        [MA(9) process]
+# Data-Generating Process (DGP), see Tutorial 1:
+#   x_t = sum_{k=0}^{9} a1^k * epsilon_{t-k}        [MA(9) process]
 #
-# The MA(9) is a truncated AR(1) with coefficient a1 = 0.9; its
-# moving-average weights decay geometrically: b_k = a1^k, k = 0, …, 9.
+# The MA(9) is a truncated AR(1) with coefficient a1 = 0.9; its moving-
+# average weights decay geometrically: b_k = a1^k, k = 0, …, 9.
 # ════════════════════════════════════════════════════════════════════
 
 
@@ -245,6 +391,8 @@ gammahm1 <- gamma0 <- c(b_ma, rep(0, L - length(b_ma)))
 
 # Constraint vector: difference between consecutive MSE predictors at lags h-1 and h
 gamma_constraint <- gammahm1 - gammah
+# Note: the sign in gamma_constraint is arbitrary and could be reversed, 
+# together with alpha0 in the constraint.
 
 par(mfrow=c(1,1))
 ts.plot(gamma_constraint,
