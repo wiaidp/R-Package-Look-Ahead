@@ -1753,9 +1753,10 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 #   Note: the unit-length PCS predictor b can be rescaled to yield the
 #   MSE-optimal predictor:
 #
-#     b_mse <- b * (b' * gamma_h) / (b' * b)
+#     b_mse <- b * (b' * gamma_h) / (b' * b) = b * (b' * gamma_h)  
+#     (with b' * b = 1 for the unit-length PCS)
 #
-#   where (b' * gamma_h) / (b' * b) is the optimal scaling factor that
+#   where (b' * gamma_h) is the optimal scaling factor that
 #   minimises the mean squared prediction error along the direction of b.
 
 
@@ -1858,33 +1859,41 @@ solve_acos_bsin_eq(a, b, c)
 #    PCS targets an aggregate, frequency-integrated measure of lead — the
 #    location of the CCF peak. In principle, it can therefore enforce stronger
 #    and more systematic look-ahead behaviour than DFP, which controls the
-#    lead only locally at frequency zero.
+#    lead only locally at frequency zero (see Tutorials 6-9).
 #
 # 2. Three PCS design types:
 #    Three design variants (Types I, II, and III) were presented, each
-#    conditioning an effective CCF peak shift (under suitable conditions) with 
-#    varying degrees of restrictiveness:
+#    conditioning an effective CCF peak shift — under suitable conditions —
+#    with varying degrees of restrictiveness:
 #      - Type II  (weakest):    requires a positive CCF slope at lag h only,
 #                               i.e., CCF(h-1) < CCF(h).
 #      - Type III (moderate):   requires a positive average slope from k = 0
 #                               to k = h, i.e., CCF(0) < CCF(h).
 #      - Type I   (strongest):  requires a strictly increasing CCF over the
 #                               full interval {0, …, h}.
-#    More restrictive designs offer stronger guarantees on the peak location
+#    More restrictive designs offer stronger guarantees on peak relocation
 #    but at a greater potential cost to target correlation. In some cases the
-#    problem is infeasible; in others, none of the three types succeeds in
-#    relocating the CCF peak exactly to k = h. Nevertheless, enforcing any
-#    of the above types generally produces measurable look-ahead behaviour,
-#    provided the problem is feasible.
+#    problem is infeasible — either because the constraints cannot be
+#    satisfied or because the target correlation at h is negative at the the 
+#    constraint values. In other cases, even when the constraints are 
+#    satisfied, none of the three types succeeds in relocating the CCF peak, 
+#    i.e., the global maximum, exactly to k = h. Nevertheless,
+#    enforcing any of the above types generally produces measurable look-ahead
+#    behaviour, provided the problem is at least approximately feasible. Even
+#    fully infeasible problems can be addressed by the regularised Type I PCS,
+#    though sizable constraint residuals may persist even as the regularisation
+#    weight is increased.
 #
 # 3. Feasibility and efficiency:
 #    When a peak shift is feasible, it can often be achieved without imposing
-#    unnecessarily severe structural constraints. Choosing the mildest design
-#    type that still relocates the peak — and tuning the regularisation weight
-#    accordingly — preserves as much target correlation as possible, keeping
-#    the accuracy–timeliness trade-off efficient. As demonstrated in
-#    Exercises 4 and 5, the gain in target correlation may be minor in some 
-#    settings and substantial in others.
+#    unnecessarily severe structural constraints, e.g., a linearly increasing 
+#    CCF. Choosing the mildest design type that still relocates the peak — 
+#    and tuning the regularisation weight accordingly — preserves as much target 
+#    correlation as possible, keeping the accuracy–timeliness trade-off 
+#    efficient. As demonstrated in Exercises 4 and 5, the gain in target 
+#    correlation from relaxing constraints may be minor in some settings and 
+#    substantial in others, depending on the problem formulation, i.e., the 
+#    process structure and forecast horizon.
 #
 # 4. Geometric distinction between DFP and PCS:
 #    DFP and PCS operate in geometrically distinct subspaces: the DFP
@@ -1893,8 +1902,9 @@ solve_acos_bsin_eq(a, b, c)
 #    k in {0, …, h-1}. This geometric difference underlies their distinct
 #    behaviour in terms of CCF shape, peak location, and target correlation.
 #    As illustrated in Exercise 5, however, the practical differences between
-#    the two approaches can be marginal in certain settings.
-
+#    the two approaches can be marginal in certain process structures and
+#    forecast settings.
+#
 
 
 
