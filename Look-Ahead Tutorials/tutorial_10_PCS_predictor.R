@@ -310,7 +310,7 @@ a1 <- 0.9      # geometric decay rate (equal to the underlying AR(1) coefficient
 # MA filter weights: b_k = a1^k, k = 0, …, q
 b_ma <- a1^(0:q)
 
-# Wold decomposition: b_ma with many appended zeroes
+# Wold decomposition: b_ma with appended zeroes (useful when operating shifts).
 xi<-c(b_ma,rep(0,1000))
 
 par(mfrow = c(1, 1))
@@ -341,19 +341,25 @@ ts.plot(x, main = "Simulated MA(9) process")
 # Filter length and forecast horizon
 L <- 20
 h <- 1
-# Reference: apply a higher forecast lead for look ahead behaviour in the MSE
+# Reference: applying a range of forecast horizons (1 <= h_tilde <= 9) confirms
+# the absence of look-ahead behaviour in the MSE predictor — the CCF peak
+# remains stuck at lag k = 0 regardless of the chosen horizon, illustrating
+# the "stuck at present" problem that PCS is designed to overcome.
 htilde<-5
 
 # Feasibility check: for an MA(q) process, the h-step-ahead MSE predictor
 # is identically zero when h > q, because all innovations more than q steps
 # ahead are unobservable.
-if (h > q + 1)
+if (h > q )
   print("(q + 1) must exceed h; otherwise the MSE-optimal forecast is zero.")
 
 # Optimal MSE filter: retain MA coefficients from lag h onward; pad to length L.
 # gammah[k] = b_{h+k} for k = 0, …, q-h, and 0 thereafter.
 gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
+
+par(mfrow=c(1,1))
+ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,") predictors",sep=""))
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.3 PCS Condition II): Setting Up the Modified DFP Constraint
@@ -401,17 +407,19 @@ ts.plot(gamma_constraint,
         sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
 abline(h = 0)
 
-# Given the above shape, one may seriously question whether decoupling b from 
-# gamma_constraint will effectively enforce look-ahead behaviour of the PCS predictor.
+# The shape of gamma_constraint may raise doubts about whether decoupling b
+# from it will effectively enforce look-ahead behaviour in the PCS predictor.
+# The plots below will clarify this point.
 
 # Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor. DFP will enforce a coupling strictly below this.
+# unconstrained MSE predictor. 
+# Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
+# DFP should enforce a coupling strictly below this.
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
-# Sequence of decoupling levels alpha0, decreasing from the MSE baseline
-# toward zero and then into negative territory. Smaller (more negative) values
-# enforce progressively stronger CCF slope at lag h (a right-shift of the peak 
-# towards h=1).
+# Sequence of decoupling levels alpha0, strictly smaller than the above mse_coup. 
+# Smaller (more negative) values enforce progressively stronger CCF slope at 
+# lag h (a right-shift of the peak towards h=1).
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
 # The DFP constraint enforces stronger decoupling form gamma_constraint than 
@@ -460,6 +468,7 @@ for (i in seq_along(alpha0_vec)) {
 
 colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
 colnames(cor_vec_1) <- c("Lag 0", paste0("h=", h))
+rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -548,12 +557,12 @@ box()
 # Right panel (CCFs):
 #   - The MSE predictors maximize the CCF at their respective forecast horizons.
 #   - Enforcing the slope constraint via decoupling works as intended: as
-#     alpha0 decreases, the slope between lags 0 and h flattens and eventually
-#     inverts, confirming a peak shift toward lag h.
+#     alpha0 decreases, the slope between lags 0 and h=1 flattens and eventually
+#     inverts, confirming a peak shift toward lag h=1 (violet line).
 #   - Increasing the forecast horizon (any admissible htilde<=9) does not 
 #     shift the peak of the CCF of the MSE predictor.
-#   - The loss in target correlation at lag h is minimised subject to the
-#     modified decoupling constraint.
+#   - The loss in target correlation at lag h=1 is minimised subject to the
+#     modified decoupling constraint (efficient frontier).
 
 # Tabular summary: CCF at lag 0 and lag h for each decoupling level
 round(cor_vec_1, 2)
@@ -629,7 +638,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 2: PCS III) 
+# EXERCISE 2: PCS III) Impose an Average Positive Slope of the CCF
 # ════════════════════════════════════════════════════════════════════
 
 # We apply the PCS based on case III), assuming h=5.
@@ -683,17 +692,20 @@ ts.plot(gamma_constraint,
         sub = "Algebraic constraint vector encoding the average CCF slope condition from k=0 to h")
 abline(h = 0)
 
-# Given the above shape, one may seriously question whether decoupling b from 
-# gamma_constraint will effectively enforce look-ahead behaviour of the PCS predictor.
+
+# The shape of gamma_constraint may raise doubts about whether decoupling b
+# from it will effectively enforce look-ahead behaviour in the PCS predictor.
+# The plots below will clarify this point.
 
 # Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor. PCS will enforce a coupling strictly below this.
+# unconstrained MSE predictor. 
+# Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
+# DFP should enforce a coupling strictly below this.
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
-# Sequence of decoupling levels alpha0, decreasing from the MSE baseline
-# toward zero and then into negative territory. Smaller (more negative) values
-# enforce progressively stronger CCF slope at lag h (a right-shift of the peak 
-# towards h=1).
+# Sequence of decoupling levels alpha0: strictly smaller than mse_coup. 
+# Smaller (more negative) values enforce progressively stronger average CCF 
+# slope from k=0 to k=h=5 (a right-shift of the peak towards h=5).
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
 # The PCS constraint enforces stronger decoupling form gamma_constraint than 
@@ -742,7 +754,7 @@ for (i in seq_along(alpha0_vec)) {
 
 colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
 colnames(cor_vec_1) <- c("Lag 0", paste0("h=", h))
-
+rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.4 Routine Checks
@@ -830,13 +842,12 @@ box()
 # Right panel (CCFs):
 #   - The MSE predictors maximize the CCF at their respective forecast horizons.
 #   - Enforcing the average slope constraint via decoupling works as intended: as
-#     alpha0 decreases, the average slope between lags 0 and h flattens and eventually
-#     inverts, confirming a peak shift toward lag h.
+#     alpha0 decreases, the average slope between lag 0 and h flattens and eventually
+#     inverts (violet line), confirming a peak shift toward h=5.
 #   - Increasing the forecast horizon (any admissible htilde<=9) does not 
 #     shift the peak of the CCF of the MSE predictor.
-#   - The loss in target correlation at lag h is minimised subject to the
-#     modified decoupling constraint.
-#   - 
+#   - The loss in target correlation at h is minimised subject to the
+#     modified decoupling constraint (efficient frontier).
 
 # Tabular summary: CCF of PCS at lag 0 and lag h for each decoupling level
 round(cor_vec_1, 2)
