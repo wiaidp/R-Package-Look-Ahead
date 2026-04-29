@@ -20,10 +20,8 @@
 # - Decoupling From Present (DFP) weakens the CCF at lag 0 while maximising
 #   it at the forecast horizon h (dilemma, conflicting objectives).
 #
-#     - In some cases, the CCF peak migrates toward lag h as a by-product.
-#         - As an example, under full decoupling, CCF(0) = 0. If the target 
-#           correlation at lag h remains positive (not always possible; 
-#           see Tutorial 9), the CCF peak can no longer be at lag 0.
+#     - In some cases, the CCF peak migrates toward lag h as a by-product, see 
+#       exercise 5 below.
 #
 #     - However, peak-shifting is not an explicit DFP design objective; it is
 #       an indirect and partially uncontrollable outcome.
@@ -48,7 +46,7 @@
 #       CCF value at lag h.
 #
 #     - To obtain an effective peak shift, PCS controls the slope of the CCF
-#       via one of three design choices (Conditions I, II, and III below),
+#       via one of three design choices (Type I, II, and III below),
 #       which differ in the number of lags constrained, the specific lags
 #       targeted, and the degree of flexibility allowed in enforcing the
 #       slope requirements.
@@ -68,10 +66,11 @@
 #       lead measures introduced in Tutorial 2.
 #
 #     - In contrast to DFP, which controls the lead locally at frequency zero
-#       (see Tutorial 6), PCS targets an aggregate lead effect that is ideally
-#       strong enough to relocate the CCF peak. The CCF is itself an aggregate,
-#       frequency-integrated measure of lead, so PCS effectively acts across
-#       the entire frequency band rather than at frequency zero alone.
+#       (see Tutorial 6), PCS targets an aggregate lead effect that is strong 
+#       enough to relocate the CCF peak if the problem is feasible. The CCF is 
+#       itself an aggregate, frequency-integrated measure of lead, so PCS 
+#       effectively acts across the entire frequency band rather than 
+#       specifically at frequency zero (as for the DFP).
 #
 #
 # ── DFP vs. PCS ──────────────────────────────────────────────────────
@@ -1874,7 +1873,7 @@ solve_acos_bsin_eq(a, b, c)
 #    More restrictive designs offer stronger guarantees on peak relocation
 #    but at a greater potential cost to target correlation. In some cases the
 #    problem is infeasible — either because the constraints cannot be
-#    satisfied or because the target correlation at h is negative at the the 
+#    satisfied or because the target correlation at h is negative at the  
 #    constraint values. In other cases, even when the constraints are 
 #    satisfied, none of the three types succeeds in relocating the CCF peak, 
 #    i.e., the global maximum, exactly to k = h. Nevertheless,
