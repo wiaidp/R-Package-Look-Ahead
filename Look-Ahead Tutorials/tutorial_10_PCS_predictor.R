@@ -923,13 +923,12 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 3: PCS I) 
-# Variable Beta, Fixed Large Lambda
+# EXERCISE 3: PCS I) Regularized Criterion with Strong Regularization
 # ════════════════════════════════════════════════════════════════════
 
-# We apply the PCS based on case I), assuming h=5 and regularization weight 
-# lambda large (and fixed).
-
+# We apply the PCS based on case I), assuming h=5 and very large regularization 
+# weight lambda, imposing an unnecessarily restrictive linear pattern on the CCF.
+# We also impose various slope parameters affecting the CCF profile.
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 MSE-Optimal h-Step-Ahead Predictor
 # ─────────────────────────────────────────────────────────────────────
