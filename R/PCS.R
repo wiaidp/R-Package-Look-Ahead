@@ -98,6 +98,7 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
     for (i in 2:length(Delta))
       d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
   }
+  d_delta<-matrix(d_delta,nrow=length(Delta) )
   
   if (F)
   {
