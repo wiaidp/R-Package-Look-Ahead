@@ -361,12 +361,13 @@ gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 
 par(mfrow=c(1,1))
-ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,") predictors",sep=""))
+ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,") 
+                                             predictors",sep=""))
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.3 PCS Condition II): Setting Up the Modified DFP Constraint
+# 1.3 PCS Type II): Setting Up the Modified DFP Constraint
 # ─────────────────────────────────────────────────────────────────────
-# Condition II) requires CCF(h) > CCF(h-1), i.e., the CCF must increase
+# Type II) requires CCF(h) > CCF(h-1), i.e., the CCF must increase
 # over the final step to the forecast horizon h. Using CCF(k) = b' * gamma_k, 
 # this becomes:
 #
@@ -375,7 +376,7 @@ ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,") pre
 #
 # Equivalently, setting alpha0 = b' * gamma_constraint with
 #   gamma_constraint = gamma_{h-1} - gamma_h,
-# Condition II) requires alpha0 < 0.
+# Type II) requires alpha0 < 0.
 #
 # This maps exactly onto a standard DFP decoupling problem: minimise MSE
 # subject to b' * gamma_constraint = alpha0, with gamma_constraint playing
@@ -385,7 +386,10 @@ ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,") pre
 #
 # Remark on interpretation:
 #   Unlike the classic DFP constraint (which decouples b from the observable
-#   present via gamma_0), the constraint vector gamma_constraint = gamma_{h-1} - gamma_h
+#   present via gamma_0), the constraint vector 
+
+#       gamma_constraint = gamma_{h-1} - gamma_h
+
 #   is a difference of two forecast vectors and has no direct physical interpretation
 #   as a "present-value" filter. Its role is purely algebraic: zeroing out
 #   b' * gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
@@ -431,7 +435,7 @@ alpha0_vec
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.4 PCS (DFP) Optimisation over the Decoupling Grid
+# 1.4 PCS Type II) Optimisation over the Decoupling Grid
 # ─────────────────────────────────────────────────────────────────────
 # For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
 # Proposition 1 (Wildi 2026):
@@ -673,9 +677,9 @@ gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 PCS Condition III): Setting Up the Modified PCS Constraint
+# 2.2 PCS Type III): Setting Up the Modified PCS Constraint
 # ─────────────────────────────────────────────────────────────────────
-# Condition III) requires CCF(h) > CCF(0), i.e., the CCF must increase
+# Type III) requires CCF(h) > CCF(0), i.e., the CCF must increase
 # on average from lag 0 to the forecast horizon h. Using 
 # CCF(k) = b' * gamma_k, this becomes:
 #
@@ -684,7 +688,7 @@ gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 #
 # Equivalently, setting alpha0 = b' * gamma_constraint with
 #   gamma_constraint = gamma_0 - gamma_h,
-# Condition III) requires alpha0 < 0.
+# Type III) requires alpha0 < 0.
 #
 
 # For h = 1: gamma_{h-1} = gamma_0 (nowcast predictor, padded to length L)
@@ -1006,7 +1010,7 @@ for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
   
-  # Compute PCS Condition I) predictor.
+  # Compute PCS Type I) predictor.
   PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
@@ -1248,7 +1252,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 # being as restrictive as the large-beta cases in Exercise 3.
 beta <- 0.1
 
-# Constrained lag set: Condition I) requires a positive slope at every lag
+# Constrained lag set: Type I) requires a positive slope at every lag
 # from 1 to h, enforcing a monotonically increasing CCF over {0, …, h}.
 Delta <- 1:h
 
@@ -1262,7 +1266,7 @@ for (i in seq_along(lambda_vec)) {
   
   lambda <- lambda_vec[i]
   
-  # Compute the regularised PCS Condition I) predictor.
+  # Compute the regularised PCS Type I) predictor.
   PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
@@ -1457,6 +1461,12 @@ ccf(na.exclude(y_out_mat[, 1]),
 # Example: full decoupling and one of the PCS with positive slope and near full decoupling
 
 # ─────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
 # 5.1 MSE-Optimal h-Step-Ahead Predictor
 # ─────────────────────────────────────────────────────────────────────
 
@@ -1497,7 +1507,7 @@ beta<-c(0.299)
 Delta <- 1:h
 lambda <- 10
 
-# Compute PCS Condition I) predictor.
+# Compute PCS Type I) predictor.
 PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
 
 # Retrieve MSE optimally scaled PCS: to align with scale of MSE-DFP above. 
@@ -1548,7 +1558,7 @@ for (i in 1:ncol(filter_mat))
                    compute_acf_at_lags_zero_delta_func(
                      max_lag, h, filter_mat[, i], gamma0)$cor_vec)
 colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("Lag ",-max_lag-1+1:nrow(ccf_mat),sep="")
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 mplot <- ccf_mat[1:q, ]
 
 plot(mplot[, 1],
@@ -1569,21 +1579,21 @@ box()
 ccf_mat
 
 # Outcome:
-#   Both designs achieve full or near-full decoupling: the CCF is exactly
-#   zero (DFP) or virtually zero (PCS) at lag k = 0.
+#   Both designs achieve full or near-full decoupling: the CCF (right plot) is 
+#   exactly zero (DFP) or nearly zero (PCS) at lag k = 0.
 #
 #   Under an equivalent full-decoupling constraint, the DFP predictor is
 #   guaranteed to outperform PCS (or any other predictor) in terms of target
 #   correlation at the forecast horizon k = h = 5 (see ccf_mat above).
 #   In practice, however, the margin of outperformance may be small.
 #   Inspecting the CCF plot (or the corresponding table) reveals a subtle
-#   qualitative difference: the PCS CCF is marginally more linear over
+#   qualitative difference: the PCS CCF (cyan) is marginally more linear over
 #   {0, …, h} (the degree of linearity governed by the choice of lambda),
-#   whereas the DFP CCF is slightly concave over the same interval. DFP 
-#   imposes no particular path between k = 0 and k = h — it only requires 
+#   whereas the DFP CCF (red) is slightly flexed (convex) over the same interval. 
+#   DFP imposes no particular path between k = 0 and k = h — it only requires 
 #   CCF(0) = 0 and maximises CCF(h), leaving the intermediate profile 
 #   unconstrained. In the considered MA(9) example, this amounts to an almost 
-#   linear path.
+#   linear (slightly flexed) path.
 #
 #   When full decoupling is the primary objective, DFP offers a simpler
 #   implementation (setting alpha0 = 0 directly enforces CCF(0) = 0) and

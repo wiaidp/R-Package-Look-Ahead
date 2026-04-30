@@ -1,12 +1,31 @@
-# Leading indicator PCS
+# ════════════════════════════════════════════════════════════════════
+# TUTORIAL 11 — PCS: NON-STANDARD CASE
+# ════════════════════════════════════════════════════════════════════
 
-# Aggreagte lead instead of lead at frewuency zero (overfittting, DFP)
-# PCS relies also on decoupling but not from xt. Instead it decouples from hammah-gamma_{h-1}
+# Rely on framework of Tutorial 9. See Tutorial 10 for background on PCS.
 
-# PCS relies on shifting the peak of the CCF. The CCF was considered as 
-# measure for lead/lag, see tutorial ???. In contrast to the previous 
-# zero-freuqnecy lead, the peak correlation is a measure of aggregate lead, 
-# not only at frequency zero.
+# We distinguish three PCS types, see Tutorial 10
+
+#   TYPE I)  
+#       Monotonically increasing CCF over {0, …, h} (most restrictive):
+#       The CCF must be strictly increasing across the full interval, i.e.,
+#       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
+#       and Appendix E. This condition is generally not exactly feasible 
+#       (see Exercise ???); The principal PCS optimization function 
+#       PCS_shift_func() enforces it as closely as possible via regularisation.
+#
+#   TYPE II) 
+#       Local positive slope at the target lag (weaker than I):
+#       The CCF must be increasing over the final step only, i.e.,
+#       CCF(h-1) < CCF(h). See Wildi (2026), Section 3.2.
+#       In some cases where additional structure is imposed by the data-
+#       generating process (e.g., from the Yule-Walker equations of an AR(p)),
+#       conditions I) and II) may become equivalent.
+#
+#   TYPE III) 
+#       Positive average slope from lag 0 to lag h (weaker than I):
+#       The CCF must be increasing on average from k = 0 to k = h, i.e.,
+#       CCF(0) < CCF(h).
 
 # ════════════════════════════════════════════════════════════════════
 
@@ -48,10 +67,10 @@ library(alfred)
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 1: PCS — Non-Standard
+# EXERCISE 1: PCS Type III)
 # ════════════════════════════════════════════════════════════════════
 
-# We rely on the framework in Tutprial 9: ARMA(1,1) applied to PAYEMS.
+# We rely on the framework in Tutorial 9: ARMA(1,1) applied to PAYEMS.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -166,8 +185,8 @@ if (FALSE) {
 # ─────────────────────────────────────────────────────────────────────
 # 1.3 MSE Benchmark
 # ─────────────────────────────────────────────────────────────────────
-# We first consider a short one-step ahead forecast horizon
-h      <- 1       # primary forecast horizon (12 months = one year ahead)
+# We consider a one-year ahead forecast horizon
+h      <- 12       
 
 # Truncate the Wold coefficients to length L to obtain the nowcast
 # filter (gamma0).
@@ -191,11 +210,11 @@ if (tauh > tau0)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.4 PCS Framework
+# 1.4 PCS Type III Framework
 # ─────────────────────────────────────────────────────────────────────
-# The simplest version of the PCS approach imposed decoupling of 
-# the predictor from (gamma_h-1 - gamma_h) instead of gamma0. Since h=1
-# we impose decoupling from (gamma0-gammah)
+# The type III PCS  imposed decoupling of the predictor from (gamma0-gammah).
+# If h=1 then type III and I PCS coincide. However, here h=5, and therefore both 
+# types differ at least pro forma.
 
 
 gamma_constraint<-gamma0-gammah
@@ -272,7 +291,9 @@ optimal_mse_scaling<-as.vector(t(b_mat)%*%gammah/apply(b_mat^2,2,sum))
 # Rescale PCS:
 b_mat_mse<-t(t(b_mat)*(optimal_mse_scaling))
 
-# The optimally scaled PCS minimizes MSE (assuming a standardized white noise input)
+# The optimally scaled PCS is obtained by minimizing the Mean Squared Error (MSE).
+# Note: The MSE values computed here assume a standardized white noise input,
+# meaning the innovation variance (sigma^2 from the ARMA(1,1) model) is ignored.
 apply((b_mat_mse-gammah)^2,2,sum)
 
 # We now assemble all relevant predictors, skipping the fully decoupled design
@@ -329,13 +350,14 @@ mplot  <-ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
 colnames(mplot) <- col_names
+rownames(mplot)<-paste("CCF at lead: ",-1+1:max_lag,sep="")
 ccf_mat<-mplot
 
 plot(mplot[, 1],
      main = "CCF", axes = F, type = "l",
      xlab = "", ylab = "",
      col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
+     ylim = c(min(0,min(mplot)), max(mplot)))
 
 for (i in 1:ncol(mplot)) {
   lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
@@ -349,10 +371,20 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
-# CCF of strong PCS peaks at h=1. Problem: gammah=gamma1 is lagging.  
-# PCS lies on wrong side of gamma1 (taub>tauh)
-# PCS lags gammah 
-# Compare with CCFs in tutorial 9 exercise 2.8 (the CCFs also peak at lead 1)
+# Outcome:
+# Filter coefficients:
+# -The PCS type III coefficients somehow resemble the DFP predictors in Tutorial 9, exercise 2.8.
+#   -There is an important difference though: here, tauh>tau0 (non-standard case) wheres in tutorial 
+#     9 exercise 2, the MSE predictor gammah was modified so that tauh<tau0 (artificially reinstalling the standard case).
+#   -It is therefore surprising that the PCS partly recovers the profile of a solution based on inverted premises.  
+
+# - The CCFs in the right panel peak at lead=1: the peak has not been shifted to h=12.
+# - However, enforcing a negative average slope (beta<0) in the PCS constraint implies that CCF(0)-CCF(12) decreases 
+#   and finally becomes negative (violet line), as confirmed below: 
+
+ccf_mat["CCF at lead: 0",]-ccf_mat[paste("CCF at lead: ",h,sep=""),]
+
+# -The difference could be made more negative by imposing a more negative beta in the constraint.
 
 
 
@@ -366,12 +398,15 @@ box()
 # in the Wold decomposition). Therefore we apply the filters to model residuals.
 x_filt   <- arima.obj$residuals
 
+if (F)
+{
 # Simulated data ARMA(1,1): empirical CCFs converge to expected values.
-len<-1000000
-set.seed(462)
-eps<-x<-x_filt<-rnorm(len)
-for (i in 2:len)
-  x[i]<-a1*x[i-1]+eps[i]+b1*eps[i-1]
+  len<-1000000
+  set.seed(462)
+  eps<-x<-x_filt<-rnorm(len)
+  for (i in 2:len)
+    x[i]<-a1*x[i-1]+eps[i]+b1*eps[i-1]
+}
 
 y_out_mat<-NULL
 for (i in 1:ncol(filter_mat))
@@ -408,31 +443,7 @@ abline(h = 0)
 for (i in 1:ncol(y_out_mat))
   mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
-
-
-# Compute empirical CCF
-k<-ncol(y_out_mat)
-mat<-na.exclude(cbind(x,y_out_mat[,k]))
-cor(mat[,1],mat[,2])
-mat<-na.exclude(cbind(x[(h+1):(len)],y_out_mat[1:(len-h),k]))
-cor(mat[,1],mat[,2])
-
-# Matches expected (true) CCF when the model is true (simulated ARMA(1,1))
-ccf_mat[c(1,h+1),k]
-
-
-# Compute empirical CCF
-k<-3
-mat<-na.exclude(cbind(x,y_out_mat[,k]))
-cor(mat[,1],mat[,2])
-mat<-na.exclude(cbind(x[(h+1):(len)],y_out_mat[1:(len-h),k]))
-cor(mat[,1],mat[,2])
-
-# Matches expected (true) CCF when the model is true (simulated ARMA(1,1))
-ccf_mat[c(1,h+1),k]
-
-
-
+# As in exercise 2, Tutorial 9, the PCS predictors actually LAG the MSE predictor.
 
 
 
@@ -494,15 +505,15 @@ axis(2)
 box()
 
 # Amplitude functions:
-#   - Increasing the lead assigns progressively less weight to lower frequencies.
-#     This aligns with the filter coefficients plotted in Exercise 1.11: more
-#     weight is assigned to epsilon_t, making the predictor increasingly noisy.
+#   - Enforcing a smaller beta reduces low-frequency content (amplitude shrinks at lower frequencies)
+#     and increases noise leakage (amplitudes grow at higher frequencies).
+#   - The signal to noise ratio is negatively affected.
 #
 # Time shifts:
-#   - The decrease in time-shift at frequency zero corresponds exactly to
-#     lead_vec as imposed by the DFP constraint.
-#   - Part of the lead propagates to business-cycle frequencies, so that the
-#     forecasts effectively lead at recessions; see Exercise 1.12.
+#   - Remarkably, the worse signal to noise ratio does not imply a lower time-shift in this example.
+#   - This result can be constrasted with exercise 2, tutorial 9, where the worse signal-to-noise ratio
+#     obtained a smaller shift at frequency zero (a lead) but a larger lag at the relevant business-cycle frequencies.
+#   - So in way the type III PCS obtained worsened both characteristics in this case (it is not on the efficient ATS frontier).
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -578,16 +589,265 @@ ts.plot(
 for (i in 1:ncol(filter_mat_ar))
   mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
 
+
+
+
+
+###################################################################################################
+###################################################################################################
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.2 PCS Type I): Parameter Setup
+# ─────────────────────────────────────────────────────────────────────
+
+# Grid of target slope values to be imposed on the CCF. A positive beta
+# implies that the CCF increases regularly from k = 0 to k = h, provided:
+#   1) The optimisation problem is feasible, and
+#   2) The regularisation weight lambda is sufficiently large to drive the
+#      solution close to exact constraint satisfaction.
+# Negative or zero values of beta are also included as reference cases to
+# illustrate how the CCF profile and peak location respond to the slope target.
+beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+
+# Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
+# here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
+# positive and the problem is feasible) over the full interval
+# {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
+Delta <- 1:h
+
+# Very large regularisation weight: drives the solution toward exact
+# satisfaction of all h slope constraints simultaneously, producing a CCF
+# that increases linearly from k = 0 to k = h with uniform slope
+# beta / (b' * b). In practice, this level of regularisation is typically
+# more restrictive than necessary and may reduce target correlation unduly
+# (see the discussion in Exercises 3.5 and 4).
+lambda <- 100000
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.3 PCS Optimisation over the Slope Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each beta in beta_vec, compute the regularised PCS predictor using
+# criterion (46) from Appendix D of Wildi (2026).
+
+b_mat <- NULL    # filter coefficients, one column per beta value
+
+for (i in seq_along(beta_vec)) {
+  
+  beta <- beta_vec[i]
+  
+  # Compute PCS Type I) predictor.
+  PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
+  
+  b       <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat   <- cbind(b_mat, b)
+  
+  # Constraint check: for a feasible system, the deviation of each slope
+  # constraint from its target beta should shrink to zero as lambda -> Inf.
+  # Each printed value is the residual for one of the h = 5 constraints.
+  # Large lambda means small deviations provided the problem is feasible.
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.4 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS slope constraints ───────────────────────────────────
+# Validated in the loop above: for a feasible system, residuals of each slope
+# constraint should vanish as lambda increases.
+
+# ── Check 2: Sign / orientation preservation ─────────────────────────
+# A strictly positive sum of filter coefficients confirms that the filter
+# does not invert the direction of a trend or level shift in the data.
+# Here, all peak-shifting designs (beta > 0) produce negative coefficient
+# sums, indicating trend inversion. This is a direct and potentially
+# undesirable cost of aggressive look-ahead behaviour under strong
+# regularisation: the linear CCF constraint forces the filter to assign
+# sufficiently negative weights to older lags that the overall orientation
+# of the filter is reversed. Milder regularisation (explored in Exercise 4)
+# can alleviate this potentially undesirable effect.
+apply(b_mat, 2, sum)
+
+# ── Check 3: Positive target covariance ──────────────────────────────
+# Confirms that each PCS predictor has a positive inner product with the
+# h-step-ahead MSE predictor, i.e., a positive target correlation at lag h.
+t(b_mat) %*% gammah
+
+# Assemble all filters (nowcast, MSE references, and PCS variants) into a
+# single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah,  b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("PCS lambda=", lambda,
+                                 ", beta=", round(beta_vec, 2)))
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.5 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- filter_mat
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Outcomes ─────────────────────────────────────────────────────────
+#
+# Left panel (filter coefficients):
+#   - Unlike the MSE predictor, the PCS filters assign non-zero weight up to
+#     the farthest lag k = q.
+#   - As the slope parameter beta increases, weight is progressively shifted
+#     away from recent observations toward older lags. This is counter-intuitive
+#     but is a direct algebraic consequence of enforcing the CCF slope constraint.
+#   - The most extreme PCS designs exhibit negative weights on older lags,
+#     which causes trend inversion — a direct cost of aggressive look-ahead.
+#
+# Right panel (CCFs):
+#   - The MSE predictors maximise the CCF at their respective horizons h and
+#     h_tilde, but the peak remains at k = 0 in both cases (stuck at present).
+#   - Very large lambda forces the CCF to follow a strictly linear path from
+#     k = 0 to k = h = 5, regardless of whether this is necessary (assuming 
+#     the problem is feasible).
+#   - A positive slope parameter beta relocates the CCF peak toward h = 5,
+#     as intended by the PCS design.
+#   - Both the linear CCF constraint and a large positive beta are more
+#     restrictive than necessary for look-ahead purposes, and both reduce
+#     the achievable target correlation at k = h (the lowest peak value 
+#     is attained by the largest beta PCS, violet line).
+#   - The loss in target correlation at lag h is minimised subject to the
+#     imposed constraints; however, the constraints themselves are overly
+#     tight in this example, making the trade-off unnecessarily costly.
+
+# Technical note:
+#   As the regularisation weight lambda increases, the CCF slope at each
+#   constrained lag converges to beta / (b' * b), i.e., the target slope
+#   beta divided by the squared norm of the filter vector b. The dependence
+#   on ||b||^2 arises naturally from the unconstrained structure of the
+#   optimisation: removing it would require imposing a unit-norm constraint
+#   on b, which complicates the geometry and typically leads to multiple
+#   solutions (cf. the unitary DFP in Tutorial 4). Crucially, this
+#   normalisation does not affect the look-ahead properties of the predictor,
+#   since the CCF peak location is invariant to a common positive scaling
+#   of b.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.6 Applying the Filters to Simulated Data
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 3.6.1 Forecast Comparison ────────────────────────────────────────
+
+# Generate a long white-noise series for reliable empirical evaluation.
+set.seed(17)
+len <- 10000
+eps <- rnorm(len)
+
+# Apply each filter to eps via causal (one-sided) convolution.
+# filter(..., sides = 1) computes sum_{k=0}^{L-1} b_k * eps_{t-k}.
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat,
+                     filter(eps, filter_mat[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+colo <- c("black", "green", "darkgreen", rainbow(ncol(b_mat)))
+
+# Plot a short excerpt to visually compare the temporal alignment of each
+# predictor output relative to the target series.
+anf <- 390
+enf <- 430
+
+par(mfrow = c(1, 1))
+ts.plot(scale(y_out_mat[anf:enf, ]),
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], col = colo[i], line = -i)
+
 # Outcome:
-# - The MSE predictor decays monotonically, following an exponential form a1^k:
-gammah[2:L]/gammah[1:(L-1)]
-# - Mild decoupling (small lead) gives more weight to x_t, which is intuitive.
-# - Stronger decoupling (larger leads) further increases the weight on x_t
-#   but assigns increasingly negative weights to lagged observations.
-# -Compare with the MA form  in exercise 1.11.
+#   As beta increases, the predictor output shifts progressively to the left
+#   (further ahead in time) relative to the MSE predictor. This visual lead
+#   is confirmed quantitatively by the empirical CCFs below.
 
+# ── 3.6.2 Empirical CCF Comparison ───────────────────────────────────
+# Compute empirical CCFs between the nowcast (x_t) and each predictor to
+# confirm that the population peak shift observed in Section 3.5 is
+# reproduced in finite-sample data.
 
+par(mfrow = c(2, 2))
 
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, 2]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: MSE(", h, "): Peak at k = 0 (no peak shift)"))
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, 3]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: MSE(", htilde, "): Peak at k = 0 (no peak shift)"))
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: strongest PCS predictor\n",
+                  "Peak shifted from k = 0 to k = h = ", h))
+
+# Outcome:
+#   The empirical CCF confirms the population-level peak shift toward h = 5,
+#   consistent with the population results in Section 3.5. However, because
+#   lambda is very large and the slope beta is also unnecessarily large, the
+#   imposed linear CCF constraint is overly tight: the predictor is forced to
+#   satisfy restrictive slope requirements across all lags in {0, …, h},
+#   reducing the achievable target correlation at h more than necessary.
+#   Exercise 4 addresses this by holding beta fixed to a smaller value and 
+#   varying the regularisation weight across a range of values, demonstrating 
+#   how a lighter design can recover target correlation while preserving the
+#   essential peak-shifting behaviour.
 
 
 

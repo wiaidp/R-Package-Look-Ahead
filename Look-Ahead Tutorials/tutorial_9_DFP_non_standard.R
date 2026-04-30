@@ -242,7 +242,7 @@ ts.plot(scale(cbind(gammah,gammahtilde),scale=T,center=F),
 # |lead| compared to MSE predictor. 
 # Note: the lead is relative to the MSE predictor. The absolute shift is 
 # tauh-|lead|. If tauh-|lead|>0 the DFP is still lagging in absolute terms, 
-# but leading compared to gammah.
+# but leading when compared to gammah.
 lead_vec <- -2^((-1):3)
 lead_vec
 
