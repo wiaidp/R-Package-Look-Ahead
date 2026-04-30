@@ -819,7 +819,8 @@ box()
 # ─────────────────────────────────────────────────────────────────────
 
 
-xi_truncate<-c(xi[1:L],rep(0,length(xi)-((L))))
+truncate_at<-L
+xi_truncate<-c(xi[1:truncate_at],rep(0,length(xi)-(truncate_at)))
 
 par(mfrow=c(1,1))
 ts.plot(cbind(xi,xi_truncate)[1:(2*L),],col=c("black","red"),lty=c(1,2))
@@ -855,7 +856,7 @@ eigen(gamma_mat_truncate)$values
 h<-12
 
 beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
-beta_vec <- c(-0.2, -0.1, 0, 0.02, 0.04, 0.06)
+beta_vec <- c(-0.2, -0.1, 0, 0.02, 0.04)
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
 # here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
@@ -869,7 +870,7 @@ Delta <- 1:h
 # beta / (b' * b). In practice, this level of regularisation is typically
 # more restrictive than necessary and may reduce target correlation unduly
 # (see the discussion in Exercises 3.5 and 4).
-lambda <- 100000
+lambda <- 5
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -937,7 +938,7 @@ colnames(filter_mat) <- c("Nowcast",
                                  ", beta=", round(beta_vec, 2)))
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.5 Plots and Performance Summary
+# 3.5 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
@@ -985,29 +986,75 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
-# Outcome:
-# Filter coefficients:
-# -Complying with a positive CCF slope is only possible when flipping the sign of the predictor.
-#   This is because of the structural constraints imposed by the data generating process
-#   gamma_h is proportional to gamma_htilde whenever h,htilde>=1. 
-#   There are no degrees of freedom left for optimization.
-# -The sign flip explains the negative target correlation when beta<0.
+# ─────────────────────────────────────────────────────────────────────
+# 3.6 Compare Forecasts
+# ─────────────────────────────────────────────────────────────────────
+#----------------------------------------------------------------------
+# 3.6.1 Apply Predictors to data
+#----------------------------------------------------------------------
+# All filters are defined in MA form (as applied to the einnovations eps_t 
+# in the Wold decomposition). Therefore we apply the filters to model residuals.
+x_filt   <- arima.obj$residuals
 
-# CCF
-# - A positive slope can be enforced when flipping the sign of the predictor.
-# - As a result, the target correlation is negative, too.
+if (F)
+{
+  # Simulated data ARMA(1,1): empirical CCFs converge to expected values.
+  len<-1000000
+  set.seed(462)
+  eps<-x<-x_filt<-rnorm(len)
+  for (i in 2:len)
+    x[i]<-a1*x[i-1]+eps[i]+b1*eps[i-1]
+}
 
-# Note: for h=1 PCS type I and II are feasible because gamma0 and gamma1 are not collinear. But the solution is lagging.
-# For h>1 neither type I nor II are feasible, due to collinearity of gammah for h>=1.
-# Type III is feasible irrespetive of h because gamma0 and gammah are not collinear. But the filter is useless (poor signal noise ratio AND higher lag)
+y_out_mat<-NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat<-cbind(y_out_mat,filter(x_filt,filter_mat[, i], side = 1))
+colnames(y_out_mat) <- col_names
+
+# Scale to facilitate visual inspection
+y_out_mat<-scale(y_out_mat,center=F,scale=T)
+
+#----------------------------------------------------------------------
+# 3.6.2 Plot
+#----------------------------------------------------------------------
+
+par(mfrow = c(1, 1))
+# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
+ts.plot(y_out_mat,
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
 
 
-# Main Take-Aways
-# Type III PCS is feasible but useless (lagging)
-# Type I and II PCS are infeasible: enforcing the constraints leads to a negative target correlation.
+# Dotcom recession
+ts.plot(y_out_mat[120:170,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+# Financial crisis
+ts.plot(y_out_mat[200:250,],
+        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
+        lty=c(2,2,rep(1,ncol(filter_mat)-2)),lwd=c(1,2,rep(1,ncol(filter_mat)-2)))
+abline(h = 0)
+for (i in 1:ncol(y_out_mat))
+  mtext(colnames(y_out_mat)[i],col=colo[i],line=-i)
+
+
+# Apply PCS to simulated series (instead of PAYEMS)
+# Base constraints on gammah derived from AR(2), but target based on ARMA(1,1)
+# Full rank space or 3-dim space (AR(2) + AR(1)=3-d)
 
 
 
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 4: Perturbation Based Approach
+# ════════════════════════════════════════════════════════════════════
 
 
 
