@@ -51,13 +51,33 @@ PCS_shift_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_
     gammah_mat<-NULL
   } else
   {
+    if (Delta[1]<1)
+    {
+      print("Delta[1] must be larger or equal 1")
+      return()
+    }
     gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] 
   }
   if (length(Delta) > 0)
   {
     for (i in 1:length(Delta))
+    {
+      if (Delta[i] + 1<1)
+      {
+        print("Delta[i] + 1<1")
+        print("The index is outside gamma_target")
+        return()
+      }
+      if (Delta[i] + L>length(gamma_all))
+      {
+        print("Delta[i] + L>length(gamma_all)")
+        print("The index is outside gamma_target")
+        return()
+      }
+      
       gammah_mat <- rbind(gammah_mat,
                           gamma_all[Delta[i] + 1:L])
+    }
   }
   
   

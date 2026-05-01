@@ -1208,9 +1208,6 @@ lambda<-1
 
 
 
-Delta <- c(0,12)
-lambda<-1000
-
 
 
 if (length(Delta)>=length(which(abs(eigenvalues)>10^{-10}))-1)
