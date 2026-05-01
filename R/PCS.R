@@ -13,7 +13,7 @@
 #   Delta  : Integer vector of leads over which the CCF is required to be increasing.
 #   beta   : Target slope. A positive value shifts the CCF peak to the right
 #            (i.e., toward higher leads).
-#   xi     : Wold decomposition coefficients of the target process.
+#   gamma_target : MA form of target (in classic forecasting this is the Wold decomposition).
 #   L      : Filter length (number of coefficients to be estimated).
 #   lambda : Regularization (penalty) parameter controlling the strength of the
 #            monotonicity constraint. Larger values enforce the constraint more
@@ -28,10 +28,10 @@
 #   multiple solutions.
 
 
-PCS_shift_func <- function(Delta, xi, L, beta, lambda)
+PCS_shift_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F)
 {
 # MSE h-step predictor  
-  gammah<-xi[h+1:L]
+  gammah<-gamma_target[h+1:L]
   
   # Flip the sign of beta to align the internal convention with the paper's
   # definition: a positive beta in the function interface corresponds to a
@@ -39,18 +39,27 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   # internal slope.
   slope <- -beta
   
-  gamma_all <- xi
+  gamma_all <- gamma_target
   
   # --- Build the shifted covariance matrix 'gammah_mat' ---
   # Each row contains the MSE predictor coefficients (gamma_all) shifted by
   # a specific lead value drawn from 'Delta'. 
-  gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] 
+  # We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
+  # and therefore we need gamma_{Delta[1] - 1} to define the first difference.
+  if (initialize_with_null)
+  {
+    gammah_mat<-NULL
+  } else
+  {
+    gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] 
+  }
   if (length(Delta) > 0)
   {
     for (i in 1:length(Delta))
       gammah_mat <- rbind(gammah_mat,
                           gamma_all[Delta[i] + 1:L])
   }
+  
   
   # --- Compute consecutive difference vectors ('d_delta') ---
   # Each row of d_delta is the difference between two consecutive rows of
@@ -93,12 +102,19 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   # directly; however, because it is constant across all lead pairs, the
   # relative slopes are preserved and the monotonicity ordering is unaffected.
   d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
-  if (length(Delta) > 1)
+  if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
       d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
   }
-  d_delta<-matrix(d_delta,nrow=length(Delta) )
+  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
+  
+  # For a full-rank PCS system, the `squared' constraint matrix should be strictly positive definite  
+  min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
+  max_eigen<-max(eigen(d_delta%*%t(d_delta))$values)
+  if (min_eigen/max_eigen<10^{-12})
+    print("PCS constraints eventually singular: problem is potentially infeasible")
+  
   
   if (F)
   {
@@ -123,7 +139,7 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   #    deficient, while the outer-product terms penalize deviations from the
   #    monotonicity target.
   M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
-  if (length(Delta) > 1)
+  if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
       M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
@@ -134,8 +150,8 @@ PCS_shift_func <- function(Delta, xi, L, beta, lambda)
   #    The second term encodes the desired target slope into the linear system:
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
-  gamma_sol <- gammah_mat[h, ] + lambda * slope * d_delta[1, ]
-  if (length(Delta) > 1)
+  gamma_sol <- gammah_mat[length(Delta), ] + lambda * slope * d_delta[1, ]
+  if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
       gamma_sol <- gamma_sol + lambda * slope * d_delta[i, ]
