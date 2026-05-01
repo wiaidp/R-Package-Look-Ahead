@@ -16,12 +16,31 @@
 #   b) All constraints can be met exactly, but the implied target correlation
 #      is negative.
 #
+# Note: A PCS problem may be declared infeasible in the above sense even when
+# a PCS predictor exists whose CCF peaks at k = h with a positive target
+# correlation. This can occur, for instance, when the CCF increases toward k = h
+# in a non-linear or non-monotonic fashion that is not captured by any of the
+# three constraint types:
+#   - Type I may be overly restrictive, as it requires a strictly (linearly)
+#     increasing CCF over the full interval k = 0, …, h, when imposing a very 
+#     large regularization weight.
+#   - Types II and III may be insufficiently restrictive, requiring only a
+#     local increase from k = h-1 to k = h, or a positive average increase
+#     from k = 0 to k = h, respectively.
+#
+# For this reason, we generally recommend Type I, but paired with a moderate
+# regularization weight that permits controlled departures from the strictly
+# linear CCF increase. This relaxation frees up degrees of freedom that can
+# then be directed toward maximizing the objective function, ensuring that the
+# look-ahead design achieves optimal tracking of the target at horizon h.
+#
+#
 # This tutorial analyzes a simple infeasible example within the framework of
 # Tutorial 9, based on an ARMA(1,1) process fitted to the monthly PAYEMS
 # employment (and business cycle) indicator, see example 1 and 2 below.
 #
-# We also address infeasibility by proposing variants (see exercises 3-5) that 
-# will be explored and refined later.
+# We also address solutions to infeasibility by proposing variants (see 
+# exercises 3-5) that will be explored and refined later.
 #
 # We begin with a brief summary of the main PCS predictor typology, organized
 # by the underlying constraint structure and solution space. See Tutorial 10
