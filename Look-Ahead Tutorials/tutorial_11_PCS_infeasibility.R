@@ -5,17 +5,28 @@
 # The DFP and PCS look-ahead approaches impose constraints on the cross-
 # correlation function (CCF) of the resulting predictors.
 #
-# These constraints may conflict with the internal structure of the data-
-# generating process (DGP). In such cases, the degrees of freedom available
-# for maximizing the objective — namely, the target correlation at a
-# prespecified horizon h — may shrink, leaving little potential to effectively
-# look ahead. In some cases the conflict is so severe that a feasible solution
-# does not exist, meaning that:
+# Specifically, the DFP controls CCF(0) while maximizing CCF(h), whereas the
+# PCS ideally shifts the peak of the CCF toward k = h, while maximizing 
+# peak-height.
+#
+# In difficult forecasting problems where the MSE predictor is "stuck at the
+# present" (i.e., the CCF peaks at k = 0), two complementary strategies can
+# unlock look-ahead behavior:
+#   - Decoupling the predictor from the nowcast by controlling CCF(0), as in
+#     the DFP approach.
+#   - Shifting the CCF peak away from k = 0 toward k = h, as targeted by the
+#     PCS approach, when feasible.
+#
+# However, the constraints imposed on the CCF may conflict with the internal
+# structure of the data-generating process (DGP). In such cases, the degrees
+# of freedom available for maximizing the objective — namely, the target
+# correlation at the prespecified horizon h — may shrink, leaving little
+# potential to effectively look ahead. In some cases the conflict is so severe
+# that a feasible solution does not exist, meaning that:
 #   a) Some constraints cannot be satisfied simultaneously
 #      (the system is overdetermined), or
 #   b) All constraints can be met exactly, but the implied target correlation
 #      is negative.
-#
 # Note: A PCS problem may be declared infeasible in the above sense even when
 # a PCS predictor exists whose CCF peaks at k = h with a positive target
 # correlation. This can occur, for instance, when the CCF increases toward k = h
@@ -32,7 +43,8 @@
 # regularization weight that permits controlled departures from the strictly
 # linear CCF increase. This relaxation frees up degrees of freedom that can
 # then be directed toward maximizing the objective function, ensuring that the
-# look-ahead design achieves optimal tracking of the target at horizon h.
+# look-ahead design achieves optimal tracking of the target at horizon h. 
+# Moreover, departures from strict linearity are allowed in a controlled manner.
 #
 #
 # This tutorial analyzes a simple infeasible example within the framework of
@@ -79,15 +91,17 @@
 # Each condition is necessary but not sufficient for attaining a global maximum
 # of the CCF at lag k = h. Nevertheless, even when the CCF peak does not fall
 # exactly at k = h, the resulting PCS predictor generally exhibits look-ahead
-# behavior, provided the problem is feasible.
+# behavior. 
 #
 # Among the three types, Type I is the most stringent: it imposes the largest
-# number of constraints (one per lag from k = 1 to k = h), which maximizes the
+# number of constraints (one per lag from k = 1 to k = h), which increases the
 # chances of achieving a CCF peak at k = h, but simultaneously leaves the fewest
 # degrees of freedom for optimizing the objective (i.e., the target correlation
-# at forecast horizon h). As a result, Type I is also the most likely to be
-# infeasible, with the risk of infeasibility increasing with h and depending
-# strongly on the structure of the DGP.
+# at forecast horizon h) and subjects the CCF to an unnecessarily rigid 
+# (monotonic, linear) profile.
+# As a result, Type I is the most likely to be infeasible, with the risk of
+# infeasibility increasing with h and depending strongly on the structure of
+# the DGP.
 #
 # Infeasible problems can be addressed via regularization, which penalizes
 # departures from the constraints. When the problem is truly infeasible, these
@@ -96,7 +110,11 @@
 # Assigning a moderate (rather than arbitrarily large) regularization weight
 # preserves flexibility, unfreezes degrees of freedom, and allows the optimizer
 # to maximize tracking accuracy at horizon h (i.e., target correlation /
-# minimum MSE).
+# minimum MSE). This flexibility also accommodates a wider variety of CCF
+# shapes, including non-linear or non-monotonic profiles, that would otherwise
+# be excluded by rigid constraints — ultimately improving the chances of
+# locating the CCF peak at the forecast horizon k = h and maximizing its height.
+
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
 
@@ -109,7 +127,7 @@
 #   ratio (i.e., increases noise) and introduces lag — a doubly adverse outcome.
 #   This pathological behavior arises from imposing the Type III constraint
 #   under adverse structural conditions of the DGP, which leave insufficient
-#   degrees of freedom to address the problem.
+#   degrees of freedom to address the prediction problem.
 
 
 # Example 2 — PCS Type I with Strong Regularization: Infeasible
@@ -134,7 +152,7 @@
 #   space expands from dimension 2 to dimension L (= 50), providing greater
 #   freedom to optimize the target correlation.
 #   The problem becomes feasible and the CCF increases monotonically,
-#   peaking at k = 12. However, because the perturbations are not optimized,
+#   peaking at k = 12. However, because the perturbations are arbitrary,
 #   the predictor is prone to trend reversals and is not straightforwardly
 #   interpretable.
 
@@ -1716,3 +1734,9 @@ ccf(na.exclude(y_out_mat[, 1]),
                   But strongest peaks at lags -1,-2"))
 
 
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 6: As Exercise 4 but Perturbation at lag 0
+# ════════════════════════════════════════════════════════════════════
+
+# Provide delta_vec or delta_mat that is superimposed to gammah_mat in the PCS function.
