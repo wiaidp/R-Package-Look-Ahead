@@ -1,49 +1,161 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 11 — PCS: NON-STANDARD CASE
+# TUTORIAL 11 — PCS: INFEASIBILITY
 # ════════════════════════════════════════════════════════════════════
 
-# Rely on framework of Tutorial 9. See Tutorial 10 for background on PCS.
-
-# We distinguish three PCS types, see Tutorial 10
-
-#   TYPE I)  
-#       Monotonically increasing CCF over {0, …, h} (most restrictive):
-#       The CCF must be strictly increasing across the full interval, i.e.,
-#       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
-#       and Appendix E. This condition is generally not exactly feasible 
-#       (see Exercise ???); The principal PCS optimization function 
-#       PCS_shift_func() enforces it as closely as possible via regularisation.
+# The DFP and PCS look-ahead approaches impose constraints on the cross-
+# correlation function (CCF) of the resulting predictors.
 #
-#   TYPE II) 
-#       Local positive slope at the target lag (weaker than I):
+# These constraints may conflict with the internal structure of the data-
+# generating process (DGP). In such cases, the degrees of freedom available
+# for maximizing the objective — namely, the target correlation at a
+# prespecified horizon h — may shrink, leaving little potential to effectively
+# look ahead. In some cases the conflict is so severe that a feasible solution
+# does not exist, meaning that:
+#   a) Some constraints cannot be satisfied simultaneously
+#      (the system is overdetermined), or
+#   b) All constraints can be met exactly, but the implied target correlation
+#      is negative.
+#
+# This tutorial analyzes a simple infeasible example within the framework of
+# Tutorial 9, based on an ARMA(1,1) process fitted to the monthly PAYEMS
+# employment (and business cycle) indicator, see example 1 and 2 below.
+#
+# We also address infeasibility by proposing variants (see exercises 3-5) that 
+# will be explored and refined later.
+#
+# We begin with a brief summary of the main PCS predictor typology, organized
+# by the underlying constraint structure and solution space. See Tutorial 10
+# for general background on PCS.
+
+# ── PCS PREDICTOR TYPOLOGY ────────────────────────────────────────────────────
+
+#   TYPE I — Monotonically Increasing CCF over {0, …, h}  [Most Restrictive]
+#
+#       The CCF must be strictly increasing across the full lag interval, i.e.,
+#           CCF(k-1) < CCF(k)  for all k = 1, …, h.
+#       See Wildi (2026), Section 3.2 and Appendix E.
+#       This condition is generally not exactly feasible (see Exercise 1).
+#       The principal PCS optimization function PCS_shift_func() enforces it
+#       as closely as possible via regularization.
+#
+#   TYPE II — Positive Local Slope at the Target Lag  [Weaker than Type I]
+#
 #       The CCF must be increasing over the final step only, i.e.,
-#       CCF(h-1) < CCF(h). See Wildi (2026), Section 3.2.
-#       In some cases where additional structure is imposed by the data-
-#       generating process (e.g., from the Yule-Walker equations of an AR(p)),
-#       conditions I) and II) may become equivalent.
+#           CCF(h-1) < CCF(h).
+#       See Wildi (2026), Section 3.2.
+#       In cases where additional structure is imposed by the DGP (e.g., via
+#       the Yule-Walker equations of an AR(p) process), Types I and II may
+#       become equivalent and may be equally feasible or infeasible.
 #
-#   TYPE III) 
-#       Positive average slope from lag 0 to lag h (weaker than I):
+#   TYPE III — Positive Average Slope from Lag 0 to Lag h  [Weaker than Type I]
+#
 #       The CCF must be increasing on average from k = 0 to k = h, i.e.,
-#       CCF(0) < CCF(h).
+#           CCF(0) < CCF(h).
+
+# Summary of constraints when feasible:
+#   Type I:   CCF(k) > CCF(k-1)  for k = 1, …, h  (h constraints)
+#   Type II:  CCF(h) > CCF(h-1)                    (1 constraint)
+#   Type III: CCF(h) > CCF(0)                      (1 constraint)
+#
+# Each condition is necessary but not sufficient for attaining a global maximum
+# of the CCF at lag k = h. Nevertheless, even when the CCF peak does not fall
+# exactly at k = h, the resulting PCS predictor generally exhibits look-ahead
+# behavior, provided the problem is feasible.
+#
+# Among the three types, Type I is the most stringent: it imposes the largest
+# number of constraints (one per lag from k = 1 to k = h), which maximizes the
+# chances of achieving a CCF peak at k = h, but simultaneously leaves the fewest
+# degrees of freedom for optimizing the objective (i.e., the target correlation
+# at forecast horizon h). As a result, Type I is also the most likely to be
+# infeasible, with the risk of infeasibility increasing with h and depending
+# strongly on the structure of the DGP.
+#
+# Infeasible problems can be addressed via regularization, which penalizes
+# departures from the constraints. When the problem is truly infeasible, these
+# deviations do not vanish as the regularization weight grows, since the
+# constraints cannot be satisfied regardless of how strongly they are enforced.
+# Assigning a moderate (rather than arbitrarily large) regularization weight
+# preserves flexibility, unfreezes degrees of freedom, and allows the optimizer
+# to maximize tracking accuracy at horizon h (i.e., target correlation /
+# minimum MSE).
+
+# ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
+
+# Example 1 — PCS Type III: Feasible but Ineffective.
+#   The problem is feasible in the sense that CCF(h) > CCF(0), as required by
+#   the Type III constraint, and the target correlation is positive. However, 
+#   the CCF peak occurs at k = 1 rather than at the target horizon k = h = 12, 
+#   so the look-ahead objective is not achieved.
+#   More strikingly, the resulting filter simultaneously worsens the signal-to-noise
+#   ratio (i.e., increases noise) and introduces lag — a doubly adverse outcome.
+#   This pathological behavior arises from imposing the Type III constraint
+#   under adverse structural conditions of the DGP, which leave insufficient
+#   degrees of freedom to address the problem.
+
+
+# Example 2 — PCS Type I with Strong Regularization: Infeasible
+#   Imposing a monotonically (linearly) increasing CCF from k = 0 to k = h
+#   is infeasible for this DGP:
+#   - The constraints can be satisfied exactly, but the resulting target
+#     correlation is negative.
+#   - Ten out of the 12 imposed constraints are redundant, due to the
+#     ARMA(1,1) structure: the ACF decays exponentially for lags beyond q = 1
+#     (Yule-Walker equations apply for k > q = 1).
+#   - The nowcast coefficient gamma_0 (Wold decomposition) is not collinear
+#     with the one-step-ahead MSE predictor gamma_1, but gamma_1 and gamma_h
+#     are collinear for any h > 0.
+#   - Consequently, only two degrees of freedom are available to solve what
+#     reduces to a regular 2-dimensional linear constraint system, yielding a
+#     unique solution with no room for further optimization.
+
+# Examples 3–5 — Restoring Feasibility via Three Different Approaches
+
+# Example 3 — PCS Type I with Perturbation (builds on Example 2)
+#   The framework from Example 2 is slightly perturbed so that the solution
+#   space expands from dimension 2 to dimension L (= 50), providing greater
+#   freedom to optimize the target correlation.
+#   The problem becomes feasible and the CCF increases monotonically,
+#   peaking at k = 12. However, because the perturbations are not optimized,
+#   the predictor is prone to trend reversals and is not straightforwardly
+#   interpretable.
+
+# Example 4 — PCS Type I with Yearly Growth Target (builds on Example 3)
+#   The target is changed from monthly growth to yearly growth.
+#   The solution space expands to dimension 12. Three settings are explored:
+#
+#   Setting 4.1 — Constraint space of dimension 12:
+#     Exactly determined; the system can be solved exactly but leaves no
+#     degrees of freedom for target correlation maximization. The resulting
+#     target correlation is negative.
+#
+#   Setting 4.2 — Constraint space of dimension 11:
+#     Leaves one degree of freedom for target maximization. The problem is
+#     feasible and the PCS exhibits look-ahead behavior.
+#
+#   Setting 4.3 — Constraint space of dimension 13 (overdetermined) with
+#     moderate lambda:
+#     An approximately feasible solution exists. The CCF peak is shifted
+#     (though not exactly to h = 12), the target correlation is positive,
+#     and the PCS exhibits look-ahead behavior.
+
+# Example 5 — PCS Type III with Yearly Growth Target (builds on Example 4)
+#   The constraint space is 2-dimensional and therefore underdetermined:
+#   the problem is feasible and the predictor exhibits look-ahead behavior.
+#   However, the weaker Type III constraint controls only CCF(h) > CCF(0),
+#   which in this example does not guarantee that the CCF peak is relocated
+#   to k = h.
 
 # ════════════════════════════════════════════════════════════════════
 
-# ── BACKGROUND / REFERENCES ───────────────────────────────────────────
+# ── BACKGROUND / REFERENCES ──────────────────────────────────────────────────
 #   Wildi, M. (2026)
 #     Forecasting on the Accuracy–Timeliness Frontier:
 #     Two Novel "Look-Ahead" Predictors.
 #     https://doi.org/10.48550/arXiv.2602.23087
 # ════════════════════════════════════════════════════════════════════
 
-# ════════════════════════════════════════════════════════════════════
 
-# ── BACKGROUND / REFERENCES ──────────────────────────────────────────
-#   Wildi, M. (2026)
-#     Forecasting on the Accuracy–Timeliness Frontier:
-#     Two Novel "Look-Ahead" Predictors.
-#     https://doi.org/10.48550/arXiv.2602.23087
-# ════════════════════════════════════════════════════════════════════
+
 
 
 # ── INITIALISATION ───────────────────────────────────────────────────
@@ -504,6 +616,8 @@ box()
 #     obtained a smaller shift at frequency zero (a lead) but a larger lag at the relevant business-cycle frequencies.
 #   - So in way the type III PCS obtained worsened both characteristics in this case (it is not on the efficient ATS frontier).
 
+# Explanation: to obtain CCF(h)>CCF(0) under the implied DGP constraints, the predictor
+# reduces weight on the most recent innovation which increases the lag.
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.9 AR Form: AR Inversion of ARMA(1,1)
@@ -804,7 +918,7 @@ box()
 # EXERCISE 3: Re-Installing Feasibility (Part A)
 # ════════════════════════════════════════════════════════════════════
 
-# We slightly alter the MSE predictors to recover full rank space for the PCS predictor.
+# We rely on the previous exercise but slightly alter the MSE predictors to recover full rank space for the PCS predictor.
 # Note: this exercise is for illsutration only. The solution is not useful 
 #  in terms of `look ahead' business-cycle indicator but only to suggest a way 
 # out of the singularity. A more systematic approach based on this idea is 
@@ -834,8 +948,10 @@ for (i in 1:(L-1))
   gamma_mat_truncate<-cbind(gamma_mat_truncate,gamma_truncate_i)
 }  
 
-eigen(gamma_mat)$values
-eigen(gamma_mat_truncate)$values
+# Only two dimensions in original system
+which(abs(eigen(gamma_mat)$values)>10^(-12))
+# L dimensions in truncated system
+which(abs(eigen(gamma_mat_truncate)$values)>10^(-12))
 
 # Define gamma0 and gammah based on truncation
 gamma0<-xi_truncate[1:L]
@@ -1132,8 +1248,6 @@ for (i in 1:(L-1))
 
 eigenvalues<-eigen(gamma_mat)$values
 
-eigenvalues
-
 # Maximal rank of an equation system involving the CCF in PCS
 length(which(abs(eigenvalues)>10^{-10}))-1
 
@@ -1403,7 +1517,7 @@ Delta <- c(0,12)
 # New feature: we must inform PCS_shift_func below that it uses the span k=0 to k=h=12 as specified in Delta
 initialize_with_null<-T
 
-lambda<-1000
+lambda<-1000000
 
 
 
