@@ -96,7 +96,7 @@
 #       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
 #       and Appendix E. This condition is generally not exactly feasible 
 #       (see Exercise ???); The principal PCS optimization function 
-#       PCS_shift_func() enforces it as closely as possible via regularisation.
+#       PCS_func() enforces it as closely as possible via regularisation.
 #
 #   TYPE II) 
 #       Local positive slope at the target lag (weaker than I):
@@ -176,7 +176,7 @@
 # replaced by minimum MSE (assuming a standard case, see the discussion in 
 # Tutorial 9). The two are equivalent up to simple (MSE-optimal) scaling.
 #
-# ── Regularised PCS (Implemented in the main function PCS_shift_func) ────────
+# ── Regularised PCS (Implemented in the main function PCS_func) ────────
 #
 # The equality constraints above may be infeasible when the system is rank-
 # deficient — for example, because of additional structure imposed by the
@@ -184,7 +184,7 @@
 # version of the criterion (Equation 46, Appendix D). The regularised
 # formulation replaces the hard equality constraints with a soft penalty term,
 # yielding a criterion that is always well-defined and admits a unique solution
-# regardless of feasibility. PCS_shift_func() implements this regularised PCS
+# regardless of feasibility. PCS_func() implements this regularised PCS
 # criterion. The regularisation weight acts as the key tuning parameter: a
 # larger weight pushes the solution closer to satisfying the slope constraints
 # (stronger peak shifting) at the expense of target correlation, while a
@@ -204,7 +204,7 @@
 #                the PCS predictor successfully moves the CCF peak from k = 0
 #                to k = h = 1, inducing effective look-ahead behaviour.
 #
-#   Exercise 2 — PCS type III) for h = 5 via PCS_shift_func():
+#   Exercise 2 — PCS type III) for h = 5 via PCS_func():
 #                Relocates the CCF peak at k=h=5 by enforcing a positive 
 #                average growth of the CCF over lags {0, …, h}, i.e., 
 #                requiring CCF(0) < CCF(h), without constraining intermediate 
@@ -1011,7 +1011,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
+  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1267,7 +1267,7 @@ for (i in seq_along(lambda_vec)) {
   lambda <- lambda_vec[i]
   
   # Compute the regularised PCS Type I) predictor.
-  PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
+  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1508,7 +1508,7 @@ Delta <- 1:h
 lambda <- 10
 
 # Compute PCS Type I) predictor.
-PCS_obj <- PCS_shift_func(Delta, xi, L, beta, lambda)
+PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
 
 # Retrieve MSE optimally scaled PCS: to align with scale of MSE-DFP above. 
 b_pcs_mse <- PCS_obj$b_mse

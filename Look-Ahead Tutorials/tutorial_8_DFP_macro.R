@@ -384,7 +384,7 @@ for (i in 1:length(lead_vec))
   }
 }
 # ─────────────────────────────────────────────────────────────────────
-# 1.5 Rotine Checks
+# 1.5 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # --- Check 1: verify that the achieved leads match the specified leads ---
