@@ -29,7 +29,7 @@
 
 
 ########################################################################################
-PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F)
+PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F,scaled_constraints=F)
 {
   # MSE h-step predictor  
   gammah<-gamma_target[h+1:L]
@@ -41,7 +41,6 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   slope <- -beta
   
   gamma_all <- gamma_target
-  
   # --- Build the shifted covariance matrix 'gammah_mat' ---
   # Each row contains the MSE predictor coefficients (gamma_all) shifted by
   # a specific lead value drawn from 'Delta'. 
@@ -57,7 +56,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
       print("Delta[1] must be larger or equal 1")
       return()
     }
-    gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] 
+    gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]/sqrt(sum(gamma_all^2) ) 
   }
   if (length(Delta) > 0)
   {
@@ -77,7 +76,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
       }
       
       gammah_mat <- rbind(gammah_mat,
-                          gamma_all[Delta[i] + 1:L])
+                          gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
     }
   }
   
@@ -114,19 +113,31 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   #
   #   CCF(Delta[i+1]) - CCF(Delta[i])  =  b' * d_delta[i, ]  =  beta
   #
-  # Since CCF(k) = b' * gamma_k / ||b||  (using normalised gamma_k), the
-  # slope in terms of the normalised CCF is:
+  # When scaled_constraints==T then we use unit-scaled d_delta[i, ]
+  # This implies that b' * d_delta[i, ]  =  beta does not depend on changing scales of gamma_h-gamma_{h-1) in delta (and the scale of b is fixed).
+  #  -In an AR(1) case the system is then still feasible (whereas if scaled_constraints==F, the system is not feasible anymore)  
+  
+  # If gamma_k are all normalized to unit length then 
+  # Since CCF(k) = b' * gamma_k / ||b||, the
+  # slope in terms of the CCF is:
   #
-  #   [CCF(Delta[i+1]) - CCF(Delta[i])] / ||b||  =  beta / ||b||
+  #   CCF(Delta[i+1]) - CCF(Delta[i])  = b' * (gamma_{i+1}- gamma_i)/ ||b||=  beta / ||b||
   #
-  # The norm ||b|| is determined by the MSE optimisation and is not controlled
-  # directly; however, because it is constant across all lead pairs, the
-  # relative slopes are preserved and the monotonicity ordering is unaffected.
+  # However, if gamma_i are of different lengths, then the link between the slope of the CCF 
+  # and beta is not fixed anymore (depends on i)
   d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])#/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
   if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
-      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))#/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+    {
+      if (scaled_constraints)
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+      } else
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))
+      } 
+    }
   }
   d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
   
@@ -183,6 +194,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   #    is unique.
   b <- solve(M) %*% gamma_sol
   
+
   # --- Feasibility check ---
   # Evaluates the residual | b' * d_delta[i,] - slope | for each constraint i.
   # For a feasible system these residuals converge to zero as lambda -> Inf.
@@ -190,6 +202,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   # infeasible constraint system (e.g., caused by rank deficiency of d_delta,
   # as discussed in the rank diagnostic above).
   abs(d_delta %*% b - slope)
+  t(b)%*%gammah
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
@@ -207,7 +220,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
 
 
 
-PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F,perturbation_delta_mat=NULL)
+PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {
   dim_row<-length(Delta)+ifelse(initialize_with_null,1,0)
   
@@ -274,7 +287,8 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
     }
     gamma_vec<-gamma_all[Delta[1] - 1 + 1:L]
 # Apply perturbation (0 if not specified): the lag is  perturbation_delta_mat[1,2]+1; the perturbation is perturbation_delta_mat[1,1]
-    gamma_vec[perturbation_delta_mat[1,2]+1]<-perturbation_delta_mat[1,1] 
+    gamma_vec[perturbation_delta_mat[1,2]+1]<-gamma_vec[perturbation_delta_mat[1,2]+1]+perturbation_delta_mat[1,1] 
+    gamma_vec<-gamma_vec/sqrt(sum(gamma_all^2) )
     gammah_mat <- gamma_vec
     
   }
@@ -297,12 +311,12 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
       
       gamma_vec<-gamma_all[Delta[i] + 1:L]
       # Apply perturbation (0 if not specified): the lag is  perturbation_delta_mat[1,2]+1; the perturbation is perturbation_delta_mat[1,1]
-      gamma_vec[perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),2]+1]<-perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),1] 
-  
+      gamma_vec[perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),2]+1]<-gamma_vec[perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),2]+1]+perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),1] 
+      gamma_vec<-gamma_vec/sqrt(sum(gamma_all^2) )
       gammah_mat <- rbind(gammah_mat,gamma_vec)
     }
   }
-  
+
   
   # --- Compute consecutive difference vectors ('d_delta') ---
   # Each row of d_delta is the difference between two consecutive rows of
@@ -336,20 +350,39 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
   #
   #   CCF(Delta[i+1]) - CCF(Delta[i])  =  b' * d_delta[i, ]  =  beta
   #
-  # Since CCF(k) = b' * gamma_k / ||b||  (using normalised gamma_k), the
-  # slope in terms of the normalised CCF is:
+  # When scaled_constraints==T then we use unit-scaled d_delta[i, ]
+  # This implies that b' * d_delta[i, ]  =  beta does not depend on changing scales of gamma_h-gamma_{h-1) in delta (and the scale of b is fixed).
+  #  -In an AR(1) case the system is then still feasible (whereas if scaled_constraints==F, the system is not feasible anymore)  
+  
+  # If gamma_k are all normalized to unit length then 
+  # Since CCF(k) = b' * gamma_k / ||b||, the
+  # slope in terms of the CCF is:
   #
-  #   [CCF(Delta[i+1]) - CCF(Delta[i])] / ||b||  =  beta / ||b||
+  #   CCF(Delta[i+1]) - CCF(Delta[i])  = b' * (gamma_{i+1}- gamma_i)/ ||b||=  beta / ||b||
   #
-  # The norm ||b|| is determined by the MSE optimisation and is not controlled
-  # directly; however, because it is constant across all lead pairs, the
-  # relative slopes are preserved and the monotonicity ordering is unaffected.
-  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])#/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+  # However, if gamma_i are of different lengths, then the link between the slope of the CCF 
+  # and beta is not fixed anymore (depends on i)
+  if (scaled_constraints)
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+  }
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
+  }
   if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
-      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))#/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+    {
+      if (scaled_constraints)
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+      } else
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))
+      } 
+    }
   }
+  
   d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
   
   # For a full-rank PCS system, the `squared' constraint matrix should be strictly positive definite  

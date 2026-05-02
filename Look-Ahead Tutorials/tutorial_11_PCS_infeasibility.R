@@ -25,7 +25,7 @@
 # that a feasible solution does not exist, meaning that:
 #   a) Some constraints cannot be satisfied simultaneously
 #      (the system is overdetermined), or
-#   b) All constraints can be met exactly, but the implied target correlation
+#   b) All constraints can be met, but the implied target correlation
 #      is negative.
 # Note: A PCS problem may be declared infeasible in the above sense even when
 # a PCS predictor exists whose CCF peaks at k = h with a positive target
@@ -102,6 +102,23 @@
 # As a result, Type I is the most likely to be infeasible, with the risk of
 # infeasibility increasing with h and depending strongly on the structure of
 # the DGP.
+# 
+# How can a problem be infeasible?
+# The solution to PCS type I is
+# b=gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1})
+# b maximizes the target correlation. But how do we select lambda_k? They are determined by the PCS constraints
+# beta=b'*(gamma_i-gamma_{i-1})=(gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1}))' * (gamma_i-gamma_{i-1}), i=1,...,h
+# where we insersted the solution b=gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1}).
+# We have h equations for solving lambda_1,...,lambda_h. If the system is overdetermined, 
+# then there does not exist a solution: the problem is infeasible.
+# But even if a solution exists and the target correlation is negative, we call the problem infeasible.
+
+# To be feasible a solution must exist and the target correlation is positive.
+
+# Cases II and III generally have a solution to their constraint system (which consists of a single equation)
+# but it is not garanteed that the target correlation is positive: if not, we call the problem infeasible.
+
+
 #
 # Infeasible problems can be addressed via regularization, which penalizes
 # departures from the constraints. When the problem is truly infeasible, these
@@ -1742,7 +1759,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.1 Breaking-Down Structural Singularity 
+# 6.1 Breaking-Down Structural Singularity 
 # ─────────────────────────────────────────────────────────────────────
 
 # Define gamma0 and gammah based on xi: these are used for verifying positiveness of target correlation
@@ -1755,7 +1772,7 @@ gamma_target<-xi
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.2 PCS Type I): Parameter Setup
+# 6.2 PCS Type I): Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
 
 # Grid of target slope values to be imposed on the CCF. A positive beta
@@ -1777,6 +1794,28 @@ beta_vec <- c(-0.2, -0.1, 0, 0.02, 0.04)
 Delta <- 1:h
 
 delta<--10^(-8)
+delta<-1
+
+
+# Case 1
+# No perturbation but scaled constraints: feasible but target cor < 0
+delta<-0
+scaled_constraints<-T
+
+# Case 2
+# No perturbation unscaled constraints: unfeasible 
+delta<-0
+scaled_constraints<-F
+
+# Cases 3&4
+# With perturbation: always feasible but target cor can be <0 (note that if delta is small, then lambda must be very large)
+delta<-1
+scaled_constraints<-F
+scaled_constraints<-T
+
+
+
+
 perturbation_delta_mat<-NULL
 for (i in 1:length(Delta))
   perturbation_delta_mat<-rbind(perturbation_delta_mat,c(delta,i))
@@ -1785,11 +1824,11 @@ for (i in 1:length(Delta))
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases almost linearly from k = 0 to k = h with slope
 # beta / (b' * b). 
-lambda <- 5000000
+lambda <- 50000000
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.3 PCS Optimisation over the Slope Grid
+# 6.3 PCS Optimisation over the Slope Grid
 # ─────────────────────────────────────────────────────────────────────
 # For each beta in beta_vec, compute the regularised PCS predictor using
 # criterion (46) from Appendix D of Wildi (2026).
@@ -1802,7 +1841,7 @@ for (i in seq_along(beta_vec)) {
   
   # Compute PCS Type I) predictor.
   PCS_obj <- PCS_func(Delta, gamma_target, L, beta, lambda)
-#  PCS_obj<-PCS_perturbation_func(Delta, gamma_target, L, beta, lambda,initialize_with_null,perturbation_delta_mat)
+  PCS_obj<-PCS_perturbation_func(Delta, gamma_target, L, beta, lambda,initialize_with_null,perturbation_delta_mat,scaled_constraints)
     
   
   b       <- PCS_obj$b
@@ -1819,7 +1858,7 @@ for (i in seq_along(beta_vec)) {
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.4 Routine Checks
+# 6.4 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS slope constraints ───────────────────────────────────
@@ -1855,7 +1894,7 @@ colnames(filter_mat) <- c("Nowcast",
                                  ", beta=", round(beta_vec, 2)))
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.5 Plots and Performance Summary
+# 6.5 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
@@ -1902,12 +1941,5 @@ abline(v = max_lag + 1 + h,   lty = 2)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
-
-
-
-d_delta %*% filter_mat[,ncol(filter_mat)]
-
-ccf_mat[1:(nrow(ccf_mat)-1),ncol(ccf_mat)]-ccf_mat[2:(nrow(ccf_mat)),ncol(ccf_mat)]
-
 
 
