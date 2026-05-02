@@ -6,8 +6,8 @@
 # correlation function (CCF) of the resulting predictors.
 #
 # Specifically, the DFP controls CCF(0) while maximizing CCF(h), whereas the
-# PCS ideally shifts the peak of the CCF toward k = h, while maximizing 
-# peak-height.
+# PCS ideally shifts the peak of the CCF toward k = h while maximizing the
+# peak height (at k = h).
 #
 # In difficult forecasting problems where the MSE predictor is "stuck at the
 # present" (i.e., the CCF peaks at k = 0), two complementary strategies can
@@ -27,32 +27,30 @@
 #      (the system is overdetermined), or
 #   b) All constraints can be met, but the implied target correlation
 #      is negative.
-# Note: A PCS problem may be declared infeasible in the above sense even when
-# a PCS predictor exists whose CCF peaks at k = h with a positive target
-# correlation. This can occur, for instance, when the CCF increases toward k = h
-# in a non-linear or non-monotonic fashion that is not captured by any of the
-# three constraint types:
-#   - Type I may be overly restrictive, as it requires a strictly (linearly)
-#     increasing CCF over the full interval k = 0, …, h, when imposing a very 
-#     large regularization weight.
+#
+# Note: A PCS problem may in principle be feasible — in the sense that a
+# predictor exists whose CCF peaks at k = h with a positive target correlation
+# — and yet none of the three proposed constraint types (I, II, III below)
+# successfully identifies this solution:
+#   - Type I may be overly restrictive, as it imposes a specific structural
+#     pattern (e.g., linearly increasing) on the CCF over the full interval
+#     k = 0, …, h when a very large regularization weight is used.
 #   - Types II and III may be insufficiently restrictive, requiring only a
 #     local increase from k = h-1 to k = h, or a positive average increase
 #     from k = 0 to k = h, respectively.
 #
-# For this reason, we generally recommend Type I, but paired with a moderate
-# regularization weight that permits controlled departures from the strictly
-# linear CCF increase. This relaxation frees up degrees of freedom that can
-# then be directed toward maximizing the objective function, ensuring that the
-# look-ahead design achieves optimal tracking of the target at horizon h. 
-# Moreover, departures from strict linearity are allowed in a controlled manner.
-#
+# For this reason, we generally recommend Type I paired with a moderate
+# regularization weight that permits controlled departures from the strict
+# CCF profile (e.g., linearly increasing). This relaxation frees up degrees
+# of freedom that can then be directed toward maximizing the objective
+# function, ensuring that the look-ahead design achieves optimal tracking
+# of the target at horizon h.
 #
 # This tutorial analyzes a simple infeasible example within the framework of
 # Tutorial 9, based on an ARMA(1,1) process fitted to the monthly PAYEMS
-# employment (and business cycle) indicator, see example 1 and 2 below.
-#
-# We also address solutions to infeasibility by proposing variants (see 
-# exercises 3-5) that will be explored and refined later.
+# employment (and business cycle) indicator (see Examples 1 and 2 below).
+# We also propose and explore solutions to infeasibility through three
+# variants (see Examples 3–5), which will be refined in later tutorials.
 #
 # We begin with a brief summary of the main PCS predictor typology, organized
 # by the underlying constraint structure and solution space. See Tutorial 10
@@ -66,8 +64,10 @@
 #           CCF(k-1) < CCF(k)  for all k = 1, …, h.
 #       See Wildi (2026), Section 3.2 and Appendix E.
 #       This condition is generally not exactly feasible (see Exercise 1).
-#       The principal PCS optimization function PCS_func() enforces it
-#       as closely as possible via regularization.
+#       The principal PCS optimization function PCS_func() enforces it as
+#       closely as possible via regularization. Smaller regularization weights
+#       allow for greater flexibility but may result in a CCF that does not
+#       peak at k = h, even in cases where such a peak would be feasible.
 #
 #   TYPE II — Positive Local Slope at the Target Lag  [Weaker than Type I]
 #
@@ -82,8 +82,10 @@
 #
 #       The CCF must be increasing on average from k = 0 to k = h, i.e.,
 #           CCF(0) < CCF(h).
+#       See Wildi (2026), Section 3.2.
 
-# Summary of constraints when feasible:
+# ── CONSTRAINT SUMMARY ───────────────────────────────────────────────────────
+
 #   Type I:   CCF(k) > CCF(k-1)  for k = 1, …, h  (h constraints)
 #   Type II:  CCF(h) > CCF(h-1)                    (1 constraint)
 #   Type III: CCF(h) > CCF(0)                      (1 constraint)
@@ -91,35 +93,298 @@
 # Each condition is necessary but not sufficient for attaining a global maximum
 # of the CCF at lag k = h. Nevertheless, even when the CCF peak does not fall
 # exactly at k = h, the resulting PCS predictor generally exhibits look-ahead
-# behavior. 
+# behavior.
+#
+# Among the three types, Type I is the most stringent: it imposes the largest
+# number of constraints (one per lag from k = 1 to k = h), which increases the
+# chances of achieving a CCF peak at k = h, but simultaneously leaves the
+# fewest degrees of freedom for optimizing the objective (i.e., the target
+# correlation at forecast horizon h) and subjects the CCF to an unnecessarily
+# rigid (monotonic, linear) profile. As a result, Type I is the most likely to
+# be infeasible, with the risk of infeasibility increasing with h and depending
+# strongly on the structure of the DGP. Note, however, that infeasibility can
+# be mitigated by selecting a smaller regularization weight.
+
+# ── WHEN AND WHY CAN A PROBLEM BE INFEASIBLE? ────────────────────────────────
+
+# The Type I PCS solution takes the form:
+#
+#   b = gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})
+#
+# where b is the vector of filter coefficients that maximizes the target
+# correlation at horizon h, and gamma_k denotes the MSE k-step-ahead
+# predictor coefficient vector.
+#
+# The Lagrange multipliers lambda_1, …, lambda_h are determined by the h
+# Type I constraints:
+#
+#   b' * (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h,
+#
+# where beta is the prescribed (common) CCF increment that enforces the
+# monotonically increasing CCF profile. In principle, beta could be made
+# lag-dependent (beta_i), but there is no natural or principled way to
+# choose these values in general, so a common value is used.
+#
+# Substituting the expression for b into the constraints above yields a
+# linear system of h equations in h unknowns (lambda_1, …, lambda_h):
+#
+#   (gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1}))' *
+#       (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h.
+#
+# Infeasibility arises in two ways:
+#   - If the constraint vectors (gamma_k - gamma_{k-1}) are not linearly
+#     independent, the system may be overdetermined: no exact solution exists
+#     unless the right-hand side vector (beta, …, beta) lies in the column
+#     space spanned by the vectors (gamma_i - gamma_{i-1}).
+#   - If a solution exists but the resulting target correlation is negative,
+#     the problem is also declared infeasible, since a predictor that
+#     correlates negatively with x_{t+h} is inadmissible.
+#
+# A problem is therefore feasible if and only if:
+#   (i)  A solution to the constraint system exists, and
+#   (ii) The implied target correlation is positive.
+#
+
+# But a PCCS with peak at h and pos. target cor might exist which is infeasible...
+
+# Types II and III each impose only a single constraint. While a solution
+# generally exists (except when gamma_h = 0, e.g., for an MA(q) with q < h),
+# a positive target correlation is not guaranteed (e.g., for an AR(1) with
+# a_1 > 0 and large h). If the target correlation is non-positive, the
+# problem is declared infeasible.
+
+# ── FEASIBILITY AND ARMA(p,q) STRUCTURE ──────────────────────────────────────
+
+# For an ARMA(p,q) process, the effective dimension of the constraint space
+# is at most p + q. This is because for lags k > q, the autocovariances
+# R(k) = gamma_0' * gamma_k satisfy a p-dimensional linear recurrence
+# (the Yule-Walker equations), making higher-lag constraint vectors linearly
+# dependent on lower-lag ones.
+#
+# The number of linearly independent constraints imposed therefore determines
+# the feasibility outcome:
+#
+#   - Exactly p+q independent constraints:
+#     All degrees of freedom are consumed. The target correlation is fully
+#     determined by the constraints and may be negative, in which case the
+#     problem is infeasible. If positive, the PCS predictor is admissible,
+#     but no room remains for further optimization.
+#
+#   - Fewer than p+q independent constraints:
+#     Residual degrees of freedom remain. The target correlation is always
+#     positive and increases as fewer constraints are imposed, giving the
+#     optimizer more room to track the target (though possibly at the cost
+#     of reduced look-ahead effectiveness).
+#
+#   - More than p+q independent constraints:
+#     The system is overdetermined. No solution satisfying all constraints
+#     exists and the problem is infeasible.
+
+# ── ADDRESSING INFEASIBILITY VIA REGULARIZATION ──────────────────────────────
+
+# Infeasible problems can be addressed via regularization, which penalizes
+# departures from the constraints. When the problem is truly infeasible, these
+# deviations do not vanish as the regularization weight grows, since the
+# constraints cannot be satisfied regardless of how strongly they are enforced.
+#
+# Assigning a moderate (rather than arbitrarily large) regularization weight
+# preserves flexibility, unfreezes degrees of freedom, and allows the optimizer
+# to maximize tracking accuracy at horizon h (i.e., target correlation /
+# minimum MSE). This flexibility also accommodates a wider variety of CCF
+# shapes, including non-linear or non-monotonic profiles, that would otherwise
+# be excluded by overly rigid constraints — ultimately improving the chances of
+# locating the CCF peak at the forecast horizon k = h and maximizing its height.
+#
+# For example, a Type I formulation with a moderate regularization weight may
+# successfully recover a PCS solution whose CCF peaks at k = h with a positive
+# target correlation, precisely because the relaxation from a strictly linearly
+# increasing CCF profile allows the optimizer to explore a richer solution space.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# TUTORIAL 11 — PCS: INFEASIBILITY
+# ════════════════════════════════════════════════════════════════════
+
+# The DFP and PCS look-ahead approaches impose constraints on the cross-
+# correlation function (CCF) of the resulting predictors.
+#
+# Specifically, the DFP controls CCF(0) while maximizing CCF(h), whereas the
+# PCS ideally shifts the peak of the CCF toward k = h while maximizing the
+# peak height (at k=h).
+#
+# In difficult forecasting problems where the MSE predictor is "stuck at the
+# present" (i.e., the CCF peaks at k = 0), two complementary strategies can
+# unlock look-ahead behavior:
+#   - Decoupling the predictor from the nowcast by controlling CCF(0), as in
+#     the DFP approach.
+#   - Shifting the CCF peak away from k = 0 toward k = h, as targeted by the
+#     PCS approach, when feasible.
+#
+# However, the constraints imposed on the CCF may conflict with the internal
+# structure of the data-generating process (DGP). In such cases, the degrees
+# of freedom available for maximizing the objective — namely, the target
+# correlation at the prespecified horizon h — may shrink, leaving little
+# potential to effectively look ahead. In some cases the conflict is so severe
+# that a feasible solution does not exist, meaning that:
+#   a) Some constraints cannot be satisfied simultaneously
+#      (the system is overdetermined), or
+#   b) All constraints can be met, but the implied target correlation
+#      is negative.
+#
+# Note: A PCS problem may be feasible, in the sense that their exists a predictor such 
+# that the peak CCF occurs at k=h (and the peak is positive), but none of 
+# the proposed approaches (see types I, II and III below) finds this solution. 
+#   - Type I may be overly restrictive, as it requires a strict pattern 
+#     (for example linear) of the increasing CCF over the full interval k = 0, …, h (when a very large
+#     regularization weight is imposed).
+#   - Types II and III may be insufficiently restrictive, requiring only a
+#     local increase from k = h-1 to k = h, or a positive average increase
+#     from k = 0 to k = h, respectively. 
+#
+# For this reason, we generally recommend Type I paired with a moderate
+# regularization weight that permits controlled departures from the strict
+# profile (e.g., linear) of the CCF. This relaxation frees up degrees of freedom that can
+# then be directed toward maximizing the objective function, ensuring that the
+# look-ahead design achieves optimal tracking of the target at horizon h.
+#
+# This tutorial analyzes a simple infeasible example within the framework of
+# Tutorial 9, based on an ARMA(1,1) process fitted to the monthly PAYEMS
+# employment (and business cycle) indicator (see Examples 1 and 2 below).
+# We also propose and explore solutions to infeasibility through three
+# variants (see Examples 3–5), which will be refined in later tutorials.
+#
+# We begin with a brief summary of the main PCS predictor typology, organized
+# by the underlying constraint structure and solution space. See Tutorial 10
+# for general background on PCS.
+
+# ── PCS PREDICTOR TYPOLOGY ────────────────────────────────────────────────────
+
+#   TYPE I — Monotonically Increasing CCF over {0, …, h}  [Most Restrictive]
+#
+#       The CCF must be strictly increasing across the full lag interval, i.e.,
+#           CCF(k-1) < CCF(k)  for all k = 1, …, h.
+#       See Wildi (2026), Section 3.2 and Appendix E.
+#       This condition is generally not exactly feasible (see Exercise 1).
+#       The principal PCS optimization function PCS_func() enforces it
+#       as closely as possible via regularization. Smaller regularization weights 
+#       allow for more flexibility, eventually allowing for a CCF not peaking at k=h 
+#    even though the latter could be feasible.
+#
+#   TYPE II — Positive Local Slope at the Target Lag  [Weaker than Type I]
+#
+#       The CCF must be increasing over the final step only, i.e.,
+#           CCF(h-1) < CCF(h).
+#       See Wildi (2026), Section 3.2.
+#       In cases where additional structure is imposed by the DGP (e.g., via
+#       the Yule-Walker equations of an AR(p) process), Types I and II may
+#       become equivalent and may be equally feasible or infeasible.
+#
+#   TYPE III — Positive Average Slope from Lag 0 to Lag h  [Weaker than Type I]
+#
+#       The CCF must be increasing on average from k = 0 to k = h, i.e.,
+#           CCF(0) < CCF(h).
+#       See Wildi (2026), Section 3.2. 
+
+# ── CONSTRAINT SUMMARY ───────────────────────────────────────────────────────
+
+#   Type I:   CCF(k) > CCF(k-1)  for k = 1, …, h  (h constraints)
+#   Type II:  CCF(h) > CCF(h-1)                    (1 constraint)
+#   Type III: CCF(h) > CCF(0)                      (1 constraint)
+#
+# Each condition is necessary but not sufficient for attaining a global maximum
+# of the CCF at lag k = h. Nevertheless, even when the CCF peak does not fall
+# exactly at k = h, the resulting PCS predictor generally exhibits look-ahead
+# behavior.
 #
 # Among the three types, Type I is the most stringent: it imposes the largest
 # number of constraints (one per lag from k = 1 to k = h), which increases the
 # chances of achieving a CCF peak at k = h, but simultaneously leaves the fewest
 # degrees of freedom for optimizing the objective (i.e., the target correlation
-# at forecast horizon h) and subjects the CCF to an unnecessarily rigid 
-# (monotonic, linear) profile.
-# As a result, Type I is the most likely to be infeasible, with the risk of
-# infeasibility increasing with h and depending strongly on the structure of
-# the DGP.
-# 
-# How can a problem be infeasible?
-# The solution to PCS type I is
-# b=gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1})
-# b maximizes the target correlation. But how do we select lambda_k? They are determined by the PCS constraints
-# beta=b'*(gamma_i-gamma_{i-1})=(gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1}))' * (gamma_i-gamma_{i-1}), i=1,...,h
-# where we insersted the solution b=gammah+\sum_{k=1}^h lambda_k (gamma_k-gamma_{k-1}).
-# We have h equations for solving lambda_1,...,lambda_h. If the system is overdetermined, 
-# then there does not exist a solution: the problem is infeasible.
-# But even if a solution exists and the target correlation is negative, we call the problem infeasible.
+# at forecast horizon h) and subjects the CCF to an unnecessarily rigid
+# (monotonic, linear) profile. As a result, Type I is the most likely to be
+# infeasible, with the risk of infeasibility increasing with h and depending
+# strongly on the structure of the DGP (though infeasibility can be addressed by selecting a smaller regularization weight).
 
-# To be feasible a solution must exist and the target correlation is positive.
+# ── WHEN AND WHY CAN A PROBLEM BE INFEASIBLE? ────────────────────────────────
 
-# Cases II and III generally have a solution to their constraint system (which consists of a single equation)
-# but it is not garanteed that the target correlation is positive: if not, we call the problem infeasible.
-
-
+# The Type I PCS solution takes the form:
 #
+#   b = gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})
+#
+# where b is the vector of filter coefficients that maximizes the target
+# correlation at horizon h, and the gamma_k are the MSE k-step ahead predictors.
+#
+# The Lagrange multipliers lambda_1, …, lambda_h are determined by the h
+# Type I constraints:
+#
+#   b' * (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h
+#
+# where beta is the (common) prescribed CCF increment enforcing the
+# monotonically increasing profile (beta could be made i-dependent but it is not clear how to choose these values).
+# Substituting the expression for b in the above constraints yields a linear system of h equations
+# in h unknowns (lambda_1, …, lambda_h):
+#
+#   (gamma_h + sum_{k=1}^{h} lambda_k*(gamma_k - gamma_{k-1}))' *
+#       (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h.
+#
+# This system has h equations and h unknowns. Infeasibility arises in two ways:
+#   - If the system is overdetermined (i.e., the constraint vectors
+#     gamma_k - gamma_{k-1} are not linearly independent), no exact solution
+#     exists if the vector (beta,...,beta), i.e., (1,...,1), does not lie in the column space of gamma_{i}-gamma_{i-1}).
+#   - If a solution exists but the resulting target correlation is negative,
+#     the problem is also declared infeasible, since a predictor that
+#     correlates negatively with x_{t+h} is inadmissible.
+#
+# A problem is therefore feasible if and only if:
+#   (i)  A solution to the constraint system exists, and
+#   (ii) The implied target correlation is positive.
+#
+# Types II and III each impose only a single constraint. While a solution to
+# that single constraint generally exists (except when gamma_h = 0, e.g., for
+# an MA(q) with q < h), a positive target correlation is not guaranteed
+# (e.g., for an AR(1) with a_1 > 0). If the target correlation
+# is non-positive, the problem is declared infeasible.
+
+# ── FEASIBILITY AND ARMA(p,q) STRUCTURE ──────────────────────────────────────
+
+# For an ARMA(p,q) process, the effective dimension of the constraint space
+# is at most p + q. This is because for lags k > q, the autocovariances R(k) (determined by crossproducts gamma0' * gamma_k) 
+#   satisfy a p-dimensional linear recurrence 
+# (the Yule-Walker equations), making higher-lag constraint vectors linearly
+# dependent on lower-lag ones.
+#
+# The number of linearly independent constraints imposed therefore determines
+# the feasibility outcome:
+#
+#   - Exactly p+q independent constraints:
+#     All degrees of freedom are consumed. The target correlation is fully
+#     determined by the constraints and may be negative, in which case the
+#     problem is infeasible. If positive, the PCS predictor is admissible.
+#     
+#
+#   - Fewer than p+q independent constraints:
+#     Residual degrees of freedom remain. The target correlation is always
+#     positive and increases as fewer constraints are imposed, giving the
+#     optimizer more room to track the target (but possibly less to look ahead).
+#
+#   - More than p+q independent constraints:
+#     The system is overdetermined. No solution satisfying all constraints
+#     exists and the problem is infeasible.
+
+# ── ADDRESSING INFEASIBILITY VIA REGULARIZATION ──────────────────────────────
+
 # Infeasible problems can be addressed via regularization, which penalizes
 # departures from the constraints. When the problem is truly infeasible, these
 # deviations do not vanish as the regularization weight grows, since the
@@ -130,7 +395,19 @@
 # minimum MSE). This flexibility also accommodates a wider variety of CCF
 # shapes, including non-linear or non-monotonic profiles, that would otherwise
 # be excluded by rigid constraints — ultimately improving the chances of
-# locating the CCF peak at the forecast horizon k = h and maximizing its height.
+# locating the CCF peak at the forecast horizon k = h and maximizing its
+# height.
+# It is for example possible that type I recovers a PCS solution with a peak at k=h and 
+# a positive target correlation by relaxing from strictly linearly increasing CCF.
+
+
+
+
+
+
+
+
+
 
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
