@@ -905,7 +905,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -1121,7 +1121,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi_truncate)$cor_vec)
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -1464,7 +1464,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -1661,7 +1661,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -1746,6 +1746,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 # ─────────────────────────────────────────────────────────────────────
 
 # Define gamma0 and gammah based on xi: these are used for verifying positiveness of target correlation
+# or compute the CCF
 gamma0<-xi[1:L]
 gammah<-xi[h+1:L]
 # Target: original process
@@ -1784,7 +1785,7 @@ for (i in 1:length(Delta))
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases almost linearly from k = 0 to k = h with slope
 # beta / (b' * b). 
-lambda <- 5000
+lambda <- 5000000
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1801,7 +1802,7 @@ for (i in seq_along(beta_vec)) {
   
   # Compute PCS Type I) predictor.
   PCS_obj <- PCS_func(Delta, gamma_target, L, beta, lambda)
-  PCS_obj<-PCS_perturbation_func(Delta, gamma_target, L, beta, lambda,initialize_with_null,perturbation_delta_mat)
+#  PCS_obj<-PCS_perturbation_func(Delta, gamma_target, L, beta, lambda,initialize_with_null,perturbation_delta_mat)
     
   
   b       <- PCS_obj$b
@@ -1885,7 +1886,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i],gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i],xi)$cor_vec)
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -1901,5 +1902,12 @@ abline(v = max_lag + 1 + h,   lty = 2)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
+
+
+
+d_delta %*% filter_mat[,ncol(filter_mat)]
+
+ccf_mat[1:(nrow(ccf_mat)-1),ncol(ccf_mat)]-ccf_mat[2:(nrow(ccf_mat)),ncol(ccf_mat)]
+
 
 

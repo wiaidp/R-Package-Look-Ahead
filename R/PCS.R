@@ -122,11 +122,11 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   # The norm ||b|| is determined by the MSE optimisation and is not controlled
   # directly; however, because it is constant across all lead pairs, the
   # relative slopes are preserved and the monotonicity ordering is unaffected.
-  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])#/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
   if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
-      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))#/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
   }
   d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
   
@@ -344,11 +344,11 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
   # The norm ||b|| is determined by the MSE optimisation and is not controlled
   # directly; however, because it is constant across all lead pairs, the
   # relative slopes are preserved and the monotonicity ordering is unaffected.
-  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])#/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
   if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
-      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+      d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))#/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
   }
   d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
   

@@ -156,11 +156,12 @@ poly_from_roots <- function(roots, lead = 1, make_real = TRUE, tol = 1e-12) {
 
 compute_acf_at_lags_zero_delta_func<-function(max_lag,h,b,gamma)
 {
-  L<-length(gamma)
+  L<-length(b)
   cor_vec_lead<-cor_vec_lag<-NULL
 # Leads:
+  L_gamma<-length(gamma)
   for (i in 0:(L-1))#i<-2
-    cor_vec_lead<-c(cor_vec_lead,b[1:(L-i)]%*%gamma[(i+1):L]/(sqrt(b%*%(b))*sqrt(gamma%*%gamma)))
+    cor_vec_lead<-c(cor_vec_lead,b[1:min(L,L_gamma-i)]%*%gamma[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(gamma%*%gamma)))
 # Lags
   if (max_lag>0)
   {
@@ -182,6 +183,37 @@ compute_acf_at_lags_zero_delta_func<-function(max_lag,h,b,gamma)
   cor_vec<-c(cor_vec_lag[length(cor_vec_lag):1],cor_vec_lead)
   return(list(cor_vec=cor_vec))
 }
+
+
+compute_acf_at_lags_zero_delta_func_old<-function(max_lag,h,b,gamma)
+{
+  L<-length(gamma)
+  cor_vec_lead<-cor_vec_lag<-NULL
+  # Leads:
+  for (i in 0:(L-1))#i<-2
+    cor_vec_lead<-c(cor_vec_lead,b[1:(L-i)]%*%gamma[(i+1):L]/(sqrt(b%*%(b))*sqrt(gamma%*%gamma)))
+  # Lags
+  if (max_lag>0)
+  {
+    for (i in 1:(min(L-1,max_lag)))#i<-1
+      cor_vec_lag<-c(cor_vec_lag,b[(i+1):L]%*%gamma[1:((L)-i)]/(sqrt(b%*%b)*sqrt(gamma%*%gamma)))
+  }
+  if (F)
+  {
+    # Leads: 0 up to h
+    for (i in 0:h)#i<-2
+      cor_vec_lead<-c(cor_vec_lead,b[1:(min((L-h)+i,L)-i)]%*%gamma[(i+1):min((L-h)+i,L)]/(sqrt(b%*%(b))*sqrt(gamma%*%gamma)))
+    # Leads: h+1,...,L (after L the best forecast is zero)
+    for (i in 1:((L-h)-1))#i<-1
+      cor_vec_lead<-c(cor_vec_lead,b[1:((L-h)-i)]%*%gamma[(h+i)+1:((L-h)-i)]/(sqrt(b%*%b)*sqrt(gamma%*%gamma)))
+    # Lags
+    for (i in 1:(max_lag-1))#i<-1
+      cor_vec_lag<-c(cor_vec_lag,b[(i+1):(L-h)]%*%gamma[1:((L-h)-i)]/(sqrt(b%*%b)*sqrt(gamma%*%gamma)))
+  }
+  cor_vec<-c(cor_vec_lag[length(cor_vec_lag):1],cor_vec_lead)
+  return(list(cor_vec=cor_vec))
+}
+
 
 
 # Compute CCF between predictor gamma and data generating process gamma1
