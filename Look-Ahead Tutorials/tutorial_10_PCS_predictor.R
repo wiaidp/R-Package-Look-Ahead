@@ -466,7 +466,7 @@ for (i in seq_along(alpha0_vec)) {
   
   # Compute the population CCF of b against the process over lags [-max_lag, h]
   cor_vec <- compute_acf_at_lags_zero_delta_func(
-    max_lag, h, as.vector(b), gamma0)$cor_vec
+    max_lag, h, as.vector(b), xi)$cor_vec
   cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
   cor_vec_1[i, 1] <- cor_vec[1]         # CCF at lag 0 (coupling with present)
     cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
@@ -536,7 +536,7 @@ box()
 ccf_mat<-NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat<-cbind(ccf_mat,compute_acf_at_lags_zero_delta_func(
-    max_lag, h, filter_mat[,i], gamma0)$cor_vec)
+    max_lag, h, filter_mat[,i], xi)$cor_vec)
 mplot   <- ccf_mat[1:q, ]
 
 plot(mplot[, 1], main = "Population CCFs: MSE and PCS variants",
@@ -758,7 +758,7 @@ for (i in seq_along(alpha0_vec)) {
   
   # Compute the population CCF of b against the process over lags [-max_lag, h]
   cor_vec <- compute_acf_at_lags_zero_delta_func(
-    max_lag, h, as.vector(b), gamma0)$cor_vec
+    max_lag, h, as.vector(b), xi)$cor_vec
   cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
   cor_vec_1[i, 1] <- cor_vec[1]         # CCF at lag 0 (coupling with present)
   cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
@@ -827,7 +827,7 @@ box()
 ccf_mat<-NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat<-cbind(ccf_mat,compute_acf_at_lags_zero_delta_func(
-    max_lag, h, filter_mat[,i], gamma0)$cor_vec)
+    max_lag, h, filter_mat[,i], xi)$cor_vec)
 mplot   <- ccf_mat[1:q, ]
 
 plot(mplot[, 1], main = "Population CCFs: MSE and PCS variants",
@@ -1092,7 +1092,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 mplot <- ccf_mat[1:q, ]
 
 plot(mplot[, 1],
@@ -1345,7 +1345,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 mplot <- ccf_mat[1:q, ]
 
 plot(mplot[, 1],
@@ -1556,7 +1556,7 @@ ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], gamma0)$cor_vec)
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
 colnames(ccf_mat)<-colnames(filter_mat)
 rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 mplot <- ccf_mat[1:q, ]

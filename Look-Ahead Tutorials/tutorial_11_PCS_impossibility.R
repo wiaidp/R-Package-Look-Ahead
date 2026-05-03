@@ -89,153 +89,206 @@
 
 
 # ── CONSTRAINT SUMMARY ───────────────────────────────────────────────────────
-
+#
 #   Type I:   CCF(k) > CCF(k-1)  for k = 1, …, h  (h constraints)
 #   Type II:  CCF(h) > CCF(h-1)                    (1 constraint)
 #   Type III: CCF(h) > CCF(0)                      (1 constraint)
 #
 # Types II and III are necessary but not sufficient conditions for a global
-# CCF maximum at lag k = h. Type I is neither necessary (monotonicity may be
-# overly restrictive) nor sufficient. Nevertheless, in many applications all
-# three constraint types are effective in the sense that the resulting PCS
-# predictor exhibits useful look-ahead behavior, even when the CCF peak does
-# not fall exactly at k = h.
+# CCF maximum at lag k = h. Type I is neither necessary (strict monotonicity
+# may be overly restrictive) nor sufficient for a global maximum. Nevertheless,
+# in many applications all three constraint types are effective in the sense
+# that the resulting PCS predictor exhibits useful look-ahead behavior, even
+# when the CCF peak does not fall exactly at k = h.
 #
 # Among the three types, Type I is the most stringent: it imposes the largest
-# number of constraints (one per lag from k = 1 to k = h), which increases the
-# likelihood of attaining a CCF peak at k = h, but simultaneously reduces the
-# degrees of freedom available for optimizing the target correlation at horizon
-# h, and locks the CCF into a rigid monotonic profile. As a result, Type I
-# carries the highest risk of infeasibility, with that risk increasing with h
-# and depending strongly on the structure of the DGP.
+# number of constraints (one per lag from k = 1 to k = h). While this
+# increases the likelihood of attaining a CCF peak at k = h, it simultaneously
+# reduces the degrees of freedom available for optimizing the target correlation
+# at horizon h, and locks the CCF into a rigid monotonic profile. Consequently,
+# Type I carries the highest risk of infeasibility, with that risk growing with
+# h and depending strongly on the structure of the data-generating process (DGP).
 #
 # Note, however, that infeasibility under Type I can often be mitigated by
-# selecting a moderate regularization weight, which provides sufficient control
-# over the desired peak shape while preserving enough flexibility to avoid
-# over-constraining the path to the peak, see below.
+# choosing a moderate regularization weight. This provides sufficient control
+# over the desired CCF peak shape while preserving enough flexibility to avoid
+# over-constraining the path to the peak (see below).
 
 
 # ── WHEN AND WHY CAN A PROBLEM BE INFEASIBLE? ────────────────────────────────
-
+#
 # The Type I PCS solution takes the form (see Wildi 2026, Appendix D):
 #
-#   b = gamma_h + sum_{k=1}^{h} lambda_k * (tilde_gamma_k - tilde_gamma_{k-1})
+#   b = gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})
 #
 # where:
-#   - b              is the filter coefficient vector maximizing the target
-#                    correlation at horizon h,
-#   - gamma_h        is the MSE h-step-ahead predictor coefficient vector,
-#   - tilde_gamma_k  is the k-step-ahead MSE predictor coefficient vector,
-#                    normalized to unit length: ||tilde_gamma_k|| = 1,
-#   - lambda_k       are regularization weights chosen to enforce a
-#                    monotonically increasing CCF from k = 0 to k = h.
+#   - b          is the filter coefficient vector that maximizes the target
+#                correlation at forecast horizon h,
+#   - gamma_h    is the MSE h-step-ahead predictor coefficient vector,
+#   - gamma_k    is the MSE k-step-ahead predictor coefficient vector,
+#   - lambda_k   are Lagrange multipliers (regularization weights) chosen to
+#                enforce a monotonically increasing CCF from lag k = 0 to k = h.
 #
-# Since CCF(k) = b' * gamma_k / (||b|| * ||gamma_k||), the monotonicity
-# condition CCF(k) > CCF(k-1) requires:
+# Since CCF(k) = b' * gamma_k / (||b|| * ||xi||), where xi is the DGP (weights of 
+# the Wold decomposition)  the monotonicity condition CCF(i) > CCF(i-1) requires:
 #
-#   b' * tilde_gamma_k  >  b' * tilde_gamma_{k-1}
+#   b' * (gamma_i - gamma_{i-1}) > 0,   i = 1, …, h.
 #
-# This leads to the constraint system:
+# Our solution implements this condition in one of two forms:
 #
-#   b' * (tilde_gamma_i - tilde_gamma_{i-1}) > 0,   i = 1, …, h,
+#   (aa)  b' * (gamma_i - gamma_{i-1}) = beta
+#   (ab)  b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||
 #
-# Specifically, our solution implements:
+# The two cases are selected by setting scaled_constraints = FALSE (case aa)
+# or scaled_constraints = TRUE (case ab).
 #
-#   b' * (tilde_gamma_i - tilde_gamma_{i-1}) = beta,   i = 1, …, h,
+# In both cases, beta is a prescribed common CCF increment that enforces
+# the monotonically increasing profile if  beta > 0:
+#   - Case (aa) assumes a fixed, uniform slope across all lags.
+#   - Case (ab) scales the increment by ||gamma_i - gamma_{i-1}||, making the
+#     effective increment beta_i := beta * ||gamma_i - gamma_{i-1}|| lag-dependent,
+#     thereby accounting for the varying magnitude of successive predictor differences.
 #
-# where beta > 0 is a prescribed (common) CCF increment enforcing the
-# monotonically increasing profile. In principle, beta could be made
-# lag-dependent (beta_i), but no natural or principled choice exists in
-# general, so a common value is used for simplicity.
+# Note on the implied CCF slope:
+#   - In case (aa): CCF(i) - CCF(i-1) = beta / (||b|| * ||xi||), a constant
+#     slope, provided the problem is feasible.
+#   - In case (ab): the slope also depends on ||gamma_i - gamma_{i-1}|| and
+#     therefore varies across lags.
 #
-# Substituting the expression for b into the constraint system yields h
-# linear equations in h unknowns (lambda_1, …, lambda_h):
+# Substituting the expression for b into the constraint equations yields a
+# system of h linear equations in h unknowns (lambda_1, …, lambda_h):
 #
-#   (gamma_h + sum_{k=1}^{h} lambda_k * (tilde_gamma_k - tilde_gamma_{k-1}))' *
-#       (tilde_gamma_i - tilde_gamma_{i-1}) = beta,   i = 1, …, h.
+#   (gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1}))'
+#       * (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h,
 #
-# Infeasibility arises in two ways, corresponding to Cases A and B above:
+# for case (aa), and analogously for case (ab).
 #
-#   Case A) The constraint vectors (tilde_gamma_k - tilde_gamma_{k-1}) are
-#           linearly dependent and the target vector (beta, …, beta) does not
-#           lie in their column span. The system has no solution.
+# Infeasibility arises in two distinct ways:
 #
-#   Case B) The system has a solution, but the implied target correlation
-#           CCF(h) is non-positive. Since a predictor negatively correlated
-#           with x_{t+h} is inadmissible, the problem is declared infeasible.
+#   Case A) The constraint vectors (gamma_i - gamma_{i-1}), i = 1, …, h, are
+#           linearly dependent and the right-hand side h-dimensional vector 
+#           (beta, …, beta)' does not lie in their column span. The linear 
+#           system has no solution.
+#
+#   Case B) The linear system has a solution, but the implied target correlation
+#           CCF(h) is non-positive. Since a predictor that is negatively
+#           correlated with x_{t+h} is inadmissible, the problem is declared
+#           infeasible in this case as well.
 #
 # A problem is therefore feasible if and only if:
-#   (i)  A solution to the constraint system exists, and
-#   (ii) The implied target correlation CCF(h) is strictly positive.
+#   (i)  A solution to the constraint system exists (Case A does not occur), and
+#   (ii) The implied target correlation CCF(h) is strictly positive (Case B does
+#        not occur).
 
 
-# ── ILLUSTRATIVE EXAMPLES OF IMPOSSIBLE PROBLEMS ─────────────────────────────
-
-# Example 1: AR(1) DGP with positive autoregressive coefficient a1.
+# ── ILLUSTRATIVE EXAMPLES OF INFEASIBLE/IMPOSSIBLE PROBLEMS ───────────────────
+#
+# Example 1: AR(1) DGP with positive autoregressive coefficient a1 > 0.
 #
 #   For any AR(1) process with a1 > 0, the h-step-ahead MSE predictor
-#   coefficients satisfy:
-#       gamma_h \propto gamma_{h+k}  for all h >= 0, k >= 0,
-#   so that tilde_gamma_h = tilde_gamma_{h+k} for all k.
+#   coefficient vectors satisfy:
 #
-#   It follows that:
-#       b' * (tilde_gamma_k - tilde_gamma_{k-1}) = 0  for all k = 1, …, h,
-#   which means the CCF increment beta cannot be made strictly positive.
-#   Consequently, the CCF cannot be made monotonically increasing from
-#   k = h to k = h+1 for any h>=0. The problem is impossible and infeasible.
+#       gamma_h ∝ gamma_{h+k}   for all h >= 0, k >= 0.
 #
-# Example 2: ARMA(1,1) DGP with positive autoregressive coefficient a1.
+#   It follows that all difference vectors (gamma_k - gamma_{k-1}),
+#   k = 1, …, h, are proportional to one another, so the constraint matrix
+#   has column rank one.
 #
-#   For lags h > 0 (strictly larger zero), the same proportionality holds:
-#       gamma_h \propto gamma_{h+k}  for all h > 0, k >= 0,
-#   so that tilde_gamma_h = tilde_gamma_{h+k} for h > 0.
+#   Under the scaled constraint system (case ab):
 #
-#   As in Example 1, this implies:
-#       b' * (tilde_gamma_k - tilde_gamma_{k-1}) = 0  for k = 1, …, h,
-#   and the CCF cannot be made increasing from k = h to k = h+1.
+#       b' * (gamma_k - gamma_{k-1}) = beta * ||gamma_k - gamma_{k-1}||,
+#                                                          k = 1, …, h,
+#
+#   the right-hand side vector
+#
+#       beta * (||gamma_1 - gamma_0||, …, ||gamma_h - gamma_{h-1}||)'
+#
+#   lies in the column space of the constraint matrix, so the system is
+#   solvable. However, the sign of beta determines the sign of b and thus 
+#   the sign of the target correlation CCF(h) at k=h. The peak of the CCF is always 
+#   located at k=0, it cannot be shifted, and a monotonically increasing CCF is 
+#   only possible by inverting signs. The problem is impossible (Case B infeasibility).
+#
+#   Under the unscaled constraint system (case aa):
+#
+#       b' * (gamma_k - gamma_{k-1}) = beta,   k = 1, …, h,
+#
+#   the right-hand side vector (beta, …, beta)' does not lie in the
+#   rank-one column space when h > 1 (more than one constraint) and beta ≠ 0. 
+#   The system therefore has no solution (Case A infeasibility).  
+#
+#
+# Example 2: ARMA(1,1) DGP with positive autoregressive coefficient a1 > 0.
+#
+#   For h > 0 (strictly larger zero), the same proportionality as 
+#   in Example 1 holds:
+#
+#       gamma_h ∝ gamma_{h+k}   for all h > 0, k >= 0.
+#
+#   As a consequence:
+#
+#       b' * (gamma_k - gamma_{k-1}) = 0   for k = 2, …, h,
+#
+#   meaning the constraint system cannot enforce a strictly increasing CCF
+#   beyond lag k = 1. The CCF peak therefore cannot be located at k > 1,
+#   and the problem is impossible and infeasible under Type I and Type II 
+#   constraints for any h > 1.
 #
 #   However, unlike the AR(1) case, the MA component introduces an asymmetry
-#   at k = 0: if the MA coefficient b1 < 0, the CCF may still increase from
-#   k = 0 to k = 1. This means that the problem, while impossible under
-#   Types I and II, may remain feasible under Type III when h > 0 and b1 < 0.
-#   See Exercise 1 for a worked example.
-#
+#   between k = 0 and k = 1. Specifically, if a1>0 and the MA coefficient b1 < 0,
+#   then CCF(1) > CCF(0), and the CCF peak is located at k = 1. In this
+#   configuration, a peak at k>0, namely k=1, is possible and feasible 
+#   (but not at k>1). 
+#   Interestingly, the Type III constraints (requiring CCF(h) > CCF(0) and
+#   CCF(h) > 0) may remain feasible even for h > 1 in this example, see 
+#   exercise 1. Nevertheless, because the peak is fixed at k = 1 and cannot be 
+#   moved to larger lags, the problem remains impossible in the sense that the 
+#   desired look-ahead horizon cannot be achieved for h > 1. This demonstrates 
+#   feasibility of an impossible problem. See Exercise 1 for a worked example.
+
 
 # ── FEASIBILITY AND ARMA(p,q) STRUCTURE ──────────────────────────────────────
-
+#
 # For an ARMA(p,q) process, the effective dimension of the PCS constraint
 # space is at most p + q. This is because for lags k > q, the autocovariances
 # R(k) = gamma_0' * gamma_k satisfy a p-dimensional linear recurrence
-# (the Yule-Walker equations), which renders higher-lag constraint vectors
-# linearly dependent on lower-lag ones (see exercise 2).
+# (the Yule-Walker equations), which renders all higher-lag constraint vectors
+# linearly dependent on the first p + q constraint vectors (see Exercise 2).
 #
-# The feasibility outcome therefore depends on the number of linearly
-# independent constraints imposed relative to the effective dimension p + q:
+# The feasibility outcome therefore depends critically on the number of
+# linearly independent constraints imposed relative to the effective
+# dimension (rank) p + q:
 #
-#   - Fewer than p+q independent constraints:
-#     Residual degrees of freedom remain. The target correlation is always
-#     positive and increases as fewer constraints are imposed, giving the
-#     optimizer greater room to track the target — though possibly at the
-#     cost of reduced look-ahead effectiveness. As in the case below, there
-#     is no guarantee that the CCF peaks at k = h or that the peak height
+#   Case 1 — Fewer than p + q independent constraints:
+#     Residual degrees of freedom remain available to the optimizer. The
+#     target correlation CCF(h) is ALWAYS POSITIVE and increases as fewer
+#     constraints are imposed, giving the optimizer greater flexibility to
+#     track the target. However, this comes at the potential cost of reduced
+#     look-ahead effectiveness: there is no guarantee that the CCF peaks at
+#     k = h, nor that the peak magnitude is maximized at that lag.
+#
+#   Case 2 — Exactly p + q independent constraints:
+#     All available degrees of freedom are consumed by the constraints. The
+#     target correlation CCF(h) is then fully determined by the constraint
+#     system and may be non-positive, in which case the problem is infeasible
+#     (Case B). If CCF(h) > 0, the problem is feasible, but again there is
+#     no guarantee that the CCF peak occurs at k = h or that the peak height
 #     is maximized at that lag.
 #
-#   - Exactly p+q independent constraints:
-#     All available degrees of freedom are consumed. The target correlation
-#     is fully determined by the constraints and may be non-positive, in
-#     which case the problem is infeasible (Case B). If positive, the problem
-#     is feasible, but there is no guarantee that the CCF peaks at k = h or
-#     that the peak height is maximized at that lag.
-#
-#   - More than p+q independent constraints:
+#   Case 3 — More than p + q independent constraints:
 #     The constraint system is overdetermined. Feasibility depends on whether
-#     the target vector (beta, …, beta) lies in the column space spanned by
-#     the constraint vectors:
+#     the right-hand side vector (beta, …, beta)' (in case aa) lies in the 
+#     column space spanned by the constraint vectors (gamma_i - gamma_{i-1}):
+#
 #       * If it does not, no solution exists and the problem is infeasible
-#         (Case A).
-#       * If it does, the constraints are simultaneously satisfiable. The
-#         problem is then feasible if the implied target correlation CCF(h)
-#         is strictly positive, and infeasible otherwise (Case B).
+#         (Case A). See exercise 2 for a worked example (which is based 
+#         on the constraint system of case aa).
+#       * If it does, all constraints are simultaneously satisfiable. The
+#         problem is then feasible if and only if the implied target
+#         correlation CCF(h) is strictly positive; otherwise it is
+#         infeasible (Case B). See exercise 3 for a worked example (which is based 
+#         on the constraint system of case ab).
+
 
 # ── ADDRESSING INFEASIBILITY VIA REGULARIZATION ──────────────────────────────
 
@@ -254,8 +307,9 @@
 #
 # For example, a Type I formulation with a moderate regularization weight may
 # successfully recover a PCS solution whose CCF peaks at k = h with a positive
-# target correlation, precisely because the relaxation from a rigid (strictly monotonic 
-# prespecified path) CCF profile allows the optimizer to explore a richer solution space.
+# target correlation, precisely because the relaxation from a rigid (strictly 
+# monotonic prespecified path: cases aa or ab above) CCF profile allows the 
+# optimizer to explore a richer solution space.
 
 # ── POSSIBLE YET INFEASIBLE ──────────────────────────────────────────────────
 
@@ -263,12 +317,12 @@
 # sense: a predictor exists whose cross-correlation function (CCF) peaks at
 # k = h with a positive target correlation, and yet none of the three
 # proposed constraint types (I, II, III) successfully identifies this solution.
-# The reasons are as follows:
+# The reasons can be as follows:
 #
 #   - Type I constraints may be overly restrictive: they impose a specific
 #     structural pattern on the CCF across the full lag interval k = 0, ..., h
-#     (e.g., monotonically increasing), which can exclude valid solutions when
-#     a large regularization weight is applied.
+#     (e.g., monotonically increasing, cases aa and ab), which can exclude 
+#     valid solutions when a large regularization weight is applied.
 #
 #   - Type II constraints may be insufficiently restrictive: they require only
 #     a local increase from lag k = h-1 to k = h, which may fail to enforce
@@ -276,7 +330,8 @@
 #
 #   - Type III constraints may also be insufficiently restrictive: they require
 #     only a positive average increase from k = 0 to k = h, which again may
-#     fail to capture the "peak at h" solution in the general case.
+#     fail to capture the "peak at h" solution in the general case, see 
+#     exercise 1.
 #
 # For this reason, we generally recommend Type I (more control) paired with a 
 # moderate regularization weight (more flexibility) that permits controlled 
@@ -284,65 +339,90 @@
 # relaxation frees up degrees of freedom that can then be directed toward 
 # maximizing the objective function, ensuring that the look-ahead design 
 # achieves optimal tracking of the target at horizon h while controlling more 
-# firmly for the requested `peak at h' profile.
+# firmly for the requested `peak at h' profile. Fine tuning of the 
+# regularization weight might be required to balance the inherent tradeoffs. 
+
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
-
+#
 # Example 1 — Impossible but Feasible (PCS Type III)
 #
-#   The problem is feasible in the sense that CCF(h) > CCF(0), as required by
-#   the Type III constraint, and the implied target correlation is positive.
-#   However, the CCF peak occurs at k = 1 rather than at the requested target
-#   horizon k = h = 12, which is unachievable for this DGP. The look-ahead
-#   objective is therefore not met.
+#   The problem is feasible in the sense that the Type III constraint is
+#   satisfied: CCF(h) > CCF(0) and the implied target correlation CCF(h) is
+#   strictly positive. However, the CCF peak occurs at k = 1 rather than at
+#   the requested target horizon k = h = 12, which is structurally
+#   unachievable for this DGP. The look-ahead objective is therefore not met,
+#   and the problem is classified as impossible.
 #
 #   More strikingly, the resulting filter simultaneously degrades the
-#   signal-to-noise ratio (i.e., amplifies noise) and introduces lag — a
-#   doubly adverse outcome. This pathological behavior arises from imposing
-#   the Type III constraint under structural conditions of the DGP that leave
-#   insufficient degrees of freedom to address the forecasting problem
-#   in any meaningful way.
+#   signal-to-noise ratio (i.e., amplifies noise) and introduces additional
+#   lag — a doubly adverse outcome. This pathological behavior arises because
+#   the Type III constraint is imposed under structural conditions of the DGP
+#   that leave insufficient degrees of freedom to address the forecasting
+#   problem in any meaningful way; the constraint is satisfied, but only at
+#   the cost of a filter that is actively detrimental.
 #
-# Example 2 — Impossible and Infeasible: Case A (PCS Type I, Default Settings)
 #
-#   Under default settings, PCS Type I imposes a prespecified monotonically 
-#   increasing CCF profile from k = 0 to k = h. This is unachievable for the present DGP,
-#   and the problem falls under Case A (overdetermined constraint system):
+# Example 2 — Impossible and Infeasible: Case A
+#             (PCS Type I, unscaled constraint system, case aa)
 #
-#   - The h = 12 constraint vectors (tilde_gamma_i - tilde_gamma_{i-1}) span
-#     a column space of effective dimension 2 (reflecting the ARMA(1,1)
-#     structure of the DGP), which is far smaller than h = 12.
-#   - The target vector (beta, …, beta) of dimension h = 12 does not lie in
-#     this 2-dimensional column space, so the constraint system has no
-#     solution.
+#   Under case (aa), PCS Type I requires a linearly increasing
+#   CCF profile from k = 0 to k = h if beta > 0. This is structurally 
+#   unachievable for the present DGP, and the problem falls under Case A 
+#   (overdetermined constraint system with no solution):
+#
+#   - When b1 ≠ 0, the vector gamma_0 is linearly independent of gamma_h for
+#     all h > 0, but gamma_h and gamma_{h+k} are linearly dependent for all
+#     h > 0 and k >= 0.
+#   - Consequently, the h = 12 constraint vectors (gamma_i - gamma_{i-1}),
+#     i = 1, …, h, span a column space of effective dimension 2, reflecting
+#     the ARMA(1,1) structure of the DGP. This is far smaller than the
+#     nominal dimension h = 12.
+#   - The target right-hand side vector (beta, …, beta)' of dimension h = 12
+#     does not lie in this 2-dimensional column space, so the constraint
+#     system has no solution.
 #   - Consequently, no filter coefficient vector b exists that simultaneously
-#     satisfies all h = 12 monotonicity constraints.
+#     satisfies all h = 12 monotonicity constraints, and the problem is
+#     infeasible (Case A).
 #
-# Example 3 — Impossible and Infeasible: Case B (PCS Type I, Non-Default Settings)
 #
-#   Under a particular non-default configuration, PCS Type I imposes a
-#   monotonically increasing CCF profile from k = 0 to k = h that is
-#   structurally achievable for this DGP. Nevertheless, the problem falls
-#   under Case B, as the implied target correlation is non-positive:
+# Example 3 — Impossible and Infeasible: Case B
+#             (PCS Type I, scaled constraint system, case ab)
 #
-#   - The h = 12 constraint vectors (tilde_gamma_i - tilde_gamma_{i-1}) again
-#     span a 2-dimensional column space (ARMA(1,1) structure). Under this
-#     non-default configuration, however, the target vector (beta, …, beta)
-#     of dimension h = 12 does lie within this column space, so all h = 12
-#     monotonicity constraints can be satisfied exactly.
-#   - Despite the system being solvable, the target correlation CCF(h) implied
-#     by this solution is negative, confirming that a strictly positive CCF
-#     peak at k = h is unachievable — consistent with the impossibility of
-#     the problem.
+#   Under case (ab), the scaled constraint system takes the form:
+#
+#       b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||,
+#                                                            i = 1, …, h.
+#
+#   For this ARMA(1,1) DGP, the right-hand side vector
+#
+#       beta * (||gamma_1 - gamma_0||, …, ||gamma_h - gamma_{h-1}||)'
+#
+#   lies in the column space of the constraint matrix, so the system is
+#   solvable. However, the implied target correlation CCF(h) is non-positive,
+#   rendering the problem infeasible under Case B.
+#
+#   The solution to Exercise 3 illuminates the mechanism:
+#
+#   - The constraints are satisfied, and the resulting CCF is indeed
+#     monotonically increasing according to the constraint system, over 
+#     k = 0, 1, …, h.
+#   - However, the CCF starts at a strongly negative value at k = 0,
+#     indicating sign reversal.
+#   - Although the CCF increases monotonically, it remains negative at k = h,
+#     so the target correlation is non-positive (Case B infeasibility).
+#   - Furthermore, the CCF continues to increase monotonically beyond k = h,
+#     confirming that no peak occurs at the desired horizon k = h.
 
-# ════════════════════════════════════════════════════════════════════
+
+# ═════════════════════════════════════════════════════════════════════════════
 
 # ── BACKGROUND / REFERENCES ──────────────────────────────────────────────────
 #   Wildi, M. (2026)
 #     Forecasting on the Accuracy–Timeliness Frontier:
 #     Two Novel "Look-Ahead" Predictors.
 #     https://doi.org/10.48550/arXiv.2602.23087
-# ════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════
 
 
 
@@ -484,15 +564,14 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),main="Model-based ACF",ylab="",xla
 # For k > 0, the ACF satisfies the recurrence ACF(k+1) = a1 * ACF(k), meaning
 # the DGP imposes a rigid linear structure on the autocorrelation function.
 #
-# For h > 0 and k >= 0, the MSE predictor coefficient vectors gamma_h and
-# gamma_{h+k} are proportional, so their normalized counterparts satisfy:
-#   tilde_gamma_h = tilde_gamma_{h+k}.
+# For h > 0 and k >= 0, gamma_h ∝ gamma_{h+k} (the MSE predictor coefficient 
+# vectors are proportional).
 #
-# Consequently, all normalized predictors at lags h, h+1, h+2, … are
-# identical, and the constraint vectors (tilde_gamma_i - tilde_gamma_{i-1})
-# collapse to zero for i > 1. The effective dimension of the constraint space
-# is therefore at most 2: tilde_gamma_0 and tilde_gamma_1 are the only
-# linearly independent directions, provided b1 != 0.
+# Consequently, the rank of the columns space of the constraint system is 2 
+# (gamma_0-gamma_1) and (gamma_1-gamma_2) ∝ gamma_1 are the only
+# linearly independent directions. However, since Type III PCS enforces only a 
+# single constraint, the problem is feasible. Unfortunately, the CCF does not 
+# peak at h=12 (which is impossible).
 
 
 
@@ -515,43 +594,40 @@ gammah <- gamma[h + 1:L]
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 PCS Type III Framework
 # ─────────────────────────────────────────────────────────────────────
-# The type III PCS  imposes decoupling of the predictor from (tilde_gamma_0-tilde_gamma_h).
+# The type III PCS  imposes decoupling of the predictor from (gamma_0-gamma_h).
 # If h=1 then type III and I PCS coincide. However, here h=12, and therefore both 
 # types differ.
 
 
 gamma_constraint<-gamma0-gammah
-#gamma_constraint<-gammah-gamma0
 gamma_target<-gammah
 max_lag<-0
 
 ts.plot(gamma_constraint,main="PCS: gamma_constraint")
 
-# Shifting the peak of the CCF from lag=0 to lead=-1 is obtained by 
-# imposing at least full decoupling. We here consider different intermediate 
-# values for the constraint parameter beta
+# Type II) can be solved by PCS or DFP: in the latter case we decouple the 
+#   predictor from gamma_constraint (instead of gamma_0). So the term DFP (decoupling from present) 
+#   does not refer to the problem (we do not decouple from present) but to the solution: 
+#   we rely on decoupling; but from gamma_constraint.
 
-# Note: we use the unitary DFP so that the constraint parameter reflect a 
-# correlation
-beta_vec<-c(0.8,0.6,0.3,0,-0.1)
+# Note: we use the unitary DFP so that the constraint parameter alpha reflects a 
+# correlation (of b and gamma_constraint). 
+# We select various constraint parameters, including a negative correlation: 
+#  -Positive correlations signify a decreasing CCF profile: CCF(0) < CCF(h)
+#  -Negative correlations signify an increasing CCF profile: CCF(h) > CCF(0)
+alpha_vec<-c(0.8,0.6,0.3,0,-0.1)
 
 
-cor_vec_mat<-b_mat<-lambda1_vec<-lambda2_vec<-tau_vec<-NULL
-for (i in 1:length(beta_vec))
+cor_vec_mat<-b_mat<-NULL
+for (i in 1:length(alpha_vec))
 { 
-  beta<-beta_vec[i]
+  alpha<-alpha_vec[i]
   # Compute quadratic in lambda and then unit length DFP  
-  b_obj<-unitary_DFP_func(gamma_constraint,gamma_target,beta)
+  b_obj<-unitary_DFP_func(gamma_constraint,gamma_target,alpha)
   b<-b_obj$b0
   b_mat<-cbind(b_mat,b)
-  lambda1_vec<-c(lambda1_vec,b_obj$lambda1)
-  lambda2_vec<-c(lambda2_vec,b_obj$lambda2)
-# Compute shift at frequency zero  
-  tau_vec<-c(tau_vec, sum((0:(L-1)) * b) / sum(b))
-  
-  
   # Compute CCF of PCS predictors  
-  cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,i],gamma0)$cor_vec)
+  cor_vec_mat<-cbind(cor_vec_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b_mat[,i],xi)$cor_vec)
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -564,14 +640,13 @@ for (i in 1:length(beta_vec))
 apply(b_mat^2,2,sum)
 
 
-# --- Check 2: verify that the PCS conntraint is met ---
+# --- Check 2: verify that the PCS constraint is met ---
 
-# Compute the correlation with gamma_constraint. In the DFP (previous tutorials)
-# gamma_constraint = gamma0 is the nowcast. Here, gamma_constraint = gamma0 - gammah
-# Note that b%*%b=1 (unit length) so that we do not need to scale with b%*%b to obtain the correlation     
+# Compute the correlation with gamma_constraint. Note that b%*%b=1 (unit length) 
+# so that we do not need to scale with b%*%b to obtain the correlation     
 correlation_0<-t(b_mat)%*%gamma_constraint/as.double(sqrt(gamma_constraint%*%gamma_constraint))
-# This difference should vanish
-correlation_0-beta_vec
+# These differences should all vanish: the constraints can be solved.
+correlation_0-alpha_vec
 
 
 # CHECK 3 — Sign/orientation preservation: If the sum of filter weights 
@@ -579,7 +654,8 @@ correlation_0-beta_vec
 # the direction (sign) of a trend signal.
 apply(b_mat, 2, sum)
 
-# CHECK 4 — Positive Target correlation
+# CHECK 4 — Positive Target correlation: all target correlations are positive 
+# and therefore the problem is feasible.
 
 t(b_mat)%*%gammah/as.double(sqrt(gammah%*%gammah))
 
@@ -602,7 +678,7 @@ apply((b_mat_mse-gammah)^2,2,sum)
 # We now assemble all relevant predictors, skipping the fully decoupled design
 # which is unusable in this example.
 filter_mat<-cbind(gamma0,gammah,b_mat)
-colnames(filter_mat)<-c("Nowcast","MSE",paste("PCS ",beta_vec,sep=""))
+colnames(filter_mat)<-c("Nowcast","MSE",paste("PCS ",alpha_vec,sep=""))
 
 
 
@@ -646,14 +722,16 @@ box()
 # For each predictor, compute the CCF against the nowcast gamma0 at lags
 # 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
 # a horizontal line marks zero correlation.
-max_lag <- 20
-mplot  <-ccf_mat <- NULL
-
+max_lag<-0
+ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
-  mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
-colnames(mplot) <- colnames(filter_mat)
-rownames(mplot)<-paste("CCF at lead: ",-1+1:max_lag,sep="")
-ccf_mat<-mplot
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
 
 plot(mplot[, 1],
      main = "CCF", axes = F, type = "l",
@@ -673,19 +751,10 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
-#  PROBLEM IMPOSSIBLE BUT FEASIBLE.
-
 # Outcome:
-# Filter coefficients:
-# -Complying with a positive CCF slope is only possible when flipping the sign of the predictor.
-#   This is because of the structural constraints imposed by the data generating process
-#   gamma_h is proportional to gamma_htilde whenever h,htilde>=1. 
-#   There are no degrees of freedom left for optimization.
-# -The sign flip explians the negative target correlation when beta<0.
-
-# CCF
-# - A positive slope can be enforced when flipping the sign of the predictor.
-# - As a result, the target correlation is negative,
+# For the negative alpha=-0.1, the PCS satisfies CCF(h) - CCF(0) >0 :
+ccf_mat["CCF at lead: 12",ncol(ccf_mat)]-ccf_mat["CCF at lead: 0",ncol(ccf_mat)]
+# For all other designs with positive alpha, we have CCF(h) - CCF(0) < 0.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -901,15 +970,16 @@ for (i in 1:ncol(filter_mat_ar))
 # EXERCISE 2: Impossible and Infeasible, Case A (PCS Type I)
 # ════════════════════════════════════════════════════════════════════
 
-
-
-
-# The same empirical framework as Exercise 1 but using type I) PCS
-# The problem is infeasible because the constraint vectors (gamma_k - gamma_{k-1}) are not linearly
-#     independent and the right-hand side vector (beta, …, beta) does not lie in the column
-#     space spanned by the constraint vectors (Case A of Infeasibility).
-
-
+# This exercise uses the same empirical framework as Exercise 1, but applies
+# PCS Type I constraints instead of Type III.
+#
+# The problem is infeasible under Case A: the constraint system has no
+# solution. Specifically, the h = 12 constraint vectors
+# (gamma_i - gamma_{i-1}), i = 1, …, h, span a column space of effective
+# dimension 2, reflecting the ARMA(1,1) structure of the DGP. The
+# right-hand side vector (beta, …, beta)' of dimension h = 12 does not lie
+# in this 2-dimensional column space, so no solution to the constraint
+# system exists and the problem is infeasible (Case A).
 
 
 
@@ -932,36 +1002,30 @@ eigenvalues
 # Rank of constraint system
 which(abs(eigenvalues)>10^{-10})
 
-# The rank is smaller than the number of constraints and therefore the right hand constraint 
+# The rank is smaller than the number of constraints and therefore the 12-dimensional right hand constraint 
 # vector (beta,...,beta) can lie outside the column space (which is the case here).
 
 
-# Note about exercise (Type III PCS):
-# Type III imposes a single constraint of the type b' * (gamma_h-gamma_{0}). This can be solved 
+# Note about exercise 1 (Type III PCS):
+# Type III imposes a single constraint of the type b' * (gamma_h-gamma_0) = beta. This can be solved 
 # exactly. Of the available 2 degrees of freedom, one degree of freedom is left for 
 # optimization: this is the degree of freedom exploited in exercise 1 above (without much success, since the resulting 
 # PCS is lagging at business-cycle frequencies).
 
-# Note about Type I or II with h>1:
-# gammah and gamma_{h-1} are linearly dependent and therefore the room spanned 
-# by gammah and (gamma_h-gamma_{h-1}) is one-dimensional. Hence the solution 
-# of the PCS must be along gammah, either in the same or opposite direction.
-# There is no room left for optimization.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.2 PCS Type I): Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
+# Forecast horizon: one year.
+h<-12
 
 # Grid of target slope values to be imposed on the CCF. A positive beta
-# implies that the CCF increases regularly from k = 0 to k = h, provided:
+# implies that the CCF increases lineraly from k = 0 to k = h, provided:
 #   1) The optimisation problem is feasible, and
 #   2) The regularisation weight lambda is sufficiently large to drive the
 #      solution close to exact constraint satisfaction.
 # Negative or zero values of beta are also included as reference cases to
 # illustrate how the CCF profile and peak location respond to the slope target.
-
-h<-12
-
 beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
@@ -978,6 +1042,9 @@ Delta <- 1:h
 # (see the discussion in Exercises 3.5 and 4).
 lambda <- 10^10
 
+# The PCS needs to Wold-decomposition to proceed to optimization:
+gamma_pcs<-xi
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.3 PCS Optimisation over the Slope Grid
@@ -986,12 +1053,12 @@ lambda <- 10^10
 # criterion (46) from Appendix D of Wildi (2026).
 
 b_mat <- NULL    # filter coefficients, one column per beta value
-for (i in seq_along(beta_vec)) {
+for (i in seq_along(beta_vec)) {#i<-1
   
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1013,28 +1080,12 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS slope constraints ───────────────────────────────────
-# Validated in the loop above: for a feasible system, residuals of each slope
-# constraint should vanish as lambda increases.
+# Verified in the loop above: the constraints cannot be satisfied.
 
-# ── Check 2: Sign / orientation preservation ─────────────────────────
-# A strictly positive sum of filter coefficients confirms that the filter
-# does not invert the direction of a trend or level shift in the data.
-# Here, all peak-shifting designs (beta > 0) produce negative coefficient
-# sums, indicating trend inversion. This is a direct and potentially
-# undesirable cost of aggressive look-ahead behaviour under strong
-# regularisation: the linear CCF constraint forces the filter to assign
-# sufficiently negative weights to older lags that the overall orientation
-# of the filter is reversed. Milder regularisation (explored in Exercise 4)
-# can alleviate this potentially undesirable effect.
-apply(b_mat, 2, sum)
-
-# ── Check 3: Positive target covariance ──────────────────────────────
-# Confirms that each PCS predictor has a positive inner product with the
-# h-step-ahead MSE predictor, i.e., a positive target correlation at lag h.
+# ── Check 2: Positive target covariance ──────────────────────────────
+# When the slope turns positive (increasing CCF) the target correlations turn negative. 
 t(b_mat) %*% gammah
 
-# Infeasibility: the constraints with negative slope beta<0 can be enforced, 
-# but the target correlation turns negative.
 
 # Assemble all filters (nowcast, MSE references, and PCS variants) into a
 # single matrix for joint plotting and comparison.
@@ -1095,31 +1146,20 @@ box()
 
 # Outcome:
 # Filter coefficients:
-# -Complying with a positive CCF slope is only possible when flipping the sign of the predictor.
-#   This is because of the structural constraints imposed by the data generating process
-#   gamma_h is proportional to gamma_htilde whenever h,htilde>=1. 
-#   There are no degrees of freedom left for optimization.
-# -The sign flip explains the negative target correlation when beta<0.
+# -Imposing an increasing CCF in k=0,...,h inverts the sign of the predictors.
 
 # CCF
-# - A positive slope can be enforced when flipping the sign of the predictor.
-# - As a result, the target correlation is negative, too.
+# - When the sign of the predictor is inverted, the CCFs can increase from k=0 to k=h. 
+#   But the CCFs are all negative and the peak is not at k=h.
 
-# Note: for h=1 PCS type I and II are feasible because gamma0 and gamma1 are not collinear. But the solution is lagging.
-# For h>1 neither type I nor II are feasible, due to collinearity of gammah for h>=1.
-# Type III is feasible irrespetive of h because gamma0 and gammah are not collinear. But the filter is useless (poor signal noise ratio AND higher lag)
-
-
-# Main Take-Aways
-# Type III PCS is feasible but useless (lagging)
-# Type I and II PCS are infeasible: enforcing the constraints leads to a negative target correlation.
-
-# Note: shifting the peak from horizon h>=1 to h+k, k>0, is not meaningful because 
-# gamma_h and gamma_{h+k} are collinear: having the peak located at h or h+k `does the same',
-# i.e. the peak location is irrelevant.
+# Note: for h=1 PCS type I and II are feasible because gamma0 and gamma1 are not collinear. 
 
 
 
+
+# Note: when the problem is feasible and lambda is large (strong regularization), 
+# the slope of the CCF is fixed, i.e., the CCF increases linearly from k=0 to k=h. 
+# Here, the problem is infeasible and impossible and the slope cannot be constant.
 
 
 
@@ -1155,13 +1195,17 @@ beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
 # {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
 Delta <- 1:h
 
+
 # Very large regularisation weight: drives the solution toward exact
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases linearly from k = 0 to k = h with uniform slope
 # beta / (b' * b). In practice, this level of regularisation is typically
 # more restrictive than necessary and may reduce target correlation unduly
 # (see the discussion in Exercises 3.5 and 4).
-lambda <- 100000
+lambda <- 10^(10)
+
+gamma_pcs<-xi
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1178,7 +1222,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda,initialize_with_null,scaled_constraints)
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,scaled_constraints)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1277,6 +1321,15 @@ axis(2)
 box()
 
 
+# Note: the slope of the CCF is not constant because scaled_constraints=T, i.e., 
+# we use variable beta_k=beta/||gamma_k-gamma_{k-1}||
+
+# Check: the rows of d_delta have unit length (scaled)
+apply(d_delta^2,1,sum)
+
+# the slope from k=0 to k=1 is larger (in absolute value) because |beta| * ||gamma_0-gamma_1||
+# is larger than |beta| * ||gamma_1-gamma_2|| and so on. The largest slope magnitude |CCF(0)-CCF(1)| 
+# is due to ||gamma_0-gamma_1|| being largest (recall that gamma_0 is independent of gamma_1 here).
 
 
 
@@ -1289,6 +1342,13 @@ box()
 
 
 
+# Main Take-Aways
+# Type III PCS is feasible but useless (lagging and noisy)
+# Type I and II PCS are infeasible: enforcing the constraints leads to a negative target correlation.
+
+# Note: shifting the peak from horizon h>=1 to h+k, k>0, is not meaningful because 
+# gamma_h and gamma_{h+k} are collinear: having the peak located at h or h+k `does the same',
+# i.e. the peak location is irrelevant.
 
 
 

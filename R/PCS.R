@@ -13,7 +13,7 @@
 #   Delta  : Integer vector of leads over which the CCF is required to be increasing.
 #   beta   : Target slope. A positive value shifts the CCF peak to the right
 #            (i.e., toward higher leads).
-#   gamma_target : MA form of target (in classic forecasting this is the Wold decomposition).
+#   gamma_pcs : MA form of PCS problem structure (in classic forecasting this is the Wold decomposition).
 #   L      : Filter length (number of coefficients to be estimated).
 #   lambda : Regularization (penalty) parameter controlling the strength of the
 #            monotonicity constraint. Larger values enforce the constraint more
@@ -29,10 +29,10 @@
 
 
 ########################################################################################
-PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F,scaled_constraints=F)
+PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,scaled_constraints=F)
 {
   # MSE h-step predictor  
-  gammah<-gamma_target[h+1:L]
+  gammah<-gamma_pcs[h+1:L]
   
   # Flip the sign of beta to align the internal convention with the paper's
   # definition: a positive beta in the function interface corresponds to a
@@ -40,7 +40,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   # internal slope.
   slope <- -beta
   
-  gamma_all <- gamma_target
+  gamma_all <- gamma_pcs
   # --- Build the shifted covariance matrix 'gammah_mat' ---
   # Each row contains the MSE predictor coefficients (gamma_all) shifted by
   # a specific lead value drawn from 'Delta'. 
@@ -65,13 +65,13 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
       if (Delta[i] + 1<1)
       {
         print("Delta[i] + 1<1")
-        print("The index is outside gamma_target")
+        print("The index is outside gamma_pcs")
         return()
       }
       if (Delta[i] + L>length(gamma_all))
       {
         print("Delta[i] + L>length(gamma_all)")
-        print("The index is outside gamma_target")
+        print("The index is outside gamma_pcs")
         return()
       }
       
@@ -125,7 +125,14 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
   #
   # However, if gamma_i are of different lengths, then the link between the slope of the CCF 
   # and beta is not fixed anymore (depends on i)
-  d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])#/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+  if (scaled_constraints)
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2))
+  } else
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
+  } 
+    
   if (length(Delta) > 1&!initialize_with_null)
   {
     for (i in 2:length(Delta))
@@ -220,7 +227,7 @@ PCS_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F
 
 
 
-PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initialize_with_null=F,perturbation_delta_mat=NULL,scaled_constraints=F)
+PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {
   dim_row<-length(Delta)+ifelse(initialize_with_null,1,0)
   
@@ -260,7 +267,7 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
     return()
   }
   # MSE h-step predictor  
-  gammah<-gamma_target[h+1:L]
+  gammah<-gamma_pcs[h+1:L]
   
   # Flip the sign of beta to align the internal convention with the paper's
   # definition: a positive beta in the function interface corresponds to a
@@ -268,7 +275,7 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
   # internal slope.
   slope <- -beta
   
-  gamma_all <- gamma_target
+  gamma_all <- gamma_pcs
   
   # --- Build the shifted covariance matrix 'gammah_mat' ---
   # Each row contains the MSE predictor coefficients (gamma_all) shifted by
@@ -299,13 +306,13 @@ PCS_perturbation_func <- function(Delta, gamma_target, L, beta, lambda,initializ
       if (Delta[i] + 1<1)
       {
         print("Delta[i] + 1<1")
-        print("The index is outside gamma_target")
+        print("The index is outside gamma_pcs")
         return()
       }
       if (Delta[i] + L>length(gamma_all))
       {
         print("Delta[i] + L>length(gamma_all)")
-        print("The index is outside gamma_target")
+        print("The index is outside gamma_pcs")
         return()
       }
       
