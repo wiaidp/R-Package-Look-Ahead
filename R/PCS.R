@@ -29,7 +29,7 @@
 
 
 ########################################################################################
-PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,scaled_constraints=F)
+PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F)
 {
   # MSE h-step predictor  
   gammah<-gamma_pcs[h+1:L]
@@ -46,7 +46,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
   # a specific lead value drawn from 'Delta'. 
   # We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
   # and therefore we need gamma_{Delta[1] - 1} to define the first difference.
-  if (initialize_with_null)
+  if (Type_III)
   {
     gammah_mat<-NULL
   } else
@@ -133,7 +133,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
     d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
   } 
     
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
     {
@@ -146,7 +146,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
       } 
     }
   }
-  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
+  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(Type_III,1,0) )
   
   # For a full-rank PCS system, the `squared' constraint matrix should be strictly positive definite  
   min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
@@ -178,7 +178,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
   #    deficient, while the outer-product terms penalize deviations from the
   #    monotonicity target.
   M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
       M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
@@ -190,7 +190,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
   gamma_sol <- gammah_mat[length(Delta), ] + lambda * slope * d_delta[1, ]
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
       gamma_sol <- gamma_sol + lambda * slope * d_delta[i, ]
@@ -227,9 +227,9 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,
 
 
 
-PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_with_null=F,perturbation_delta_mat=NULL,scaled_constraints=F)
+PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,Type_III=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {
-  dim_row<-length(Delta)+ifelse(initialize_with_null,1,0)
+  dim_row<-length(Delta)+ifelse(Type_III,1,0)
   
   if (!is.null(perturbation_delta_mat))
   {
@@ -282,7 +282,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
   # a specific lead value drawn from 'Delta'. 
   # We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
   # and therefore we need gamma_{Delta[1] - 1} to define the first difference.
-  if (initialize_with_null)
+  if (Type_III)
   {
     gammah_mat<-NULL
   } else
@@ -318,7 +318,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
       
       gamma_vec<-gamma_all[Delta[i] + 1:L]
       # Apply perturbation (0 if not specified): the lag is  perturbation_delta_mat[1,2]+1; the perturbation is perturbation_delta_mat[1,1]
-      gamma_vec[perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),2]+1]<-gamma_vec[perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),2]+1]+perturbation_delta_mat[i+ifelse(initialize_with_null,1,0),1] 
+      gamma_vec[perturbation_delta_mat[i+ifelse(Type_III,1,0),2]+1]<-gamma_vec[perturbation_delta_mat[i+ifelse(Type_III,1,0),2]+1]+perturbation_delta_mat[i+ifelse(Type_III,1,0),1] 
       gamma_vec<-gamma_vec/sqrt(sum(gamma_all^2) )
       gammah_mat <- rbind(gammah_mat,gamma_vec)
     }
@@ -376,7 +376,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
   {
     d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
   }
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
     {
@@ -390,7 +390,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
     }
   }
   
-  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(initialize_with_null,1,0) )
+  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(Type_III,1,0) )
   
   # For a full-rank PCS system, the `squared' constraint matrix should be strictly positive definite  
   min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
@@ -422,7 +422,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
   #    deficient, while the outer-product terms penalize deviations from the
   #    monotonicity target.
   M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
       M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
@@ -434,7 +434,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,initialize_w
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
   gamma_sol <- gammah_mat[length(Delta), ] + lambda * slope * d_delta[1, ]
-  if (length(Delta) > 1&!initialize_with_null)
+  if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
       gamma_sol <- gamma_sol + lambda * slope * d_delta[i, ]
