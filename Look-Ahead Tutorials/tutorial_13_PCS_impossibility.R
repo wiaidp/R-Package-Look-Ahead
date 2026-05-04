@@ -2321,7 +2321,13 @@ box()
 #   increase the number of constraints through Type and vary lambda or beta until a
 #   satisfactory trade-off between look-ahead performance and CCF(h) is achieved.
 
-
+# When the rank of the constraint matrix is smaller than the number of
+# imposed constraints, the system may be infeasible (Case A). In such
+# settings, the regularization weight lambda should not be set too large, since
+# the underlying misspecification can then propagate into the filter
+# coefficients and produce actively detrimental predictors — for example,
+# through sign inversion, where the filter becomes negatively correlated
+# with the target at the desired horizon.
 
 
 
