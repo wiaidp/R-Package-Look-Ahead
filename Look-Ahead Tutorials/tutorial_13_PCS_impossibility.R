@@ -1027,6 +1027,9 @@ h<-12
 # Negative or zero values of beta are also included as reference cases to
 # illustrate how the CCF profile and peak location respond to the slope target.
 beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+# The Boolean scaled_constraints determines cases aa or ab:  case aa is obtained 
+# when scaled_constraints=F (fixed slope beta)
+scaled_constraints=F
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
 # here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
@@ -1053,12 +1056,16 @@ gamma_pcs<-xi
 # criterion (46) from Appendix D of Wildi (2026).
 
 b_mat <- NULL    # filter coefficients, one column per beta value
+initialize_with_null=F
+
 for (i in seq_along(beta_vec)) {#i<-1
   
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
   PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
+  # Note: this is the same as the full call, using the default values F for the additional Boolean variables
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,scaled_constraints)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1164,30 +1171,59 @@ box()
 
 
 
-
-
 # ════════════════════════════════════════════════════════════════════
-# 3. The constraints can be met (but the target correlation is still negative)
+# EXERCISE 3: Impossible and Infeasible — Case B (PCS Type I)
 # ════════════════════════════════════════════════════════════════════
-# Same as exercise 2 but (beta, …, beta) lies in the column
-#     space spanned by the constraint vectors. However, the target correlation is negative (Case B of Infeasibility).
-
+#
+# This exercise uses the same empirical framework as Exercises 1 and 2,
+# but applies the scaled constraint system (case ab) instead of the
+# unscaled system (case aa) used in Exercise 2.
+#
+# In contrast to Exercise 2, the constraint system is now solvable.
+# However, the implied target correlation CCF(h) remains non-positive,
+# so the problem is both impossible and infeasible (Case B).
+# This stands in contrast to Exercise 1, where the impossible problem
+# was nonetheless feasible, albeit with a predictor that delivered
+# poor and actively detrimental performance.
+#
+# Why is the constraint system now solvable?
+#
+#   - The effective column rank of the constraint matrix is unchanged
+#     at 2, reflecting the ARMA(1,1) structure of the DGP.
+#   - However, switching from case (aa) to case (ab) replaces the fixed
+#     right-hand side vector (beta, …, beta)' — which does not lie in
+#     the 2-dimensional column space — with the scaled vector
+#
+#         beta * (||gamma_1 - gamma_0||, …, ||gamma_h - gamma_{h-1}||)',
+#
+#     which does lie in the column space of the constraint matrix.
+#   - Consequently, the scaled constraint system has an exact solution,
+#     but the implied target correlation CCF(h) is non-positive, and
+#     the problem is therefore infeasible (Case B).
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 PCS Type I): Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
 
-# Grid of target slope values to be imposed on the CCF. A positive beta
-# implies that the CCF increases regularly from k = 0 to k = h, provided:
-#   1) The optimisation problem is feasible, and
-#   2) The regularisation weight lambda is sufficiently large to drive the
-#      solution close to exact constraint satisfaction.
-# Negative or zero values of beta are also included as reference cases to
-# illustrate how the CCF profile and peak location respond to the slope target.
-
+# Forecast horizon: one year.
 h<-12
 
+# Grid of target slope values to be imposed on the CCF. A positive beta
+# implies that the CCF increases from k = 0 to k = h, provided:
+#   1) The constraints can be satisfied, and
+#   2) The regularisation weight lambda is sufficiently large to drive the
+#      solution close to exact constraint satisfaction.
+# However, in contrast to exercise 2 we do not impose a fixed slope (determined by beta) 
+# but a variable slope determined by beta * ||gamma_k - gamma_{k-1}||, k=1,...,h. 
+# This variable slope does not conflict with the ARMA(1,1) structure so that all 
+# constraints can be met.
+# Note: we still provide fixed beta but we set scaled_constraints=T below, in 
+# contrast to exercise 2, where scaled_constraints=F.
+
 beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+# The Boolean scaled_constraints determines cases aa or ab:  case ab is obtained 
+# when scaled_constraints=F (variable slope beta * ||gamma_k - gamma_{k-1}||).
+scaled_constraints=T
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
 # here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
@@ -1195,15 +1231,15 @@ beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
 # {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
 Delta <- 1:h
 
-
 # Very large regularisation weight: drives the solution toward exact
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases linearly from k = 0 to k = h with uniform slope
 # beta / (b' * b). In practice, this level of regularisation is typically
 # more restrictive than necessary and may reduce target correlation unduly
 # (see the discussion in Exercises 3.5 and 4).
-lambda <- 10^(10)
+lambda <- 10^9
 
+# The PCS needs to Wold-decomposition to proceed to optimization:
 gamma_pcs<-xi
 
 
@@ -1216,7 +1252,6 @@ gamma_pcs<-xi
 
 b_mat <- NULL    # filter coefficients, one column per beta value
 initialize_with_null=F
-scaled_constraints=T
 for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
@@ -1228,10 +1263,8 @@ for (i in seq_along(beta_vec)) {
   d_delta <- PCS_obj$d_delta
   b_mat   <- cbind(b_mat, b)
   
-  # Constraint check: for a feasible system, the deviation of each slope
-  # constraint from its target beta should shrink to zero as lambda -> Inf.
-  # Each printed value is the residual for one of the h = 5 constraints.
-  # Large lambda means small deviations provided the problem is feasible.
+  # Constraint check: in contrast to exercise 2, the deviations from the constraints 
+  # can be made arbitrarily small (provided unlimited numerical precision).
   print(abs(d_delta %*% b + beta))
 }
 
@@ -1242,24 +1275,12 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS slope constraints ───────────────────────────────────
-# Validated in the loop above: for a feasible system, residuals of each slope
-# constraint should vanish as lambda increases.
+# Validated in the loop above: in contrast to exercise 2, the deviations can be 
+# controlled by increasing lambda (assuming unlimited numerical precision). 
 
-# ── Check 2: Sign / orientation preservation ─────────────────────────
-# A strictly positive sum of filter coefficients confirms that the filter
-# does not invert the direction of a trend or level shift in the data.
-# Here, all peak-shifting designs (beta > 0) produce negative coefficient
-# sums, indicating trend inversion. This is a direct and potentially
-# undesirable cost of aggressive look-ahead behaviour under strong
-# regularisation: the linear CCF constraint forces the filter to assign
-# sufficiently negative weights to older lags that the overall orientation
-# of the filter is reversed. Milder regularisation (explored in Exercise 4)
-# can alleviate this potentially undesirable effect.
-apply(b_mat, 2, sum)
 
-# ── Check 3: Positive target covariance ──────────────────────────────
-# Confirms that each PCS predictor has a positive inner product with the
-# h-step-ahead MSE predictor, i.e., a positive target correlation at lag h.
+# ── Check 2: Positive target covariance ──────────────────────────────
+# The problem is infeasible: for positive slopes (beta>0), the target correlation turns negative.
 t(b_mat) %*% gammah
 
 
@@ -1322,36 +1343,492 @@ box()
 
 
 # Note: the slope of the CCF is not constant because scaled_constraints=T, i.e., 
-# we use variable beta_k=beta/||gamma_k-gamma_{k-1}||
+# we use variable beta_k=beta * ||gamma_k-gamma_{k-1}||
 
 # Check: the rows of d_delta have unit length (scaled)
 apply(d_delta^2,1,sum)
 
-# the slope from k=0 to k=1 is larger (in absolute value) because |beta| * ||gamma_0-gamma_1||
-# is larger than |beta| * ||gamma_1-gamma_2|| and so on. The largest slope magnitude |CCF(0)-CCF(1)| 
-# is due to ||gamma_0-gamma_1|| being largest (recall that gamma_0 is independent of gamma_1 here).
+# the slope from k=0 to k=1 is larger (in absolute value) because |beta| * ||gamma_1-gamma_0||
+# is larger than |beta| * ||gamma_2-gamma_1|| and so on. The largest slope magnitude |CCF(k)-CCF(k-1)|
+# is obtained at k=1 and is due to ||gamma_1-gamma_0||>||gamma_2-gamma_{1}||>.... 
 
 
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 4: Relax Strong Regularization
+# Exercise 4: Possible but Unfeasible AR(2): Type III) PCS
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.1 Specify AR(2) Model for Analysis
+# ─────────────────────────────────────────────────────────────────────
+# Fit an ARMA(2,2) model to PAYEMS:
+ar_order <- 2
+ma_order <- 2
+
+arima.obj <- arima(x, order = c(ar_order, 0, ma_order))
+
+tsdiag(arima.obj)
+
+# For the following exercises (case studies) we retain only the AR(2) part: the MA(2) is ignored.
+
+# The AR(2) part is periodic. 
+a1<-arima.obj$coef[1]
+a2<-arima.obj$coef[2]
+
+# --- Wold Decomposition (MA-infinity representation) ---
+xi <- c(1, ARMAtoMA(ar= c(a1,a2),lag.max = length(x)))
+
+# Visualise the Wold coefficients: 
+par(mfrow = c(1, 1))
+ts.plot(xi, main = "Wold decomposition: AR(2) damped cycle")
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.1 MSE Predictors and System Rank
+# ─────────────────────────────────────────────────────────────────────
+
+# Horizon
+h<-12
+
+gamma0<-xi[1:L]
+gammah<-xi[h+1:L]
+
+# Determine rank of constraint System in AR(2) case:
+
+gamma_mat<-gamma0
+for (i in 1:(L-1))
+{
+  gamma_i<-xi[i+1:L]
+  gamma_mat<-cbind(gamma_mat,gamma_i)
+}  
+
+eigenvalues<-eigen(gamma_mat)$values
+
+# Rank of constraint system: how many non-zero eigenvalues
+which(abs(eigenvalues)>10^{-10})
+
+# The rank is 2. More generally, for an AR(p) the rank is p (Yule-Walker equations) 
+# The rank is smaller than the number (h=12) of constraints. If the 12-dimensional right hand constraint 
+# vector (beta,...,beta) lies outside the constraints' column space (which is the case here) 
+# the constraints cannot be met, the problem is infeasible (case A).
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.2 PCS Type I): Parameter Setup
+# ─────────────────────────────────────────────────────────────────────
+
+# Grid of target slope values to be imposed on the CCF. A positive beta
+# implies that the CCF increases linearly from k = 0 to k = h, provided:
+#   1) The optimisation problem is feasible, and
+#   2) The regularisation weight lambda is sufficiently large to drive the
+#      solution close to exact constraint satisfaction.
+# Negative or zero values of beta are also included as reference cases to
+# illustrate how the CCF profile and peak location respond to the slope target.
+beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+# The Boolean scaled_constraints determines cases aa or ab:  case aa is obtained 
+# when scaled_constraints=F (fixed slope beta)
+scaled_constraints=F
+
+# Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
+# here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
+# positive and the problem is feasible) over the full interval
+# {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
+Delta <- 1:h
+
+# Very large regularisation weight: drives the solution toward exact
+# satisfaction of all h slope constraints simultaneously, producing a CCF
+# that increases linearly from k = 0 to k = h with uniform slope
+# beta / (b' * b). In practice, this level of regularisation is typically
+# more restrictive than necessary and may reduce target correlation unduly
+# (see the discussion in Exercises 3.5 and 4).
+lambda <- 10^10
+
+# The PCS needs to Wold-decomposition to proceed to optimization:
+gamma_pcs<-xi
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.3 PCS Optimisation over the Slope Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each beta in beta_vec, compute the regularised PCS predictor using
+# criterion (46) from Appendix D of Wildi (2026).
+
+b_mat <- NULL    # filter coefficients, one column per beta value
+initialize_with_null=F
+
+for (i in seq_along(beta_vec)) {#i<-1
+  
+  beta <- beta_vec[i]
+  
+  # Compute PCS Type I) predictor.
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
+  # Note: this is the same as the full call, using the default values F for the additional Boolean variables
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,scaled_constraints)
+  
+  b       <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat   <- cbind(b_mat, b)
+  
+  # Constraint check: for a feasible system, the deviation of each slope
+  # constraint from its target beta should shrink to zero as lambda -> Inf.
+  # Here the system is infeasible (case A) and the deviations remain sizeable irrespective of lambda.
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.4 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS slope constraints ───────────────────────────────────
+# Verified in the loop above: the constraints cannot be satisfied.
+
+# ── Check 2: Positive target covariance ──────────────────────────────
+# When the slope turns positive (increasing CCF) the target correlations turn negative. 
+t(b_mat) %*% gammah
+
+
+# Assemble all filters (nowcast, MSE references, and PCS variants) into a
+# single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah,  b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("PCS lambda=", lambda,
+                                 ", beta=", round(beta_vec, 2)))
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.5 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- filter_mat
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# Outcome:
+# Filter coefficients:
+# -Imposing an increasing CCF in k=0,...,h inverts the sign of the predictors.
+
+# CCF
+# - When the sign of the predictor is inverted, the CCFs can increase from k=0 to k=h. 
+#   But the CCFs are all negative and the peak is not at k=h.
+
+# Note: for h=1 PCS type I and II are feasible because gamma0 and gamma1 are not collinear. 
+
+
+
+
+# Note: when the problem is feasible and lambda is large (strong regularization), 
+# the slope of the CCF is fixed, i.e., the CCF increases linearly from k=0 to k=h. 
+# Here, the problem is infeasible and impossible and the slope cannot be constant.
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# Exercise 5: Same as Exercise 4 But Relaxing the Regularisation Strength
 # ════════════════════════════════════════════════════════════════════
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 5.1 Apply a Moderate Regularization Weight
+# ─────────────────────────────────────────────────────────────────────
+
+lambda <- 1
+
+# Same beta
+beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
 
 
 
-# Main Take-Aways
-# Type III PCS is feasible but useless (lagging and noisy)
-# Type I and II PCS are infeasible: enforcing the constraints leads to a negative target correlation.
+# ─────────────────────────────────────────────────────────────────────
+# 5.2 PCS Optimisation over the Slope Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each beta in beta_vec, compute the regularised PCS predictor using
+# criterion (46) from Appendix D of Wildi (2026).
 
-# Note: shifting the peak from horizon h>=1 to h+k, k>0, is not meaningful because 
-# gamma_h and gamma_{h+k} are collinear: having the peak located at h or h+k `does the same',
-# i.e. the peak location is irrelevant.
+b_mat <- NULL    # filter coefficients, one column per beta value
+initialize_with_null=F
+
+for (i in seq_along(beta_vec)) {#i<-1
+  
+  beta <- beta_vec[i]
+  
+  # Compute PCS Type I) predictor.
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
+  # Note: this is the same as the full call, using the default values F for the additional Boolean variables
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,scaled_constraints)
+  
+  b       <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat   <- cbind(b_mat, b)
+  
+  # Constraint check: deviations are larger than in exercise 4 since lambda is of moderate size.
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+
+# ─────────────────────────────────────────────────────────────────────
+# 5.3 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS slope constraints ───────────────────────────────────
+# Verified in the loop above: the constraints cannot be satisfied.
+
+# ── Check 2: Positive target covariance ──────────────────────────────
+# In contrast to exercise 4, all target correlations are positive. 
+t(b_mat) %*% gammah
+
+
+# Assemble all filters (nowcast, MSE references, and PCS variants) into a
+# single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah,  b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("PCS lambda=", lambda,
+                                 ", beta=", round(beta_vec, 2)))
+
+# ─────────────────────────────────────────────────────────────────────
+# 5.4 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- filter_mat
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# In contrast to exercise 4, the peak of the CCF shifts rightwards with increased beta, as desired 
+# for a look ahead perspective.
+# Note: 
+# -The MSE predictor can generate look ahead behaviour by itself, sinc ethe AR(2) is periodic.
+# -The main difference between MSE and PCS is that the latter generates look ahead behaviour while 
+#   remaining anchored at the forecast horizon h: for any imposed constraints, the 
+#   PCS maximizes CCF(h). In contrast, MSE(h_tilde) generates look ahead behaviour by maximizing CCF(h_tilde), 
+#   eventually loosing control on the intended horizon h.
+
+# Note:
+# The right-shift of the PCS can be controlled by selecting alternative beta and/or lambda (omitted). 
+
+
+# ════════════════════════════════════════════════════════════════════
+# Exercise 6: Possible and Feasible AR(2): Type II) PCS
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.1 Type II) Setting
+# ─────────────────────────────────────────────────────────────────────
+
+# We impose CCF(h)>CCF(h-1)
+Delta <- h
+# A single constraint can be accounted for exactly by the rank(2) constraint system.
+# Therefore we can select a very large lambda
+
+# Very large regularisation weight
+lambda <- 10^10
+
+# Slightly modified beta, emphasizing small slope parameters
+beta_vec <- c(-0.3,-0.2, -0.1, 0, 0.1, 0.2, 0.3)/50
 
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 6.2 PCS Optimisation over the Slope Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each beta in beta_vec, compute the regularised PCS predictor using
+# criterion (46) from Appendix D of Wildi (2026).
+
+b_mat <- NULL    # filter coefficients, one column per beta value
+initialize_with_null=F
+
+for (i in seq_along(beta_vec)) {#i<-1
+  
+  beta <- beta_vec[i]
+  
+  # Compute PCS Type I) predictor.
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
+  # Note: this is the same as the full call, using the default values F for the additional Boolean variables
+  PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,scaled_constraints)
+  
+  b       <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat   <- cbind(b_mat, b)
+  
+  # Constraint check: deviations can be made arbitrarily small (provided unlimited numerical precision)
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.3 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS slope constraints ───────────────────────────────────
+# Verified in the loop above: the constraints cannot be satisfied.
+
+# ── Check 2: Positive target covariance ──────────────────────────────
+# All target correlations are positive but the strongest PCS look ahead (larget beta) is near full decoupling 
+# from x_{t+h}. 
+t(b_mat) %*% gammah
+
+
+# Assemble all filters (nowcast, MSE references, and PCS variants) into a
+# single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah,  b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("PCS lambda=", lambda,
+                                 ", beta=", round(beta_vec, 2)))
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.4 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- filter_mat
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# The type II PCS controls the right-shift of the CCF-peak through a single PCS constraint controlling 
+#   CCF(h)-CCF(h-1).
+# This single constraint, together with the internal structure of the AR(2) DGP, is 
+# sufficient to operate an effective right-shift. 
+# Moreover, the constraint does not impose artificial extraneous structure other than CCF(h)-CCF(h-1) ∝ beta.
+# Therefore, the target correlation CCF(h) at k=h is maximal, under all predictors satisfying the same PCS constraint.
+
+# Main Take Aways
+
+# Relying on fewer external (more or less artificial) constraints allows the PCS to optimize CCF(h), one 
+#  of the main objectives when deriving a h-step ahead predictor.
+# Type II regularization can be more effective (less invasive) that Type III. In exercise 6 (AR(2)) Type II is preferable to type III). 
+# However, Type III) can account for misspecified constraints in exercise 4 (AR(2)) by reducing the regularization weight see exercise 5. 
+# Moreover, in difficult settings where controlling CCF(h)-CCF(h-1) is insufficient to force a peak shift, Type III) can be more effective than Type II).
+# In summary: 
+# -try Type II) or III): if look ahead behaviour is sufficient then OK. Otherwise use Type III with incresing number of constraints and various regulöaization weights.
 
 
 
