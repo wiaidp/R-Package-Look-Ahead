@@ -1,6 +1,6 @@
 
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 11 — PCS: INFEASIBILITY
+# TUTORIAL 11 — PCS: IMPOSSIBILITY AND INFEASIBILITY
 # ════════════════════════════════════════════════════════════════════
 
 # The DFP and PCS look-ahead approaches impose constraints on the cross-
@@ -356,28 +356,28 @@
 #
 #   More strikingly, the resulting filter simultaneously degrades the
 #   signal-to-noise ratio (i.e., amplifies noise) and introduces additional
-#   lag — a doubly adverse outcome. This pathological behavior arises because
+#   lag — a doubly adverse outcome. This pathological behaviour arises because
 #   the Type III constraint is imposed under structural conditions of the DGP
 #   that leave insufficient degrees of freedom to address the forecasting
-#   problem in any meaningful way; the constraint is satisfied, but only at
+#   problem in any meaningful way: the constraint is satisfied, but only at
 #   the cost of a filter that is actively detrimental.
 #
 #
 # Example 2 — Impossible and Infeasible: Case A
 #             (PCS Type I, unscaled constraint system, case aa)
 #
-#   Under case (aa), PCS Type I requires a linearly increasing
-#   CCF profile from k = 0 to k = h if beta > 0. This is structurally 
-#   unachievable for the present DGP, and the problem falls under Case A 
-#   (overdetermined constraint system with no solution):
+#   Under case (aa), PCS Type I requires a linearly increasing CCF profile
+#   from k = 0 to k = h when beta > 0. This profile is structurally
+#   unachievable for the present DGP, and the problem falls under Case A
+#   (an overdetermined constraint system with no solution):
 #
 #   - When b1 ≠ 0, the vector gamma_0 is linearly independent of gamma_h for
 #     all h > 0, but gamma_h and gamma_{h+k} are linearly dependent for all
 #     h > 0 and k >= 0.
 #   - Consequently, the h = 12 constraint vectors (gamma_i - gamma_{i-1}),
 #     i = 1, …, h, span a column space of effective dimension 2, reflecting
-#     the ARMA(1,1) structure of the DGP. This is far smaller than the
-#     nominal dimension h = 12.
+#     the ARMA(1,1) structure of the DGP — far smaller than the nominal
+#     dimension h = 12.
 #   - The target right-hand side vector (beta, …, beta)' of dimension h = 12
 #     does not lie in this 2-dimensional column space, so the constraint
 #     system has no solution.
@@ -402,18 +402,44 @@
 #   solvable. However, the implied target correlation CCF(h) is non-positive,
 #   rendering the problem infeasible under Case B.
 #
-#   The solution to Exercise 3 illuminates the mechanism:
+#   The solution to Exercise 3 illuminates the underlying mechanism:
 #
-#   - The constraints are satisfied, and the resulting CCF is indeed
-#     monotonically increasing according to the constraint system, over 
-#     k = 0, 1, …, h.
-#   - However, the CCF starts at a strongly negative value at k = 0,
-#     indicating sign reversal.
+#   - The constraints are satisfied, and the resulting CCF is monotonically
+#     increasing over k = 0, 1, …, h, as required by the constraint system.
+#   - However, the CCF begins at a strongly negative value at k = 0,
+#     indicating a sign reversal in the predictor.
 #   - Although the CCF increases monotonically, it remains negative at k = h,
 #     so the target correlation is non-positive (Case B infeasibility).
-#   - Furthermore, the CCF continues to increase monotonically beyond k = h,
-#     confirming that no peak occurs at the desired horizon k = h.
-
+#   - Furthermore, the CCF continues to increase beyond k = h, confirming
+#     that no peak occurs at the desired horizon.
+#
+#
+# Examples 4–6 — An Easier (Possible) Forecast Problem Based on an AR(2) Process
+#
+#   These three examples share a common AR(2) DGP for which look-ahead
+#   forecasting is genuinely achievable, and collectively illustrate how the
+#   choice of constraint type and regularisation strength affects the quality
+#   and feasibility of the resulting predictor.
+#
+#   - Example 4 (PCS Type I, large regularisation weight):
+#     Highlights Type A infeasibility. The constraints impose a linearly
+#     increasing CCF profile, which is structurally incompatible with the
+#     AR(2) DGP. The heavy regularisation weight enforces the misspecified
+#     constraints too rigidly, causing the resulting predictor to change sign
+#     and become practically unusable.
+#
+#   - Example 5 (PCS Type I, moderate regularisation weight):
+#     Explores the same framework with a reduced regularisation weight,
+#     allowing greater flexibility in accommodating the misspecified constraint
+#     system. Although the problem remains infeasible, the relaxed constraints
+#     permit the predictor to exhibit meaningful look-ahead behaviour, at the
+#     cost of a sub-optimal target correlation.
+#
+#   - Example 6 (PCS Type II, feasible reformulation):
+#     Proposes a correctly specified PCS Type II constraint that is compatible
+#     with the AR(2) DGP. The resulting predictor exhibits clear look-ahead
+#     behaviour and, because the constraint is no longer misspecified, the
+#     target correlation is maximised — in direct contrast to Example 5.
 
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -583,11 +609,11 @@ h      <- 12
 
 # Truncate the Wold coefficients to length L to obtain the nowcast
 # filter (gamma0).
-gamma0 <- gamma[1:L]
+gamma0 <- xi[1:L]
 
 # h-step-ahead MSE predictor (gammah):
 # Shift gamma forward by h positions:
-gammah <- gamma[h + 1:L]     
+gammah <- xi[h + 1:L]     
 
 
 
@@ -970,6 +996,12 @@ for (i in 1:ncol(filter_mat_ar))
 # EXERCISE 2: Impossible and Infeasible, Case A (PCS Type I)
 # ════════════════════════════════════════════════════════════════════
 
+# ─────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
+
 # This exercise uses the same empirical framework as Exercise 1, but applies
 # PCS Type I constraints instead of Type III.
 #
@@ -1175,6 +1207,12 @@ box()
 # EXERCISE 3: Impossible and Infeasible — Case B (PCS Type I)
 # ════════════════════════════════════════════════════════════════════
 #
+# ─────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
+
 # This exercise uses the same empirical framework as Exercises 1 and 2,
 # but applies the scaled constraint system (case ab) instead of the
 # unscaled system (case aa) used in Exercise 2.
@@ -1359,6 +1397,17 @@ apply(d_delta^2,1,sum)
 # Exercise 4: Possible but Unfeasible AR(2): Type III) PCS
 # ════════════════════════════════════════════════════════════════════
 
+# Exercises 4-6 emphasize an `easier' POSSIBLE forecast problem, based on an AR(2) 
+# DGP. Possib ility signifies that there exists a predictor with a 
+# peak of the CCF at h with a positive peak value. 
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
+
 # ─────────────────────────────────────────────────────────────────────
 # 4.1 Specify AR(2) Model for Analysis
 # ─────────────────────────────────────────────────────────────────────
@@ -1413,6 +1462,7 @@ which(abs(eigenvalues)>10^{-10})
 # The rank is smaller than the number (h=12) of constraints. If the 12-dimensional right hand constraint 
 # vector (beta,...,beta) lies outside the constraints' column space (which is the case here) 
 # the constraints cannot be met, the problem is infeasible (case A).
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1572,6 +1622,11 @@ box()
 # Exercise 5: Same as Exercise 4 But Relaxing the Regularisation Strength
 # ════════════════════════════════════════════════════════════════════
 
+# ─────────────────────────────────────────────────────────────────────
+# Note: Exercises 1 & 4 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────
 # 5.1 Apply a Moderate Regularization Weight
@@ -1698,6 +1753,14 @@ box()
 # Exercise 6: Possible and Feasible AR(2): Type II) PCS
 # ════════════════════════════════════════════════════════════════════
 
+
+# ─────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 & 4 must be run before this exercise, as it initialises
+# the empirical framework (process specification, filter length, forecast
+# horizon, and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────
+
+
 # ─────────────────────────────────────────────────────────────────────
 # 6.1 Type II) Setting
 # ─────────────────────────────────────────────────────────────────────
@@ -1815,6 +1878,7 @@ box()
 
 # The type II PCS controls the right-shift of the CCF-peak through a single PCS constraint controlling 
 #   CCF(h)-CCF(h-1).
+# For beta=0 the peak is shifted towards k=h; for positive beta the peak is at larger horizons k>= h; for negative beta the peak is a smaller horizons k<=h.
 # This single constraint, together with the internal structure of the AR(2) DGP, is 
 # sufficient to operate an effective right-shift. 
 # Moreover, the constraint does not impose artificial extraneous structure other than CCF(h)-CCF(h-1) ∝ beta.
