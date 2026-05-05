@@ -226,7 +226,6 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 
 
 
-
 PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,Type_III=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {
   dim_row<-length(Delta)+ifelse(Type_III,1,0)
@@ -245,7 +244,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,Type_III=F,p
       perturbation_delta_mat<-matrix(rep(0,2*dim_row,ncol=2))
     } else
     {
-      perturbation_delta_mat<-perturbation_delta_mat[,1:2]
+      perturbation_delta_mat<-matrix(perturbation_delta_mat[,1:2],ncol=2)
       if (dim(perturbation_delta_mat)[1]<dim_row)
       {
         print("dim(perturbation_delta_mat)[1]<dim_row: no perturbation is applied to the missing lags")
@@ -455,7 +454,7 @@ PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,Type_III=F,p
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  return(list(b = b, d_delta = d_delta,b_mse=b_mse))
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,gamma_sol=gamma_sol))
   
 }
 

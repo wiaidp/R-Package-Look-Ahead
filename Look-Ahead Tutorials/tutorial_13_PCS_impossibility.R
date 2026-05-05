@@ -295,7 +295,8 @@
 # Infeasible problems can be addressed via regularization, which penalizes
 # departures from the constraints. When the problem is truly infeasible, these
 # deviations do not vanish as the regularization weight grows, since the
-# constraints cannot be satisfied regardless of how strongly they are enforced.
+# constraints cannot be satisfied regardless of how strongly they are enforced, 
+# see exercise 4.
 #
 # Assigning a moderate (rather than arbitrarily large) regularization weight
 # preserves flexibility, unfreezes degrees of freedom, and allows the optimizer
@@ -309,7 +310,7 @@
 # successfully recover a PCS solution whose CCF peaks at k = h with a positive
 # target correlation, precisely because the relaxation from a rigid (strictly 
 # monotonic prespecified path: cases aa or ab above) CCF profile allows the 
-# optimizer to explore a richer solution space.
+# optimizer to explore a richer solution space, see exercise 5.
 
 # ── POSSIBLE YET INFEASIBLE ──────────────────────────────────────────────────
 
@@ -333,14 +334,24 @@
 #     fail to capture the "peak at h" solution in the general case, see 
 #     exercise 1.
 #
-# For this reason, we generally recommend Type I (more control) paired with a 
-# moderate regularization weight (more flexibility) that permits controlled 
-# departures from a predetermined strict CCF profile. This 
-# relaxation frees up degrees of freedom that can then be directed toward 
-# maximizing the objective function, ensuring that the look-ahead design 
-# achieves optimal tracking of the target at horizon h while controlling more 
-# firmly for the requested `peak at h' profile. Fine tuning of the 
-# regularization weight might be required to balance the inherent tradeoffs. 
+# For difficult forecast problems, we generally recommend PCS Type I (stronger structural
+# control over the CCF profile) paired with a moderate regularization weight
+# (greater flexibility), which permits controlled departures from a strictly
+# predetermined monotonic CCF profile. This relaxation frees up degrees of
+# freedom that can then be directed toward maximizing the target correlation
+# CCF(h), ensuring that the look-ahead design achieves effective tracking of
+# the target at horizon h while maintaining firm control over the desired
+# peak-at-h profile. Fine-tuning of the regularization weight may be required
+# to balance the inherent trade-off between structural control and
+# optimization flexibility.
+#
+# However, when the CCF peak migrates naturally towards k = h under the
+# simpler Type II or Type III constraints, the latter are generally preferred.
+# By imposing less extraneous structure on the CCF profile, Types II and III
+# leave more degrees of freedom available for optimization, making the target
+# correlation CCF(h) more amenable to effective maximization and reducing the
+# risk of misspecification-induced distortions.
+
 
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
@@ -374,10 +385,10 @@
 #   - When b1 ≠ 0, the vector gamma_0 is linearly independent of gamma_h for
 #     all h > 0, but gamma_h and gamma_{h+k} are linearly dependent for all
 #     h > 0 and k >= 0.
-#   - Consequently, the h = 12 constraint vectors (gamma_i - gamma_{i-1}),
+#   - Consequently, the h constraint vectors (gamma_i - gamma_{i-1}),
 #     i = 1, …, h, span a column space of effective dimension 2, reflecting
 #     the ARMA(1,1) structure of the DGP — far smaller than the nominal
-#     dimension h = 12.
+#     dimension h = 12 imposed in the example (one-year ahead forecast).
 #   - The target right-hand side vector (beta, …, beta)' of dimension h = 12
 #     does not lie in this 2-dimensional column space, so the constraint
 #     system has no solution.
@@ -394,7 +405,8 @@
 #       b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||,
 #                                                            i = 1, …, h.
 #
-#   For this ARMA(1,1) DGP, the right-hand side vector
+#   For the considered ARMA(1,1) DGP and the one-year ahead forecast horizon 
+#   h=12, the right-hand side vector
 #
 #       beta * (||gamma_1 - gamma_0||, …, ||gamma_h - gamma_{h-1}||)'
 #
@@ -412,11 +424,14 @@
 #     so the target correlation is non-positive (Case B infeasibility).
 #   - Furthermore, the CCF continues to increase beyond k = h, confirming
 #     that no peak occurs at the desired horizon.
+#   - So the constraints are formally met, i.e., CCF(k) > CCF(k-1) for 
+#     k = 1, ..., h, but CCF(h) < 0 and the predictor is unusable.
 #
 #
-# Examples 4–6 — An Easier (Possible) Forecast Problem Based on an AR(2) Process
+# Examples 4–7 — An Easier (Possible) Forecast Problem Based on a periodic 
+#                AR(2) DGP
 #
-#   These three examples share a common AR(2) DGP for which look-ahead
+#   These examples share a common periodic AR(2) DGP for which look-ahead
 #   forecasting is genuinely achievable, and collectively illustrate how the
 #   choice of constraint type and regularisation strength affects the quality
 #   and feasibility of the resulting predictor.
@@ -433,13 +448,16 @@
 #     allowing greater flexibility in accommodating the misspecified constraint
 #     system. Although the problem remains infeasible, the relaxed constraints
 #     permit the predictor to exhibit meaningful look-ahead behaviour, at the
-#     cost of a sub-optimal target correlation.
+#     moderate cost of a slightly sub-optimal target correlation.
 #
 #   - Example 6 (PCS Type II, feasible reformulation):
 #     Proposes a correctly specified PCS Type II constraint that is compatible
 #     with the AR(2) DGP. The resulting predictor exhibits clear look-ahead
 #     behaviour and, because the constraint is no longer misspecified, the
 #     target correlation is maximised — in direct contrast to Example 5.
+#
+#   - Example 7 (PCS Type III, feasible reformulation):
+#     Similar to example 6 but the alternative PCS Type III approach is used. 
 
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -2315,20 +2333,57 @@ box()
 #     shift. In such cases, increasing the number of constraints and exploring
 #     a range of regularisation weights is recommended.
 #
-# Practical recommendation:
-#   Start with Type II or Type III using a minimal number of constraints. If the
-#   resulting look-ahead behaviour is adequate, stop. Otherwise, progressively
-#   increase the number of constraints through Type and vary lambda or beta until a
-#   satisfactory trade-off between look-ahead performance and CCF(h) is achieved.
+# ── PRACTICAL RECOMMENDATION ──────────────────────────────────────────────────
+#
+# If maximizing the target correlation CCF(h) is of high priority:
+#
+#   Begin with Type II (setting beta = 0) or Type III (setting beta > 0 and
+#   increasing it gradually until the CCF peak migrates, eventually to k = h), using the
+#   minimal number of constraints. If the resulting look-ahead behavior is
+#   adequate, no further action is needed. Otherwise, progressively increase
+#   the structural control by switching to Type I, and tune lambda and/or beta
+#   until a satisfactory trade-off between look-ahead performance and target
+#   correlation CCF(h) is achieved.
+#
+# If small losses in CCF(h) are admissible:
+#
+#   Rely on PCS Type I with a suitably moderate regularization weight lambda
+#   and a sufficiently large beta > 0 to displace the CCF peak towards k = h
+#   where feasible. The regularization weight should remain moderate to avoid
+#   over-constraining the filter and to preserve sufficient flexibility for
+#   meaningful optimization of the target correlation. 
 
-# When the rank of the constraint matrix is smaller than the number of
-# imposed constraints, the system may be infeasible (Case A). In such
-# settings, the regularization weight lambda should not be set too large, since
-# the underlying misspecification can then propagate into the filter
-# coefficients and produce actively detrimental predictors — for example,
-# through sign inversion, where the filter becomes negatively correlated
-# with the target at the desired horizon.
-
+# ── TECHNICAL NOTES ───────────────────────────────────────────────────────────
+#
+# 1. Interaction between beta and lambda:
+#
+#    The parameters beta and lambda interact in a compensatory fashion: an
+#    excessively large beta — which imposes an exaggerated and potentially
+#    misspecified positive CCF slope — can be partially mitigated by reducing
+#    lambda. The precise nature of this interaction is given in equation (49)
+#    of Wildi (2026): the product beta * lambda operates on the numerator (so
+#    the two parameters partially offset each other), while lambda alone enters
+#    the denominator through the matrix M, which depends on lambda. Note that
+#    Wildi (2026) uses the notation nu in place of lambda. In practice, some
+#    experimentation may be required to identify a good — if not optimal —
+#    pairing of beta and lambda.
+#
+# 2. Infeasibility and Misspecification:
+#
+#    When the rank of the constraint matrix is smaller than the number of
+#    imposed constraints, the system may be infeasible (Case A). This occurs
+#    when the right-hand side vector — either (beta, …, beta)' in the fixed-
+#    slope case (aa), or (b_1, …, b_h)' in the varying-slope case (ab) —
+#    does not lie in the column space of the constraint matrix. This mismatch
+#    may be interpreted as misspecification: the constraints impose a structure
+#    on the CCF that is incompatible with the data-generating process.
+#
+#    In such settings, the regularization weight lambda should not be set too
+#    large. An excessively large lambda amplifies the influence of the
+#    misspecified constraints, which can propagate into the filter coefficients
+#    and produce actively detrimental predictors — for example, through sign
+#    inversion, where the filter becomes negatively correlated with the target
+#    at the desired horizon, resulting in CCF(h) < 0, which is unacceptable.
 
 
 

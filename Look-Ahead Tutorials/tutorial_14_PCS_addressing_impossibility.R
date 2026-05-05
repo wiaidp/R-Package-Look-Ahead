@@ -70,6 +70,136 @@
 #   to k = h.
 
 
+# ── INITIALISATION ───────────────────────────────────────────────────
+rm(list = ls())
+
+# Load the DFP optimisation routines.
+# Provides DFP_compute_lambda_alpha0_func() and related solvers.
+source(paste(getwd(), "/R/DFP.r", sep = ""))
+
+# Load the PCS optimisation routines.
+source(paste(getwd(), "/R/PCS.r", sep = ""))
+
+# Load the tau-statistic utility: measures lead/lag at zero crossings.
+source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
+
+# Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
+source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+
+library(xts)
+
+# Load data from FRED via the alfred package (no API key required).
+install.packages("alfred")
+library(alfred)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 Load the Data
+# ─────────────────────────────────────────────────────────────────────
+
+# Set reload_data = TRUE to download the latest vintage from FRED;
+# set to FALSE to load the previously saved local copy.
+reload_data <- FALSE
+
+if (reload_data) {
+  PAYEMS <- get_fred_series("PAYEMS", series_name = "GDP")
+  PAYEMS <- as.xts(PAYEMS)
+  save(PAYEMS, file = file.path(getwd(), "Data", "PAYEMS"))
+} else {
+  load(file = file.path(getwd(), "Data", "PAYEMS"))
+}
+
+# Inspect the series endpoints to confirm the loaded vintage.
+head(PAYEMS)
+tail(PAYEMS)
+
+# Extract the post-1990, pre-pandemic sub-sample in log-levels.
+# The log transformation stabilises the variance as the level of the
+# series grows over time. Skipping COVID data avoids distortions by extreme 
+# lockdown outliers.
+y   <- as.double(log(PAYEMS["1990::2019"]))
+len <- length(y)
+names(y) <- index(PAYEMS["1990::2019"])
+
+par(mfrow=c(2,2))
+plot(y,
+     main = "Log(PAYEMS): 1990–2019",
+     type = "l", axes = FALSE,
+     xlab = "", ylab = "")
+axis(1, at = 1:length(y), labels = names(y))
+axis(2)
+box()
+
+# Compute stationary first differences of the log-series:
+#   - The log transformation stabilises the variance.
+#   - The first difference stabilises the level (removes the trend).
+x <- diff(y)
+
+# The differenced log-PAYEMS series is fairly noisy, with pronounced
+# downturns during recession episodes.
+ts.plot(x,main="Diff-log PAYEMS")
+
+# The empirical ACF decays slowly and monotonically — a pattern
+# consistent with the dominant AR structure and indicative of an MSE
+# predictor that is 'stuck at the present' (see Tutorial 1).
+acf(x,main="ACF diff-log PAYEMS")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 Model Fit
+# ─────────────────────────────────────────────────────────────────────
+
+L <- 50   # filter length (number of MA coefficients retained)
+
+# Fit an ARMA(1,1) model: a parsimonious specification with adequate diagnostics.
+ar_order <- 1
+ma_order <- 1
+
+arima.obj <- arima(x, order = c(ar_order, 0, ma_order))
+tsdiag(arima.obj)
+a1 <- arima.obj$coef[1:ar_order]
+b1 <- arima.obj$coef[ar_order + 1:ma_order]
+
+# --- Wold Decomposition (MA-infinity representation) ---
+# Compute the infinite-order MA coefficients (impulse response weights)
+# of the fitted ARMA model. The filter length L ensures that the
+# coefficients have decayed sufficiently close to zero by lag L.
+if (ma_order > 0) {
+  xi <- c(1, ARMAtoMA(
+    ar      = arima.obj$coef[1:ar_order],
+    ma      = arima.obj$coef[ar_order + 1:ma_order],
+    lag.max = length(x)))
+} else {
+  xi <- c(1, ARMAtoMA(
+    ar      = arima.obj$coef[1:ar_order],
+    ma      = 0,
+    lag.max = length(x)))
+}
+
+# Visualise the Wold coefficients.
+par(mfrow = c(1, 1))
+ts.plot(xi, main = "Wold decomposition: slowly decaying impulse response (post-1990)")
+
+# The theoretical ACF implied by the Wold decomposition matches the
+# empirical ACF computed above.
+ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
+        main = "Model-based ACF", ylab = "", xlab = "Lag")
+
+# For k > 0 the ACF satisfies the recurrence ACF(k+1) = a1 * ACF(k), so
+# the DGP imposes a rigid linear structure on the autocorrelation function.
+#
+# For h > 0 and k >= 0 this implies gamma_h ∝ gamma_{h+k}: the MSE predictor
+# coefficient vectors are mutually proportional for all horizons h > 0.
+#
+# Consequently, the column space of the constraint system has rank 2:
+# (gamma_0 - gamma_1) and (gamma_1 - gamma_2) ∝ gamma_1 are the only
+# linearly independent directions. Because the Type III PCS enforces only a
+# single constraint, the problem remains feasible. Unfortunately, the CCF
+# cannot peak at h = 12 — this is structurally impossible for the
+# ARMA(1,1) DGP — so the problem is classified as impossible but feasible.
+
+
+
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 3: Re-Installing Feasibility (Part A)
 # ════════════════════════════════════════════════════════════════════
@@ -86,9 +216,15 @@
 # 3.1 Breaking-Down Structural Singularity 
 # ─────────────────────────────────────────────────────────────────────
 
+h<-12
 
 truncate_at<-L
 xi_truncate<-c(xi[1:truncate_at],rep(0,length(xi)-(truncate_at)))
+
+# Define gamma0 and gammah based on truncation
+gamma0<-xi_truncate[1:L]
+gammah<-xi_truncate[h+1:L]
+
 
 par(mfrow=c(1,1))
 ts.plot(cbind(xi,xi_truncate)[1:(2*L),],col=c("black","red"),lty=c(1,2))
@@ -109,9 +245,6 @@ which(abs(eigen(gamma_mat)$values)>10^(-12))
 # L dimensions in truncated system
 which(abs(eigen(gamma_mat_truncate)$values)>10^(-12))
 
-# Define gamma0 and gammah based on truncation
-gamma0<-xi_truncate[1:L]
-gammah<-xi_truncate[h+1:L]
 
 
 
@@ -141,7 +274,7 @@ Delta <- 1:h
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases almost linearly from k = 0 to k = h with slope
 # beta / (b' * b). 
-lambda <- 5
+lambda <- 40
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -157,7 +290,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, xi_truncate, L, beta, lambda)
+  PCS_obj <- PCS_func(h, Delta, xi_truncate, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -500,7 +633,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, gamma, L, beta, lambda)
+  PCS_obj <- PCS_func(h, Delta, gamma, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -697,7 +830,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor. We supply the additional initialize_with_null whose default value is F (when omitted in the previous exercises)
-  PCS_obj <- PCS_func(Delta, gamma, L, beta, lambda,initialize_with_null)
+  PCS_obj <- PCS_func(h, Delta, gamma, L, beta, lambda,initialize_with_null)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -869,7 +1002,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 gamma0<-xi[1:L]
 gammah<-xi[h+1:L]
 # Target: original process
-gamma_target<-xi
+gamma_pcs<-xi
 
 
 
@@ -887,15 +1020,17 @@ gamma_target<-xi
 
 h<-12
 
-beta_vec <- c(-0.2, -0.1, 0, 0.02, 0.04)
+beta_vec <- c(-0.2, -0.1, -0.01, 0.02, 0.04)
+beta_vec <- c(-0.3,-0.2, -0.1, -0.01)
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
 # here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
 # positive and the problem is feasible) over the full interval
 # {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
 Delta <- 1:h
+Delta <- 1:2
 
-delta<--10^(-8)
+delta<--10^(-5)
 delta<-1
 
 
@@ -911,7 +1046,7 @@ scaled_constraints<-F
 
 # Cases 3&4
 # With perturbation: always feasible but target cor can be <0 (note that if delta is small, then lambda must be very large)
-delta<-1
+delta<-0.00001
 scaled_constraints<-F
 scaled_constraints<-T
 
@@ -921,12 +1056,13 @@ scaled_constraints<-T
 perturbation_delta_mat<-NULL
 for (i in 1:length(Delta))
   perturbation_delta_mat<-rbind(perturbation_delta_mat,c(delta,i))
+perturbation_delta_mat<-matrix(perturbation_delta_mat,ncol=2)
 
 # Moderately large regularisation weight: drives the solution toward 
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases almost linearly from k = 0 to k = h with slope
 # beta / (b' * b). 
-lambda <- 50000000
+lambda <- 5000000000
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -942,13 +1078,15 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, gamma_target, L, beta, lambda)
-  PCS_obj<-PCS_perturbation_func(Delta, gamma_target, L, beta, lambda,initialize_with_null,perturbation_delta_mat,scaled_constraints)
+  PCS_obj<-PCS_perturbation_func(Delta, gamma_pcs, L, beta, lambda,initialize_with_null,perturbation_delta_mat,scaled_constraints)
   
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
   b_mat   <- cbind(b_mat, b)
+  M<-PCS_obj$M
+  gamma_sol=PCS_obj$gamma_sol
+  
   
   # Constraint check: for a feasible system, the deviation of each slope
   # constraint from its target beta should shrink to zero as lambda -> Inf.
@@ -957,7 +1095,37 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
+# M does not depend on beta
+eigenM<-eigen(M)
+# The first two eigenvalues are different from zero
+eigenM$values
+# Here we see the corresponding eigenvectors
+V<-eigenM$vectors
+ts.plot(V[,1:2])
+
+V[,1]%*%gamma_sol
+V[,2]%*%gamma_sol
+k<-5
+
+# Check diagonalization formula
+max(abs(M-V%*%diag(eigenM$values)%*%t(V)))
+# Inverse
+max(abs(solve(M)-V%*%diag(1/eigenM$values)%*%t(V)))
+# So solve(M)=V%*%diag(1/eigenM$values)%*%t(V)
+# Now solve(M) is applied to gamma_sol i.e. b=solve(M)%*%gamma_sol
+
+# Most weight is assigned to first two eigenvectors: negative and positive weights
+diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+
+b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+ts.plot(b)
+
+# First two eigenvectors
+ts.plot(V[,1:2])
+
+
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 6.4 Routine Checks
@@ -1003,7 +1171,7 @@ par(mfrow = c(1, 2))
 colo <- c("black", "green", rainbow(ncol(b_mat)))
 
 # ── Left panel: filter coefficients ──────────────────────────────────
-mplot <- filter_mat
+mplot <- scale(filter_mat,scale=T,center=F)
 plot(mplot[, 1],
      main = "Filter coefficients: MSE and PCS variants",
      axes = FALSE, type = "l", xlab = "Lag", ylab = "",
