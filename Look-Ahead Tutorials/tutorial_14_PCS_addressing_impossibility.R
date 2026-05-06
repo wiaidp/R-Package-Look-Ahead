@@ -467,20 +467,61 @@ abs(max(V%*%g-g[1]*V[,1]-g[2]*V[,2]))
 # We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol must be a linear combination 
 # of V[,1], V[,2] or, equivalently, a linear combination of gamma 0 and perturbation_vec
 # Check: 
-
 b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
 ts.plot(b)
 # the PCS predictor is not AR(1) anymore:
 b[2:L]/b[1:(L-1)]
+# Verify the decomposition of b into gamma0 and perturbation_vec: perfect fit (up to numerical precision)
 summary(lm(b~gamma0+perturbation_vec[1:L]-1))
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.3 Playing with Rank Two System
+# ─────────────────────────────────────────────────────────────────────
+# The PCS predictor is a linear combination of gamma0 and perturbation_vec and 
+# the weights of the linear combination can be tuned by beta and lambda.
 
 
 
+# Very strong regularization
+lambda<-5000000
 
+# Tipping points: the two extremes are -V[,2] and +V[,2]
+beta_vec<-c(-1,-0.1,0,0.0000001,0.0000002,0.00000025,0.0000003,0.0000005, 0.00001)
 
+Delta<-1:h
 
+b_mat<-NULL
+for (i in 1:length(beta_vec))
+{
 
+  beta<-beta_vec[i]
+  PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
+
+  b       <- PCS_obj$b
+  b_mat<-cbind(b_mat,b)
+}
+colo<-rainbow(ncol(b_mat))
+mplot<-scale(b_mat,center=F,scale=T)
+ts.plot(mplot,col=colo)
+
+# Medium regularization
+lambda<-5
+# Tipping points: the two extremes are -V[,1] and +V[,1]
+beta_vec<-c(0,0.086,0.0874,0.08745,0.08746,0.08747,0.0875,0.088,0.09)
+
+b_mat<-NULL
+for (i in 1:length(beta_vec))
+{
+  
+  beta<-beta_vec[i]
+  PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
+  
+  b       <- PCS_obj$b
+  b_mat<-cbind(b_mat,b)
+}
+colo<-rainbow(ncol(b_mat))
+mplot<-scale(b_mat,center=F,scale=T)
+ts.plot(mplot,col=colo)
 
 
 
