@@ -882,6 +882,9 @@ axis(2)
 box()
 
 
+
+
+
 # As in exercise 2.3, the PCS predictor is a linear combination of gamma0 (AR(1)) and 
 # gamma0_perturbated or, alternatively, of V[,1] and V[,2].
 # In contrast to exercise the rank is two.
@@ -921,12 +924,15 @@ if (length(Delta) > 0)
 # Specify a periodic AR(2)
 a1_ar2<-1.81381 
 a2_ar2<--0.8291025 
-xi_ar2 <- c(1, ARMAtoMA(ar= c(a1_ar2,a2_ar2), ma=0,lag.max = 1000))
+xi_ar2_all <- c(1, ARMAtoMA(ar= c(a1_ar2,a2_ar2), ma=0,lag.max = 2000))
+k_start<-20
+k_start<-0
+xi_ar2<-xi_ar2_all[k_start+1:1001]
 
 gamma_all_ar2 <- xi_ar2
 
 par(mfrow=c(1,1))
-ts.plot(xi_ar2)
+ts.plot(cbind(xi,xi_ar2),col=c("black","red"))
 
 gammah_mat_perturbate_ar2<- gammah_mat
 
@@ -1038,6 +1044,15 @@ filter_mat<-b_mat
 colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 4.4 Plots
+# ─────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.4.1 CCF Against AR(1)
+# ─────────────────────────────────────────────────────────────────────
+
+
 colo<-rainbow(ncol(filter_mat))
 par(mfrow=c(1,2))
 mplot <- scale(filter_mat,center=F,scale=T)
@@ -1082,7 +1097,7 @@ rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 mplot <- ccf_mat
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
+     main = "CCF against AR(1)", axes = F, type = "l",
      xlab = "", ylab = "",
      col  = colo[1], lwd = 1,
      ylim = c(min(0,min(mplot)), max(mplot)))
@@ -1099,19 +1114,94 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
+# Note
+# -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
 
-# As in exercise 2.3, the PCS predictor is a linear combination of gamma0 (AR(1)) and 
-# gamma0_perturbated or, alternatively, of V[,1] and V[,2].
-# In contrast to exercise the rank is two.
-# In contrast to exercise 2, the perturbation does not affect lag 0 only, but also 
-#   all other lags.
-# The result is a seemingl richer structure of the solution space, allowing, among others, 
-# a sort of cyclical pattern in a purely aperiodic framework (with monotonically decaying weights).
+# b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi%*%xi)).
+
+# -Consider that the following slight modification 
+#     b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
+#   would be fixed since xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
+#   is constant (not dependent on i if xi is the AR(1) DGP).
+# -However, xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) is proportional to a^i i.e. decreases exponentially.
+
+# Conclusions:
+# 1. The observed decrease of the CCF is only due to the scaling effect in xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) 
+#     and corresponds to a^i: all CCF's in the right panel decay with a^i.
+# 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
+# 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
+#     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
+
 
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.3.2 Play the Expanded Rank-Game: medium Regularization
+# 4.4.2 CCF Against AR(2)
+# ─────────────────────────────────────────────────────────────────────
+
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(1,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi_ar2)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against AR(2)", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# Against the AR(2) benchmark the PCS shifts the peak forward as intended.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.5 Play the Expanded Rank-Game: medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
 # We fix lambda to a very strong regularization
@@ -1148,6 +1238,15 @@ filter_mat<-b_mat
 colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.6 Plots
+# ─────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.6.1 CCF Against AR(1)
+# ─────────────────────────────────────────────────────────────────────
+
 colo<-rainbow(ncol(filter_mat))
 par(mfrow=c(1,2))
 mplot <- scale(filter_mat,center=F,scale=T)
@@ -1192,7 +1291,7 @@ rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 mplot <- ccf_mat
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
+     main = "CCF against AR(1)", axes = F, type = "l",
      xlab = "", ylab = "",
      col  = colo[1], lwd = 1,
      ylim = c(min(0,min(mplot)), max(mplot)))
@@ -1208,8 +1307,6 @@ axis(1, at     = 1:nrow(mplot),
      labels = -1 + 1:nrow(mplot))
 axis(2)
 box()
-
-
 
 # Note
 # -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
@@ -1228,6 +1325,79 @@ box()
 # 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
 # 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
 #     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.6.2 CCF Against AR(2)
+# ─────────────────────────────────────────────────────────────────────
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(1,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi_ar2)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against AR(2)", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+# CCF against AR(2) perturbation suggests look ahead behavior. 
+# Does this apply to AR(1), too? Do the corresponding PCS predictors lead the 
+# MSE predictor or the process?
+
 
 # HOWEVER!!!!!!
 # IT IS POSSIBLE TO INDUCE LOOK AHEAD BEHAVIOUR
