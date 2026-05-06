@@ -364,6 +364,8 @@ b[2:L]/b[1:(L-1)]
 
 # Forecast horizon
 h<-12
+
+# Introduce a single perturbation delta at lag 0
 delta<-0.0001
 perturbation_vec<-c(delta,rep(0,length(xi)-1))
 xi_perturbated<-xi+perturbation_vec
@@ -480,13 +482,24 @@ summary(lm(b~gamma0+perturbation_vec[1:L]-1))
 # The PCS predictor is a linear combination of gamma0 and perturbation_vec and 
 # the weights of the linear combination can be tuned by beta and lambda.
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.3.1 Large lambda
+# ─────────────────────────────────────────────────────────────────────
+
+# We fix lambda to a very strong regularization
+# We then vary beta: the two extreme beta values correspond to plus and minus the 
+# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
+# lambda1 depends on beta.
+# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
+
 
 
 # Very strong regularization
 lambda<-5000000
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
-beta_vec<-c(-1,-0.1,0,0.0000001,0.0000002,0.00000025,0.0000003,0.0000005, 0.00001)
+# For beta=0.000000269 one obtains -V[,1]
+beta_vec<-c(-1,-0.1,0,0.0000001,0.0000002,0.00000025,0.000000269,0.0000003,0.0000005, 0.00001)
 
 Delta<-1:h
 
@@ -500,9 +513,74 @@ for (i in 1:length(beta_vec))
   b       <- PCS_obj$b
   b_mat<-cbind(b_mat,b)
 }
-colo<-rainbow(ncol(b_mat))
-mplot<-scale(b_mat,center=F,scale=T)
-ts.plot(mplot,col=colo)
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
+
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(1,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.3.1 Medium lambda
+# ─────────────────────────────────────────────────────────────────────
 
 # Medium regularization
 lambda<-5
@@ -519,9 +597,307 @@ for (i in 1:length(beta_vec))
   b       <- PCS_obj$b
   b_mat<-cbind(b_mat,b)
 }
-colo<-rainbow(ncol(b_mat))
-mplot<-scale(b_mat,center=F,scale=T)
-ts.plot(mplot,col=colo)
+
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4))
+
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(1,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# Note: 
+# 1. Instead of using lambda and beta to parameterize the PCS predictors, the above perturbated PCS predictors could 
+# be obtained by gamma0+lambda_1*perturbation_vec[1:L] and -gamma0+lambda_1*perturbation_vec[1:L]
+# where lambda1 is a real (positive or negative) number.
+# 2. The results do not depend on the size delta of the perturbation in the sense that the same 
+#   solution space is obtained irrespective of delta. Of course, lambda and beta (or lambda1) must 
+#   be recalibrated, but the space remains the same.
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 3: ALTERNATIVE PERTURBATION
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.1 
+# ─────────────────────────────────────────────────────────────────────
+
+# Construct the MSE predictors gamma_i used for deriving delta_i=gamma_i-gamma_{i-1} 
+
+gamma_all <- xi
+# --- Build the shifted covariance matrix 'gammah_mat' ---
+# Each row contains the MSE predictor coefficients (gamma_all) shifted by
+# a specific lead value drawn from 'Delta'. 
+# We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
+# and therefore we need gamma_{Delta[1] - 1} to define the first difference.
+gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]/sqrt(sum(gamma_all^2) ) 
+if (length(Delta) > 0)
+{
+  for (i in 1:length(Delta))
+  {
+    gammah_mat <- rbind(gammah_mat,
+                        gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
+  }
+}
+
+# Perturbate a1
+delta<-0.0001
+a1_perturbate<-a1+delta
+
+xi_a1_perturbate <- c(1, ARMAtoMA(ar= a1_perturbate, ma=0,lag.max = 1000))
+
+gamma_all_a1_perturbate <- xi_a1_perturbate
+
+
+ts.plot(xi-xi_a1_perturbate)
+
+gammah_mat_perturbate<- gammah_mat
+
+gammah_mat_perturbate[1,]<-gamma_all_a1_perturbate[1:L]/sqrt(sum(gamma_all_a1_perturbate^2)) 
+
+
+
+
+PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
+  
+
+
+
+b       <- PCS_obj$b
+d_delta <- PCS_obj$d_delta
+b_mat   <- cbind(b_mat, b)
+M<-PCS_obj$M
+N<-PCS_obj$N
+gamma_sol=PCS_obj$gamma_sol
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.2 Background: Some Linear Algebra
+# ─────────────────────────────────────────────────────────────────────
+# The closed-form formula for PCS is: b <- solve(M) %*% gamma_sol
+# M depends on lambda but not on beta.
+# gamma_sol depends on lambda and beta.
+
+ts.plot(gamma_sol)
+# gamma_sol is not AR(1): the decay is not exponential with fixed a1:
+gamma_sol[2:L]/gamma_sol[1:(L-1)]
+
+# M=I+lambda*N where N=sum_{k=1}^h (gamma_k-gamma_{k-1}) (gamma_k-gamma_{k-1})'
+# Check: difference vanishes:
+max(abs(M-diag(rep(1,L))-lambda*N))
+# N does not have rank one but two
+eigenN<-eigen(N)
+# Only one eigenvalue larger than 10^-10
+which(abs(eigenN$values)>10^(-10))
+# Lets have a look at the two eigenvectors of the non-vanishing eigenvalues:
+par(mfrow=c(1,1))
+ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N")
+# Some basic results:
+# -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
+# -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
+# -Eigenvectors of M are the same as eigenvectors of N.
+# -Rank(N)=2, Rank(M)=L
+ts.plot(V[,1:2],main="First two eigenvectors of M")
+# V is orthogonal, gamma_sol is in the column space of the first two eigenvectors V[,1:2]. 
+# Therefore V[,k]%*%gamma_sol=0 if k>2.
+# Check:
+# Only the first element in the following vector is different from zero:
+t(V)%*%gamma_sol
+# Same here
+g<-(diag(1/eigenM$values)%*%t(V)%*%gamma_sol)
+g
+
+# By the above b=solve(M)%*%gamma_sol and solve(M) = V%*%diag(1/eigenM$values)%*%t(V)
+# Since g:=diag(1/eigenM$values)%*%t(V)%*%gamma_sol has only the first element that does not vanish we infer 
+# that V%*%g = g[1] * V[,1] + g[2] * V[,2]
+# Check:
+abs(max(V%*%g-g[1]*V[,1]-g[2]*V[,2]))
+
+# We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol lies in the space spanned by V[,1] and V[,2] 
+# or xi[1:L] and xi_a1_perturbate[1:L].
+# The PCS predictor is a linear combination of V[,1] and V[,2]
+
+b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+ts.plot(b)
+# the PCS predictor is not AR(1) in general (though it could be as a special case):
+b[2:L]/b[1:(L-1)]
+# This holds irrespective of lambda.
+
+# ─────────────────────────────────────────────────────────────────────
+# 3.3 Play the Rank-Game
+# ─────────────────────────────────────────────────────────────────────
+
+# We fix lambda to a very strong regularization
+# We then vary beta: the two extreme beta values correspond to plus and minus the 
+# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
+# lambda1 depends on beta.
+# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
+
+
+
+# Very strong regularization
+lambda<-5000000
+
+# Tipping points: the two extremes are -V[,2] and +V[,2]
+# For beta=0.000000269 one obtains -V[,1]
+beta_vec<-c(-1,-0.1,0,0.0000001)
+beta_vec<-c(-1,0,0.0000001,0.0000002,0.00000025,0.00000026,0.000000265,0.000000266,0.000000267,0.000000269,0.0000003,0.0000005, 0.00001)
+
+Delta<-1:h
+
+b_mat<-NULL
+for (i in 1:length(beta_vec))
+{
+  
+  beta<-beta_vec[i]
+  PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
+  
+  b       <- PCS_obj$b
+  b_mat<-cbind(b_mat,b)
+}
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
+
+
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(1,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
