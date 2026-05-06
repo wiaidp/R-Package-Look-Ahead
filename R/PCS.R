@@ -177,12 +177,22 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   #    The identity term ensures M is non-singular even when d_delta is rank-
   #    deficient, while the outer-product terms penalize deviations from the
   #    monotonicity target.
-  M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
+  if (F)
+  {
+    M <- diag(rep(1, L)) + lambda * d_delta[1, ] %*% t(d_delta[1, ])
+    if (length(Delta) > 1&!Type_III)
+    {
+      for (i in 2:length(Delta))
+        M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
+    }
+  }
+  N <-d_delta[1, ] %*% t(d_delta[1, ])
   if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
-      M <- M + lambda * d_delta[i, ] %*% t(d_delta[i, ])
+      N <- N + d_delta[i, ] %*% t(d_delta[i, ])
   }
+  M <- diag(rep(1, L))+lambda * N
   
   # b. Assemble the right-hand side vector:
   #       gamma_sol = gamma_h + lambda * slope * sum_i d_delta[i,]
@@ -213,7 +223,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  return(list(b = b, d_delta = d_delta,b_mse=b_mse))
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,N=N,gamma_sol=gamma_sol))
   
 }
 
@@ -226,7 +236,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 
 
 
-PCS_perturbation_func <- function(Delta, gamma_pcs, L, beta, lambda,Type_III=F,perturbation_delta_mat=NULL,scaled_constraints=F)
+PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {
   dim_row<-length(Delta)+ifelse(Type_III,1,0)
   

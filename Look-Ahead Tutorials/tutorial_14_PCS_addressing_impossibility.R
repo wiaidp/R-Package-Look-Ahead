@@ -201,6 +201,292 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
 
 
 # ════════════════════════════════════════════════════════════════════
+# EXERCISE 1: Rank-One 
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 AR(1)
+# ─────────────────────────────────────────────────────────────────────
+
+L <- 50   # filter length (number of MA coefficients retained)
+
+# Fit an ARMA(1,1) model: a parsimonious specification with adequate diagnostics.
+a1 <- 0.9
+
+xi <- c(1, ARMAtoMA(ar= a1, ma=0,lag.max = 1000))
+
+
+# Visualise the Wold coefficients.
+par(mfrow = c(1, 1))
+ts.plot(xi, main = "Wold decomposition: slowly decaying impulse response (post-1990)")
+
+ts.plot(ARMAacf(ar = a1, lag.max = L),
+        main = "ACF", ylab = "", xlab = "Lag")
+
+# The ACF satisfies the recurrence ACF(k+1) = a1 * ACF(k).
+# The rank is one: gamma_h is proportional to gamma_{h+k} for any h,k>=0.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 PCS
+# ─────────────────────────────────────────────────────────────────────
+
+# Forecast horizon
+h<-12
+
+# Target: original process
+gamma_pcs<-xi
+
+# Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
+# here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
+# positive and the problem is feasible) over the full interval
+# {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
+Delta <- 1:h
+
+
+# Regularization weight
+lambda <- 10000
+
+
+
+
+
+beta <--0.0001
+
+# Compute PCS Type I) predictor.
+PCS_obj<-PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
+
+
+
+
+b       <- PCS_obj$b
+d_delta <- PCS_obj$d_delta
+b_mat   <- cbind(b_mat, b)
+M<-PCS_obj$M
+N<-PCS_obj$N
+gamma_sol=PCS_obj$gamma_sol
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.3 Background: Some Linear Algebra
+# ─────────────────────────────────────────────────────────────────────
+# The closed-form formula for PCS is: b <- solve(M) %*% gamma_sol
+# M depends on lambda but not on beta.
+# gamma_sol depends on lambda and beta.
+
+# Check: difference vanishes:
+max(abs(b-solve(M) %*% gamma_sol))
+
+# M is symmetric and can be diagonalized
+# Check:
+eigenM<-eigen(M)
+V<-eigenM$vectors
+# Check diagonalization formula: difference should vanish
+max(abs(M-V%*%diag(eigenM$values)%*%t(V)))
+# Inverse
+max(abs(solve(M)-V%*%diag(1/eigenM$values)%*%t(V)))
+# So solve(M)=V%*%diag(1/eigenM$values)%*%t(V)
+# Now solve(M) is applied to gamma_sol.
+# gamma_sol is the weighted linear combination of gamma_h and the constraints.
+# In the AR(1) case gamma_h and the constraints are all linear dependent (Rank One)
+ts.plot(gamma_sol)
+# gamma_sol is again AR(1) with exponential a1 decay:
+gamma_sol[2:L]/gamma_sol[1:(L-1)]
+
+# M=I+lambda*N where N=sum_{k=1}^h (gamma_k-gamma_{k-1}) (gamma_k-gamma_{k-1})'
+# Check: difference vanishes:
+max(abs(M-diag(rep(1,L))-lambda*N))
+# Since (gamma_k-gamma_{k-1}) are AR(1) for all k, the L*L matrix N has rank one:
+eigenN<-eigen(N)
+# Only one eigenvalue larger than 10^-10
+which(abs(eigenN$values)>10^(-10))
+# Lets have a look at its eigenvector:
+ts.plot(N[,1], main="Eigenvector of non-vanishing eigenvalue of N")
+# Some basic results:
+# -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
+# -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
+# -Eigenvectors of M are the same as eigenvectors of N.
+# -Rank(N)=1, Rank(M)=L
+# Note: the following does not vanish because the orderings of the eigenvectors are different
+max(abs(V-eigenN$vectors))
+eigenM$values
+ts.plot(V[,1],main="First eigenvector of M")
+# V is orthogonal and gamma_sol is proportional to V[,1]. Therefore V[,k]%*%gamma_sol=0
+# Check:
+k<-2
+# Vanishes if k>1
+V[,k]%*%gamma_sol
+# Equivalently (since V is symmetric)
+t(V)[k,]%*%gamma_sol
+# Only the first element in the following vector is different from zero:
+t(V)%*%gamma_sol
+# Same here
+g<-(diag(1/eigenM$values)%*%t(V)%*%gamma_sol)
+g
+
+# By the above b=solve(M)%*%gamma_sol and solve(M) = V%*%diag(1/eigenM$values)%*%t(V)
+# Since g:=diag(1/eigenM$values)%*%t(V)%*%gamma_sol has only the first element that does not vanish we infer 
+# that V%*%g = g[1] * V[,1]
+# Check:
+abs(max(V%*%g-g[1]*V[,1]))
+
+# We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol must be proportional to V[,1], 
+# the first eigenvetor of M, which is AR(1).
+# Check:
+
+b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+ts.plot(b)
+# the PCS predictor is AR(1):
+b[2:L]/b[1:(L-1)]
+# This holds irrespective of lambda.
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.4 Impossibility
+# ─────────────────────────────────────────────────────────────────────
+
+# It is impossible to shift the peak of the CCF to k>0 in the AR(1) case.
+# The process has rank one, all MSE predictors gamma_h are proportional to gamma_0.
+# Therefore t(V)%*%gamma_sol is vanishing except at its first entry; similarly for g.
+# Therefore b = V%*%g is proportional to V[,1] which is again AR(1).
+# This holds irrespective of lambda>0.
+
+# Without increasing the rank of the problem, shifting the CCF peak is impossible.
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 2: Increasing the Rank: a Perturbation Based Approach
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.1 
+# ─────────────────────────────────────────────────────────────────────
+
+# Forecast horizon
+h<-12
+delta<-0.0001
+perturbation_vec<-c(delta,rep(0,length(xi)-1))
+xi_perturbated<-xi+perturbation_vec
+
+# Target: original process
+gamma_pcs_perturbated<-xi_perturbated
+
+gamma0_perturbated<-xi_perturbated[1:L]
+gamma1_perturbated<-xi_perturbated[1+1:L]
+gamma2_perturbated<-xi_perturbated[2+1:L]
+
+# The first two constraints of the PCS system are given by
+# b' * (gamma_1-gamma_0) =beta
+# b' * (gamma_2-gamma_1) =beta
+# We here compute the first two delta_i=(gamma_i-gamma_{i-1}) based on 
+# the perturbated system:
+delta1<-gamma0_perturbated-gamma1_perturbated
+delta2<-gamma1_perturbated-gamma2_perturbated
+# For i>2 delta_i is proportional to delta_{i-1} since the perturbation affects only the first lag of xi (at k=0)
+
+# delta1 and delta2 are spanned by gamma0 (the original AR(1)) and perturbation_vec
+# Check:
+gamma0<-xi[1:L]
+# delta1 depends on gamma0 and perturbation_vec 
+summary(lm(delta1~gamma0+perturbation_vec[1:L]-1))
+# delta2 depends only on gamma0 (the perturbation affects only the first lag)
+summary(lm(delta2~gamma0-1))
+
+
+# Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
+# here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
+# positive and the problem is feasible) over the full interval
+# {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
+Delta <- 1:h
+
+
+# Regularization weight
+lambda <- 10000
+
+
+
+
+
+beta <--0.0001
+
+# Compute PCS Type I) predictor.
+PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
+
+
+
+
+b       <- PCS_obj$b
+d_delta <- PCS_obj$d_delta
+b_mat   <- cbind(b_mat, b)
+M<-PCS_obj$M
+N<-PCS_obj$N
+gamma_sol=PCS_obj$gamma_sol
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.2 Rank Two
+# ─────────────────────────────────────────────────────────────────────
+# The closed-form formula for PCS is: b <- solve(M) %*% gamma_sol
+# In contrast to exercise 1, gamma_sol is not perfectly AR(1) anymore
+gamma_sol[2:L]/gamma_sol[1:(L-1)]
+
+# gamma_sol is the linear combination of gamma0 (the original non-perturbated AR(1)) and perturbation vector
+# Perfect fit: gamma0 and perturbation_vec are significant and the residual vanishes.
+# Note: the size of delta affects the significance.
+summary(lm(gamma_sol~perturbation_vec[1:L]+gamma0-1))
+
+
+eigenM<-eigen(M)
+V<-eigenM$vectors
+eigenN<-eigen(N)
+
+
+# In contrast to exercise 1, the rank is two: two eigenvalues larger than 10^-10
+which(abs(eigenN$values)>10^(-10))
+
+# The columns space of N is two-dimensional: it is spanned by delta1 and delta2 computed above.
+
+
+# Lets have a look at the two eigenvectors:
+ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N",lty=1:2)
+# These are the same as the eigenvectors of M to non-one eigenvalues of M
+non_one_eigenvalues_M<-which(abs(eigenM$values-1)>10^(-10))
+ts.plot(V[,non_one_eigenvalues_M], main="Eigenvectors of non-one eigenvalues of M",lty=1:2)
+
+# The first two elements in the following vector are different from zero:
+t(V)%*%gamma_sol
+# Same here
+g<-(diag(1/eigenM$values)%*%t(V)%*%gamma_sol)
+g
+
+# By the above b=solve(M)%*%gamma_sol and solve(M) = V%*%diag(1/eigenM$values)%*%t(V)
+# Since g:=diag(1/eigenM$values)%*%t(V)%*%gamma_sol has only the first two elements that do not vanish we infer 
+# that V%*%g = g[1] * V[,1] + g[2] * V[,2]
+# Check:
+abs(max(V%*%g-g[1]*V[,1]-g[2]*V[,2]))
+
+# We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol must be a linear combination 
+# of V[,1], V[,2] or, equivalently, a linear combination of gamma 0 and perturbation_vec
+# Check: 
+
+b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+ts.plot(b)
+# the PCS predictor is not AR(1) anymore:
+b[2:L]/b[1:(L-1)]
+summary(lm(b~gamma0+perturbation_vec[1:L]-1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
 # EXERCISE 3: Re-Installing Feasibility (Part A)
 # ════════════════════════════════════════════════════════════════════
 
@@ -1073,12 +1359,12 @@ lambda <- 5000000000
 
 b_mat <-  NULL    # filter coefficients, one column per beta value
 initialize_with_null<- F
-for (i in seq_along(beta_vec)) {
+for (i in seq_along(beta_vec)) { #i<-1
   
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj<-PCS_perturbation_func(Delta, gamma_pcs, L, beta, lambda,initialize_with_null,perturbation_delta_mat,scaled_constraints)
+  PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,initialize_with_null,perturbation_delta_mat,scaled_constraints)
   
   
   b       <- PCS_obj$b
