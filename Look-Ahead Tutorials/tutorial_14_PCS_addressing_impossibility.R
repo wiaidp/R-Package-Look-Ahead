@@ -1211,9 +1211,27 @@ box()
 
 
 
+# Note
+# -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
 
+# b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi%*%xi)).
 
+# -Consider that the following slight modification 
+#     b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
+#   would be fixed since xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
+#   is constant (not dependent on i if xi is the AR(1) DGP).
+# -However, xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) is proportional to a^i i.e. decreases exponentially.
 
+# Conclusions:
+# 1. The observed decrease of the CCF is only due to the scaling effect in xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) 
+#     and corresponds to a^i: all CCF's in the right panel decay with a^i.
+# 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
+# 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
+#     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
+
+# HOWEVER!!!!!!
+# IT IS POSSIBLE TO INDUCE LOOK AHEAD BEHAVIOUR
+# MAKE EXAMPLES WITH TIME SERIES AND SOME OF THE ABOVE DESIGNS 
 
 
 # Main Take-Aways
