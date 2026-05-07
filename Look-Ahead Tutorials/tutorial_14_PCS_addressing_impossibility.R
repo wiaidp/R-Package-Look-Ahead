@@ -1,73 +1,21 @@
 
-
+# Most difficult: self-similar AR(1)
 
 
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
 
-# Example 1 — PCS Type III: Feasible but Ineffective.
-#   The problem is feasible in the sense that CCF(h) > CCF(0), as required by
-#   the Type III constraint, and the target correlation is positive. However, 
-#   the CCF peak occurs at k = 1 rather than at the target horizon k = h = 12, 
-#   so the look-ahead objective is not achieved.
-#   More strikingly, the resulting filter simultaneously worsens the signal-to-noise
-#   ratio (i.e., increases noise) and introduces lag — a doubly adverse outcome.
-#   This pathological behavior arises from imposing the Type III constraint
-#   under adverse structural conditions of the DGP, which leave insufficient
-#   degrees of freedom to address the prediction problem.
+# Example 1 — Impossibility 
 
 
-# Example 2 — PCS Type I with Strong Regularization: Infeasible
-#   Imposing a monotonically (linearly) increasing CCF from k = 0 to k = h
-#   is infeasible for this DGP:
-#   - The constraints can be satisfied exactly, but the resulting target
-#     correlation is negative.
-#   - Ten out of the 12 imposed constraints are redundant, due to the
-#     ARMA(1,1) structure: the ACF decays exponentially for lags beyond q = 1
-#     (Yule-Walker equations apply for k > q = 1).
-#   - The nowcast coefficient gamma_0 (Wold decomposition) is not collinear
-#     with the one-step-ahead MSE predictor gamma_1, but gamma_1 and gamma_h
-#     are collinear for any h > 0.
-#   - Consequently, only two degrees of freedom are available to solve what
-#     reduces to a regular 2-dimensional linear constraint system, yielding a
-#     unique solution with no room for further optimization.
+# Example 2 — perturbtaion: looks lik ARMA(1,1)
 
-# Examples 3–5 — Restoring Feasibility via Three Different Approaches
+# Examples 3– - AR(1) perturbation: cyclicality in a completely acacyclical framework
 
-# Example 3 — PCS Type I with Perturbation (builds on Example 2)
-#   The framework from Example 2 is slightly perturbed so that the solution
-#   space expands from dimension 2 to dimension L (= 50), providing greater
-#   freedom to optimize the target correlation.
-#   The problem becomes feasible and the CCF increases monotonically,
-#   peaking at k = 12. However, because the perturbations are arbitrary,
-#   the predictor is prone to trend reversals and is not straightforwardly
-#   interpretable.
+# Example 4 - AR(2) perturbation
 
-# Example 4 — PCS Type I with Yearly Growth Target (builds on Example 3)
-#   The target is changed from monthly growth to yearly growth.
-#   The solution space expands to dimension 12. Three settings are explored:
-#
-#   Setting 4.1 — Constraint space of dimension 12:
-#     Exactly determined; the system can be solved exactly but leaves no
-#     degrees of freedom for target correlation maximization. The resulting
-#     target correlation is negative.
-#
-#   Setting 4.2 — Constraint space of dimension 11:
-#     Leaves one degree of freedom for target maximization. The problem is
-#     feasible and the PCS exhibits look-ahead behavior.
-#
-#   Setting 4.3 — Constraint space of dimension 13 (overdetermined) with
-#     moderate lambda:
-#     An approximately feasible solution exists. The CCF peak is shifted
-#     (though not exactly to h = 12), the target correlation is positive,
-#     and the PCS exhibits look-ahead behavior.
+# Example 5 - changing the target
 
-# Example 5 — PCS Type III with Yearly Growth Target (builds on Example 4)
-#   The constraint space is 2-dimensional and therefore underdetermined:
-#   the problem is feasible and the predictor exhibits look-ahead behavior.
-#   However, the weaker Type III constraint controls only CCF(h) > CCF(0),
-#   which in this example does not guarantee that the CCF peak is relocated
-#   to k = h.
 
 
 # ── INITIALISATION ───────────────────────────────────────────────────
@@ -366,15 +314,20 @@ b[2:L]/b[1:(L-1)]
 h<-12
 
 # Introduce a single perturbation delta at lag 0
+# First unit vector
+e1<-c(1,rep(0,length(xi)-1))
 delta<-0.0001
-perturbation_vec<-c(delta,rep(0,length(xi)-1))
+perturbation_vec<-delta*e1
 xi_perturbated<-xi+perturbation_vec
+
 
 # Target: original process
 gamma_pcs_perturbated<-xi_perturbated
 
 gamma0_perturbated<-xi_perturbated[1:L]
 gamma1_perturbated<-xi_perturbated[1+1:L]
+
+gamma1_perturbated[2:L]/gamma1_perturbated[1:(L-1)]
 gamma2_perturbated<-xi_perturbated[2+1:L]
 
 # The first two constraints of the PCS system are given by
@@ -384,6 +337,7 @@ gamma2_perturbated<-xi_perturbated[2+1:L]
 # the perturbated system:
 delta1<-gamma0_perturbated-gamma1_perturbated
 delta2<-gamma1_perturbated-gamma2_perturbated
+
 # For i>2 delta_i is proportional to delta_{i-1} since the perturbation affects only the first lag of xi (at k=0)
 
 # delta1 and delta2 are spanned by gamma0 (the original AR(1)) and perturbation_vec
@@ -477,14 +431,11 @@ b[2:L]/b[1:(L-1)]
 summary(lm(b~gamma0+perturbation_vec[1:L]-1))
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.3 Playing with Rank Two System
+# 2.3 Playing with Rank Two System: Strong Regularization
 # ─────────────────────────────────────────────────────────────────────
 # The PCS predictor is a linear combination of gamma0 and perturbation_vec and 
 # the weights of the linear combination can be tuned by beta and lambda.
 
-# ─────────────────────────────────────────────────────────────────────
-# 2.3.1 Large lambda
-# ─────────────────────────────────────────────────────────────────────
 
 # We fix lambda to a very strong regularization
 # We then vary beta: the two extreme beta values correspond to plus and minus the 
@@ -517,8 +468,177 @@ filter_mat<-b_mat
 colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.4 Plots
+# ─────────────────────────────────────────────────────────────────────
+
+
 colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(1,2))
+par(mfrow=c(2,2))
+mplot <- scale(filter_mat,center=F,scale=T)
+# Check: sum of squared coefficients per filter (filter energy proxy).
+# DFP are unit-length adjusted.
+apply(mplot^2, 2, sum)
+
+plot(mplot[, 1],
+     main = "Scaled Predictors", axes = F, type = "l",
+     xlab = "Lags", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(mplot), max(mplot)))
+mtext(colnames(mplot)[1], col = colo[1], line = -1)
+
+# Overlay remaining filters with colour-coded legend labels
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+
+# Redraw the MSE h-step filter on top to ensure visibility
+lines(mplot[, 2], col = colo[2])
+
+axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+axis(2)
+box()
+
+# ── Right panel: cross-correlation functions (CCF) ────────────────────
+# For each predictor, compute the CCF against the nowcast gamma0 at lags
+# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
+# a horizontal line marks zero correlation.
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against xi", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V1", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V2", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+# CCF against V1 and V2:
+# b is a linear combination of both.
+# b is also linear combination of gamma0 and perturbation
+# V[,1:2] orthogonal
+# If V[,i]=gamma0 then original CCF against gamma0 measures the gamma0-effect only and discards perturbation.
+# Here V[,1] = - gamma0 so that CCF is same as against gamma0 but sign inverted.
+# Decompose CCF additively into effect of V[,1] (gamma0) and V[,2] (perturbation+gamma0)
+# This is better than CCF against perturbation because perturbation and gamma0 are not orthogonal: cannot decompose CCF additively.
+# We can see the PCS effect on CCF of V[,2]: a shift by one to the right.
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.5 Playing with Rank Two System: Medium Regularization
+# ─────────────────────────────────────────────────────────────────────
+
+# Medium regularization
+lambda<-5
+# Tipping points: the two extremes are -V[,1] and +V[,1]
+beta_vec<-c(0,0.086,0.0874,0.08745,0.08746,0.08747,0.0875,0.088,0.09)
+
+b_mat<-NULL
+for (i in 1:length(beta_vec))
+{
+  
+  beta<-beta_vec[i]
+  PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
+  
+  b       <- PCS_obj$b
+  b_mat<-cbind(b_mat,b)
+}
+
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.6 Plots
+# ─────────────────────────────────────────────────────────────────────
+
+
+
+colo<-rainbow(ncol(filter_mat))
+par(mfrow=c(2,2))
 mplot <- scale(filter_mat,center=F,scale=T)
 # Check: sum of squared coefficients per filter (filter energy proxy).
 # DFP are unit-length adjusted.
@@ -578,75 +698,49 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
-# ─────────────────────────────────────────────────────────────────────
-# 2.3.1 Medium lambda
-# ─────────────────────────────────────────────────────────────────────
-
-# Medium regularization
-lambda<-5
-# Tipping points: the two extremes are -V[,1] and +V[,1]
-beta_vec<-c(0,0.086,0.0874,0.08745,0.08746,0.08747,0.0875,0.088,0.09)
-
-b_mat<-NULL
-for (i in 1:length(beta_vec))
-{
-  
-  beta<-beta_vec[i]
-  PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
-  
-  b       <- PCS_obj$b
-  b_mat<-cbind(b_mat,b)
-}
-
-filter_mat<-b_mat
-colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4))
-
-
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(1,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
-
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-# ── Right panel: cross-correlation functions (CCF) ────────────────────
-# For each predictor, compute the CCF against the nowcast gamma0 at lags
-# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
-# a horizontal line marks zero correlation.
 max_lag<-0
 ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
+                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
 colnames(ccf_mat)<-colnames(filter_mat)
 rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 
 mplot <- ccf_mat
 
 plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
+     main = "CCF against V1", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V2", axes = F, type = "l",
      xlab = "", ylab = "",
      col  = colo[1], lwd = 1,
      ylim = c(min(0,min(mplot)), max(mplot)))
@@ -670,6 +764,11 @@ box()
 # 2. The results do not depend on the size delta of the perturbation in the sense that the same 
 #   solution space is obtained irrespective of delta. Of course, lambda and beta (or lambda1) must 
 #   be recalibrated, but the space remains the same.
+
+
+
+# Note that we could increase the rank by adding e2, e3,....
+# However, this would not affect the CCF against the true gamma0 (AR(1)).
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -819,9 +918,13 @@ filter_mat<-b_mat
 colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8))
 
 
+# ─────────────────────────────────────────────────────────────────────
+# 3.4 Plots
+# ─────────────────────────────────────────────────────────────────────
+
 
 colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(1,2))
+par(mfrow=c(2,2))
 mplot <- scale(filter_mat,center=F,scale=T)
 # Check: sum of squared coefficients per filter (filter energy proxy).
 # DFP are unit-length adjusted.
@@ -865,6 +968,66 @@ mplot <- ccf_mat
 
 plot(mplot[, 1],
      main = "CCF", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V1", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V2", axes = F, type = "l",
      xlab = "", ylab = "",
      col  = colo[1], lwd = 1,
      ylim = c(min(0,min(mplot)), max(mplot)))
@@ -1048,13 +1211,10 @@ colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8
 # 4.4 Plots
 # ─────────────────────────────────────────────────────────────────────
 
-# ─────────────────────────────────────────────────────────────────────
-# 4.4.1 CCF Against AR(1)
-# ─────────────────────────────────────────────────────────────────────
 
 
 colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(1,2))
+par(mfrow=c(2,2))
 mplot <- scale(filter_mat,center=F,scale=T)
 # Check: sum of squared coefficients per filter (filter energy proxy).
 # DFP are unit-length adjusted.
@@ -1114,6 +1274,68 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V1", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "CCF against V2", axes = F, type = "l",
+     xlab = "", ylab = "",
+     col  = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+
+for (i in 1:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
+}
+
+abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
+abline(h = 0)                 # zero-correlation reference line
+
+axis(1, at     = 1:nrow(mplot),
+     labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+
+
 # Note
 # -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
 
@@ -1135,67 +1357,6 @@ box()
 
 
 
-# ─────────────────────────────────────────────────────────────────────
-# 4.4.2 CCF Against AR(2)
-# ─────────────────────────────────────────────────────────────────────
-
-
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(1,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
-
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi_ar2)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against AR(2)", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
 
 # Against the AR(2) benchmark the PCS shifts the peak forward as intended.
 
