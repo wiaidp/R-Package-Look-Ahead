@@ -357,7 +357,7 @@ Delta <- 1:h
 
 
 # Regularization weight
-lambda <- 10000
+lambda <- 10000000
 
 
 
@@ -377,6 +377,7 @@ b_mat   <- cbind(b_mat, b)
 M<-PCS_obj$M
 N<-PCS_obj$N
 gamma_sol=PCS_obj$gamma_sol
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.2 Rank Two
@@ -403,10 +404,8 @@ which(abs(eigenN$values)>10^(-10))
 
 
 # Lets have a look at the two eigenvectors:
+par(mfrow=c(1,1))
 ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N",lty=1:2)
-# These are the same as the eigenvectors of M to non-one eigenvalues of M
-non_one_eigenvalues_M<-which(abs(eigenM$values-1)>10^(-10))
-ts.plot(V[,non_one_eigenvalues_M], main="Eigenvectors of non-one eigenvalues of M",lty=1:2)
 
 # The first two elements in the following vector are different from zero:
 t(V)%*%gamma_sol
@@ -813,7 +812,7 @@ gammah_mat_perturbate<- gammah_mat
 gammah_mat_perturbate[1,]<-gamma_all_a1_perturbate[1:L]/sqrt(sum(gamma_all_a1_perturbate^2)) 
 
 
-
+lambda<-10000
 
 PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
   
@@ -850,6 +849,10 @@ eigenN<-eigen(N)
 # Only two eigenvalue larger than 10^-10
 which(abs(eigenN$values)>10^(-10))
 # Lets have a look at the two eigenvectors of the non-vanishing eigenvalues:
+# Note: 
+#   The eigenvectors depend on the constraint-matrix only: they are independent of lambda or beta
+#   The eigenvalues depend on lambda, but not on beta
+#   gamma_sol depends on lambda*beta
 par(mfrow=c(1,1))
 ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N")
 # Some basic results:
@@ -857,6 +860,7 @@ ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of
 # -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
 # -Eigenvectors of M are the same as eigenvectors of N.
 # -Rank(N)=2, Rank(M)=L
+par(mfrow=c(1,1))
 ts.plot(V[,1:2],main="First two eigenvectors of M")
 # V is orthogonal, gamma_sol is in the column space of the first two eigenvectors V[,1:2]. 
 # Therefore V[,k]%*%gamma_sol=0 if k>2.
