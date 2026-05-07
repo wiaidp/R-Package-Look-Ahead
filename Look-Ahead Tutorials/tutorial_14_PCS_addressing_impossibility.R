@@ -1070,12 +1070,13 @@ box()
 
 
 
-# Very strong regularization
+# Medium regularization
 lambda<-5
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
-beta_vec<-c(-1,0,0.0000001,0.0000002,0.00000025,0.00000026,0.000000265,0.000000266,0.000000267,0.000000269,0.0000003,0.0000005, 0.00001)
+beta_vec<-c(0,0.086,0.0872,0.0874,0.08745,0.08746,0.08747,0.0875,0.0877,0.088,0.09)
+
 
 Delta<-1:h
 
