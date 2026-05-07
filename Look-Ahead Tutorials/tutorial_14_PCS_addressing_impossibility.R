@@ -857,7 +857,7 @@ par(mfrow=c(1,1))
 ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N")
 # Some basic results:
 # -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
-# -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
+# -Eigenvalues of M^{-1} are 1/(1+lambda*n_i).
 # -Eigenvectors of M are the same as eigenvectors of N.
 # -Rank(N)=2, Rank(M)=L
 par(mfrow=c(1,1))
