@@ -306,6 +306,10 @@ b[2:L]/b[1:(L-1)]
 # EXERCISE 2: Increasing the Rank: a Perturbation Based Approach
 # ════════════════════════════════════════════════════════════════════
 
+# Introduce a single perturbation delta at lag 0
+# This expands the rank from 1 to two provided gamma0 enters the constraints 
+# (otherwise the perturbation is ignored). 
+
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 
 # ─────────────────────────────────────────────────────────────────────
@@ -773,6 +777,11 @@ box()
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 3: ALTERNATIVE AR(1) PERTURBATION
 # ════════════════════════════════════════════════════════════════════
+
+# Introduce a single perturbation affecting all lags.
+# This expands the rank from 1 to two for any constraints (in conztrast to exercise 2, 
+# where gamma0 must be part of the constraints) 
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 
