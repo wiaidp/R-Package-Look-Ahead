@@ -782,6 +782,11 @@ box()
 # This expands the rank from 1 to two for any constraints (in conztrast to exercise 2, 
 # where gamma0 must be part of the constraints) 
 
+# perturbate gamma0 only and only slightly:
+# gammah_mat_perturbate[1,]<-(gammah_mat[1,]+delta*gamma_all_a1_perturbate[1:L])/sqrt(sum(gamma_all_a1_perturbate^2)) 
+# In this case V1 \approx gamma0 (the main direction with the largest eigenvalue is gamma0)
+# V2 is orthogonal to V1 \approx gamma0.
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 
@@ -806,7 +811,7 @@ if (length(Delta) > 0)
 }
 
 # Perturbate a1
-delta<-0.0001
+delta<-0.001
 a1_perturbate<-a1+delta
 
 xi_a1_perturbate <- c(1, ARMAtoMA(ar= a1_perturbate, ma=0,lag.max = 1000))
@@ -818,8 +823,11 @@ ts.plot(xi-xi_a1_perturbate)
 
 gammah_mat_perturbate<- gammah_mat
 
-gammah_mat_perturbate[1,]<-gamma_all_a1_perturbate[1:L]/sqrt(sum(gamma_all_a1_perturbate^2)) 
+# Perturbate gamma0
+gammah_mat_perturbate[1,]<-gamma_all_a1_perturbate[1:L]/sqrt(sum(gamma_all_a1_perturbate^2))
 
+gammah_mat_perturbate[1,]<-(gammah_mat[1,]+delta*gamma_all_a1_perturbate[1:L])/sqrt(sum(gamma_all_a1_perturbate^2)) 
+                                                        
 
 lambda<-10000
 
@@ -871,6 +879,7 @@ ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of
 # -Rank(N)=2, Rank(M)=L
 par(mfrow=c(1,1))
 ts.plot(V[,1:2],main="First two eigenvectors of M")
+V[2:L,1]/V[1:(L-1),1]
 # V is orthogonal, gamma_sol is in the column space of the first two eigenvectors V[,1:2]. 
 # Therefore V[,k]%*%gamma_sol=0 if k>2.
 # Check:
@@ -914,6 +923,8 @@ lambda<-5000000
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
 beta_vec<-c(-1,0,0.0000001,0.0000002,0.00000025,0.00000026,0.000000265,0.000000266,0.000000267,0.000000269,0.0000003,0.0000005, 0.00001)
+
+beta_vec<-c(-1,0,0.3,0.4,0.41,0.42,0.43,0.45,0.47,0.5,5)/5000000
 
 Delta<-1:h
 
@@ -1090,6 +1101,8 @@ lambda<-5
 # For beta=0.000000269 one obtains -V[,1]
 beta_vec<-c(0,0.086,0.0872,0.0874,0.08745,0.08746,0.08747,0.0875,0.0877,0.088,0.09)
 
+beta_vec<-c(2,2.055,2.057,2.058,2.059,2.0591,2.0592,2.0593,2.0594,2.0595,2.06,2.1)/lambda
+
 
 Delta<-1:h
 
@@ -1240,6 +1253,12 @@ box()
 # EXERCISE 4: ALTERNATIVE AR(2) PERTURBATION
 # ════════════════════════════════════════════════════════════════════
 
+# perturbate gamma0 only and only slightly:
+# gammah_mat_perturbate_ar2[1,]<-gammah_mat[1,]+delta*gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
+# In this case V1 \approx gamma0 (the main direction with the largest eigenvalue is gamma0)
+# V2 is orthogonal to V1 \approx gamma0.
+
+
 # ─────────────────────────────────────────────────────────────────────
 # 4.1 
 # ─────────────────────────────────────────────────────────────────────
@@ -1278,6 +1297,10 @@ ts.plot(cbind(xi,xi_ar2),col=c("black","red"))
 gammah_mat_perturbate_ar2<- gammah_mat
 
 gammah_mat_perturbate_ar2[1,]<-gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
+
+delta<-0.0001
+
+gammah_mat_perturbate_ar2[1,]<-gammah_mat[1,]+delta*gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
 
 
 
@@ -1318,7 +1341,8 @@ eigenN<-eigen(N)
 which(abs(eigenN$values)>10^(-10))
 # Lets have a look at the two eigenvectors of the non-vanishing eigenvalues:
 par(mfrow=c(1,1))
-ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N")
+ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N",lty=1:2)
+V[2:L,1]/V[1:(L-1),1]
 # Some basic results:
 # -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
 # -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
@@ -1358,7 +1382,6 @@ b[2:L]/b[1:(L-1)]
 # We then vary beta: the two extreme beta values correspond to plus and minus the 
 # second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
 # lambda1 depends on beta.
-# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
 
 
 
@@ -1368,6 +1391,8 @@ lambda<-5000000
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
 beta_vec<-c(-1,-0.1,0,0.00000005,0.00000008,0.00000009,0.0000001,0.00000013,0.0000002,0.000003,0.1)
+
+beta_vec<-c(-10,-1,0,1,1.2,1.25,1.27,1.3,1.35,1.4,1.5,2,10)/lambda
 
 Delta<-1:h
 
@@ -1543,24 +1568,24 @@ box()
 # 4.5 Play the Expanded Rank-Game: medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
-# We fix lambda to a very strong regularization
+# We fix lambda to a medium regularization
 # We then vary beta: the two extreme beta values correspond to plus and minus the 
-# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
+# first eigenvector V[,1] with combinations V[,2]+lambda1*V[,2] in between, where 
 # lambda1 depends on beta.
-# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
 
 
 
-# Very strong regularization
+# Medium regularization
 lambda<-5
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
-beta_vec<-c(-1,0,0.0000001,0.0000002,0.00000025,0.00000026,0.000000265,0.000000266,0.000000267,0.000000269,0.0000003,0.0000005, 0.00001)
-
-beta_vec<-c(0,0.086,0.0874,0.08745,0.08746,0.08747,0.0875,0.088,0.09)
 
 beta_vec<-c(-1,-0.2,0,0.05,0.07,0.09)
+
+beta_vec<-c(-1,-0.2,0,0.05,0.07,0.09)/lambda
+beta_vec<-((0:10)/10)/lambda
+beta_vec<-c(0.43,0.4371,0.4372,0.43725,0.43727,0.4373,0.43733,0.43735,0.4374,0.4375,0.438)/lambda
 
 
 Delta<-1:h
