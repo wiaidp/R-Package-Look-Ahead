@@ -200,7 +200,7 @@ lambda <- 10000
 
 
 beta <--0.0001
-
+b_mat<-NULL
 # Compute PCS Type I) predictor.
 PCS_obj<-PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
 
@@ -1101,7 +1101,7 @@ enf<-500
 # Select the relevant PCS: 9 is lagging, 10 is very slightly leading, 10:ncol(y_out_mat) are increasingly leading
 # The more they lead the more the predictor appears to change sign; very difficult forecast problem
 select_pcs<-9:ncol(y_out_mat)
-select_vec<-c(1,1+select_pcs)
+select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1320,7 +1320,7 @@ enf<-500
 # For increasing beta the predictros appear to change sign.
 # Very difficult forecast problem.
 select_pcs<-c(4:7)
-select_vec<-c(1,1+select_pcs)
+select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1689,8 +1689,8 @@ enf<-500
 # Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
 # For increasing beta the predictros appear to change sign.
 # Very difficult forecast problem.
-select_pcs<-c(6:9)
-select_vec<-c(1,1+select_pcs)
+select_pcs<-c(1:5)
+select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1933,8 +1933,8 @@ enf<-500
 # Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
 # For increasing beta the predictros appear to change sign.
 # Very difficult forecast problem.
-select_pcs<-c(1:5)
-select_vec<-c(1,1+select_pcs)
+select_pcs<-c(2:5)
+select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
