@@ -1124,6 +1124,9 @@ mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
 colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
 
 
+# Note: the right tail of the ccf always corresponds to the AR(1).
+# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
+# It is impossible to shift the peak of the CCF to the right.
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1343,6 +1346,8 @@ mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
 colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
 
 
+# Note: the right tail of the ccf always corresponds to the AR(1).
+# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1713,6 +1718,8 @@ mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
 colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
 
 
+# Note: the right tail of the ccf always corresponds to the AR(1).
+# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1957,12 +1964,13 @@ mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
 colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
 
 
+# Note: the right tail of the ccf always corresponds to the AR(1).
+# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
-
 
 
 
