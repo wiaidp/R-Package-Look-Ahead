@@ -297,8 +297,14 @@ b[2:L]/b[1:(L-1)]
 # Therefore b = V%*%g is proportional to V[,1] which is again AR(1).
 # This holds irrespective of lambda>0.
 
-# Without increasing the rank of the problem, shifting the CCF peak is impossible.
+# Shifting the CCF peak is impossible because b' * gamma_h = a1^h b' * gamma0 
+# irrespective of b. 
 
+# The identity would be faster (looking ahead) but the identity implies CCF(k)=0 for k>0.
+# The constraints make this choice impossible since |CCF(1)-CCF(0)| would 
+# be very large when compared to |CCF(k)-CCF(k-1)|, k>0, so that no fixed beta 
+# exists such the constraints are small. However, selecting beta_1 large and beta_k small for k>1 would enable the identity.
+# In other words: the constraints (beta) should account for the type of perturbation.
 
 
 
@@ -382,7 +388,6 @@ M<-PCS_obj$M
 N<-PCS_obj$N
 gamma_sol=PCS_obj$gamma_sol
 
-
 # ─────────────────────────────────────────────────────────────────────
 # 2.2 Rank Two
 # ─────────────────────────────────────────────────────────────────────
@@ -403,6 +408,7 @@ eigenN<-eigen(N)
 
 # In contrast to exercise 1, the rank is two: two eigenvalues larger than 10^-10
 which(abs(eigenN$values)>10^(-10))
+
 
 # The columns space of N is two-dimensional: it is spanned by delta1 and delta2 computed above.
 
@@ -453,7 +459,7 @@ lambda<-5000000
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
-beta_vec<-c(-1,-0.1,0,0.0000001,0.0000002,0.00000025,0.000000269,0.0000003,0.0000005, 0.00001)
+beta_vec<-c(-1,-0.1,0,0.0000001,0.0000002,0.00000025,0.000000269,0.0000003,0.0000005, 0.00001,10)
 
 Delta<-1:h
 
@@ -929,7 +935,7 @@ lambda<-5000000
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
 
-beta_vec<-c(-1,0,0.3,0.4,0.41,0.42,0.43,0.44,0.45,0.47,0.5,5)/5000000
+beta_vec<-c(-1,0,0.3,0.4,0.41,0.42,0.43,0.44,0.45,0.455,0.46,0.47,0.5,5)/5000000
 
 Delta<-1:h
 
@@ -1087,7 +1093,7 @@ box()
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.6 Apply and Compare Predictors
+# 3.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
 len<-10000
@@ -1104,9 +1110,12 @@ colnames(y_out_mat) <- colnames(filter_mat)
 
 anf<-150
 enf<-500
-# Select the relevant PCS: 9 is lagging, 10 is very slightly leading, 10:ncol(y_out_mat) are increasingly leading
-# The more they lead the more the predictor appears to change sign; very difficult forecast problem
-select_pcs<-9:ncol(y_out_mat)
+# Select the relevant PCS: 
+# -Smaller beta imply a lag
+# -larger beta (columns >= 10) are increasingly leading.
+# -The more they lead the more the predictor appears to invert the sign; 
+# -Very difficult forecast problem.
+select_pcs<-10:ncol(y_out_mat)
 select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
@@ -1125,14 +1134,47 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 
 
+# -Very difficult forecast problem.
+
+# Here we show look ahead predictors that do not emphasize sign inversion:
+# Select a narrower time span to magnify the look ahead effect.
+# Note: the look-ahead effect mainly works on longer swings. Short-term 
+# random spikes cannot be predicted. 
+# This particular `long swing' look ahead behaviour might be relevant in the 
+# context of business cycle analysis, where crises are typically determined by 
+# longer and stronger downturns, i.e., negative swings.
+anf<-280
+enf<-400
+
+select_pcs<-10:12
+select_vec<-c(1,select_pcs)
+mplot<-scale(y_out_mat[anf:enf,select_vec])
+colnames(mplot)<-colnames(y_out_mat)[select_vec]
+
+coli<-c("black",colo[select_pcs])
+
+par(mfrow = c(1, 1))
+
+# Full-sample overview of all predictor outputs.
+ts.plot(mplot,
+        main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
+        lty = c(2, 1, rep(1, ncol(mplot) - 1)),
+        lwd = c(2, rep(1, ncol(mplot) - 1)))
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = coli[i], line = -i)
+
+
+
 # For increasing beta, the CCF is increasingly skewed
 mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
 colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
 
 
-# Note: the right tail of the ccf always corresponds to the AR(1).
+# Note: the right tail (to the right of lag 0) of the ccf always corresponds to the AR(1).
 # This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
-# It is impossible to shift the peak of the CCF to the right.
+# It is impossible to shift the peak of the CCF to the right of zero in the AR(1) case (with a1>0).
+# Nevertheless, look ahead behaviour is obtained by skewing the CCF. 
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1504,7 +1546,6 @@ lambda<-5000000
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
-beta_vec<-c(-1,-0.1,0,0.00000005,0.00000008,0.00000009,0.0000001,0.00000013,0.0000002,0.000003,0.1)
 
 beta_vec<-c(-10,-1,0,1,1.2,1.25,1.27,1.3,1.35,1.4,1.5,2,10)/lambda
 
@@ -1756,10 +1797,6 @@ lambda<-5
 # Tipping points: the two extremes are -V[,2] and +V[,2]
 # For beta=0.000000269 one obtains -V[,1]
 
-beta_vec<-c(-1,-0.2,0,0.05,0.07,0.09)
-
-beta_vec<-c(-1,-0.2,0,0.05,0.07,0.09)/lambda
-beta_vec<-((0:10)/10)/lambda
 beta_vec<-c(0.43,0.4371,0.4372,0.43725,0.43727,0.4373,0.43733,0.43735,0.4374,0.4375,0.438)/lambda
 
 
