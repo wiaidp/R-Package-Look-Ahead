@@ -1101,7 +1101,7 @@ enf<-500
 # Select the relevant PCS: 9 is lagging, 10 is very slightly leading, 10:ncol(y_out_mat) are increasingly leading
 # The more they lead the more the predictor appears to change sign; very difficult forecast problem
 select_pcs<-9:ncol(y_out_mat)
-select_vec<-c(1,select_pcs)
+select_vec<-c(1,1+select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1320,7 +1320,7 @@ enf<-500
 # For increasing beta the predictros appear to change sign.
 # Very difficult forecast problem.
 select_pcs<-c(4:7)
-select_vec<-c(1,select_pcs)
+select_vec<-c(1,1+select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1684,11 +1684,17 @@ colnames(y_out_mat) <- colnames(filter_mat)
 
 
 anf<-150
-enf<-350
-mplot<-scale(y_out_mat[anf:enf,])
-colnames(mplot)<-colnames(y_out_mat)
+enf<-500
 
-coli<-c("black",colo)
+# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
+# For increasing beta the predictros appear to change sign.
+# Very difficult forecast problem.
+select_pcs<-c(6:9)
+select_vec<-c(1,1+select_pcs)
+mplot<-scale(y_out_mat[anf:enf,select_vec])
+colnames(mplot)<-colnames(y_out_mat)[select_vec]
+
+coli<-c("black",colo[select_pcs])
 
 par(mfrow = c(1, 1))
 
@@ -1700,6 +1706,21 @@ ts.plot(mplot,
 abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
+
+
+# For increasing beta, the CCF is increasingly skewed
+mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
+colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
+
+
+par(mfrow=c(2,2))
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
+
+
+
 
 
 
@@ -1747,7 +1768,7 @@ colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(be
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.6 Plots
+# 4.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -1889,6 +1910,58 @@ box()
 # 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
 # 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
 #     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 4.8 Apply and Compare Predictors
+# ─────────────────────────────────────────────────────────────────────
+
+len<-10000
+set.seed(534)
+
+x_filt <- rnorm(len)
+
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+
+anf<-150
+enf<-500
+
+# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
+# For increasing beta the predictros appear to change sign.
+# Very difficult forecast problem.
+select_pcs<-c(1:5)
+select_vec<-c(1,1+select_pcs)
+mplot<-scale(y_out_mat[anf:enf,select_vec])
+colnames(mplot)<-colnames(y_out_mat)[select_vec]
+
+coli<-c("black",colo[select_pcs])
+
+par(mfrow = c(1, 1))
+
+# Full-sample overview of all predictor outputs.
+ts.plot(mplot,
+        main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
+        lty = c(2, 1, rep(1, ncol(mplot) - 1)),
+        lwd = c(2, rep(1, ncol(mplot) - 1)))
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = coli[i], line = -i)
+
+
+# For increasing beta, the CCF is increasingly skewed
+mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
+colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
+
+
+par(mfrow=c(2,2))
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
 
 
 
