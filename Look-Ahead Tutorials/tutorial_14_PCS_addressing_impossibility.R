@@ -610,8 +610,70 @@ box()
 # This is better than CCF against perturbation because perturbation and gamma0 are not orthogonal: cannot decompose CCF additively.
 # We can see the PCS effect on CCF of V[,2]: a shift by one to the right.
 
+
 # ─────────────────────────────────────────────────────────────────────
-# 2.5 Playing with Rank Two System: Medium Regularization
+# 2.5 Apply and Compare Predictors
+# ─────────────────────────────────────────────────────────────────────
+
+len<-10000
+set.seed(534)
+
+x_filt <- rnorm(len)
+
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+
+anf<-150
+enf<-500
+
+ts.plot(b_mat[,8:9])
+
+# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
+# For increasing beta the predictros appear to change sign.
+# Very difficult forecast problem.
+select_pcs<-c(9)
+select_vec<-c(1,select_pcs)
+mplot<-scale(y_out_mat[anf:enf,select_vec])
+colnames(mplot)<-colnames(y_out_mat)[select_vec]
+
+coli<-c("black",colo[select_pcs])
+
+par(mfrow = c(1, 1))
+
+# Full-sample overview of all predictor outputs.
+ts.plot(mplot,
+        main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
+        lty = c(2, 1, rep(1, ncol(mplot) - 1)),
+        lwd = c(2, rep(1, ncol(mplot) - 1)))
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = coli[i], line = -i)
+
+
+# For increasing beta, the CCF is increasingly skewed
+mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
+colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
+
+
+# Note: the right tail of the ccf always corresponds to the AR(1).
+# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
+par(mfrow=c(2,2))
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
+
+
+
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.6 Playing with Rank Two System: Medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
 # Medium regularization
@@ -635,7 +697,7 @@ colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.6 Plots
+# 2.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 
