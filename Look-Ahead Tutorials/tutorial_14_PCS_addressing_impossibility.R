@@ -2,6 +2,15 @@
 # Most difficult: self-similar AR(1)
 
 
+# If delta is small V[,1] \propto gamma0
+# V[,2] orthogonal to V[,1] and hence gamma0: therefore V[,2] fully decouples from gamma0
+# In AR(1) decoupling is impossible becuase gamma_h\propto gamma_h: decoupling is realized through perturbation.
+# Perturbation allows to generate an artificial  fully decoupled predictor. This does not lie in gamma0, gamma_h space as classic decoupling.
+# However, as shown in DFP, full decoupling generates a lead.
+# The perturbated PCS lie in the room spanned by gamma0 and fully perturbation decoupling (but PCS is only a subspace of that room/plane)
+# Assigning full weight to gamma0 replicates gammah (since gamma0 \pripto gammah)
+# Assiging full weight to perturbation maximzes look ahead. However, target correlation is not under explicit control in this case.
+
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
 
