@@ -1,12 +1,17 @@
-#----------------------------------------------------------------------------------
-# BACKGROUND: DFP and PCS Forecasting
-#----------------------------------------------------------------------------------
+# ══════════════════════════════════════════════════════════════════════════════
+# TUTORIAL 14 — IMPOSSIBILITY: 
+#               HANDLING THE HARDEST LOOK AHEAD FORECAST PROBLEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ── BACKGROUND: DFP AND PCS FORECASTING ───────────────────────────────────────
+
 # The Decouple From Present (DFP) and Peak Correlation Shifting (PCS) approaches
 # are designed to look ahead of the classical MSE predictor in difficult forecasting
 # problems where the MSE predictor is "stuck at the present": its cross-correlation
 # function (CCF) with the target x_{t+h} peaks at lag k=0 for any horizon h.
 #
-# PCS shifts the CCF peak away from k=0, ideally placing it at k=h, while
+# PCS attempts to shift the CCF peak away from k=0, ideally placing it at k=h, while
 # maintaining maximal correlation with x_{t+h}. This is achieved by constraining
 # the CCF path over lags k=0,...,h. Three constraint types are considered:
 #
@@ -14,405 +19,243 @@
 #   Type II  PCS: CCF(h) - CCF(h-1) = beta    >= 0
 #   Type III PCS: CCF(h) - CCF(0)   = beta    >= 0
 #
-# see Tutorial 13. 
+# For further details, see Tutorial 13.
 #
-# A problem is called feasible if the constraint system is exactly solvable and
-# the resulting peak CCF(h) > 0. It is called impossible if the peak of the CCF cannot be shifted to 
-# k=h, while maintaing a positive height. Impossible problems are generally also
-# infeasible, though not always; see Tutorial 13, Exercise 1 for a counterexample.
-#----------------------------------------------------------------------------------
+# Terminology:
+#   - Feasible:    The constraint system is exactly solvable and the resulting
+#                  peak CCF(h) > 0.
+#   - Impossible:  The CCF peak cannot be shifted to k=h while maintaining a
+#                  positive height. Impossible problems are generally also
+#                  infeasible, though not always; see Tutorial 13, Exercise 1
+#                  for a counterexample.
+#───────────────────────────────────────────────────────────────────────────────
 
+# ── THE AR(1) DGP: THE HARDEST CASE ───────────────────────────────────────────
 
-#----------------------------------------------------------------------------------
-# THE AR(1) DGP: THE HARDEST CASE
-#----------------------------------------------------------------------------------
-# The AR(1) DGP is the most challenging case for PCS. Its autocorrelation structure
-# satisfies the Yule-Walker equations:
+# The AR(1) DGP represents the most challenging case for PCS. Its autocorrelation
+# structure satisfies the Yule-Walker equations:
 #
-#   ACF(k) = a1 * ACF(k-1), a rank one system leaving nearly no room to `adjust' or re-shape the CCF.
+#   ACF(k) = a1 * ACF(k-1),
 #
-# Denoting the h-step MSE predictor in MA-form as gamma_h (with gamma_0 being the
-# nowcast, i.e., the original Wold decomposition), the Yule-Walker equations imply:
+# which define a rank-one system that leaves virtually no room to adjust or
+# reshape the CCF.
+#
+# Denoting the h-step MSE predictor in MA-form as gamma_h (with gamma_0 being
+# the nowcast, i.e., the original Wold decomposition of the DGP), the Yule-Walker
+# equations imply:
 #
 #   gamma_h = a1^k * gamma_{h+k},  for any h, k >= 0.
 #
-# This is called self-similarity: all h-step MSE predictors are proportional to
-# gamma_0, differing only by a scalar factor a1^h.
+# This property is called self-similarity: all h-step MSE predictors are
+# proportional to gamma_0, differing only by the scalar factor a1^h.
 #
 # Self-similarity forces the CCF of any predictor b to satisfy:
 #
 #   CCF(k) = (b' %*% gamma_k) / (||b|| * ||gamma_0||) = a1^k * CCF(0).
 #
-# For a1 > 0, the CCF decays monotonically and exponentially from its peak at k=0.
-# This pattern is rigidly enforced by the DGP on every predictor b via Yule-Walker.
-# Clearly, re-shapping the CCF according to any of the above PCS types is generally 
-# impossible (except for replicating the original process).
-#----------------------------------------------------------------------------------
+# For a1 > 0, the CCF decays monotonically and exponentially from its peak at
+# k=0. This pattern is rigidly enforced by the DGP on every predictor b via the
+# Yule-Walker equations. Consequently, reshaping the CCF according to any of the
+# PCS constraint types above is generally impossible (unless one merely replicates
+# the original process).
+#───────────────────────────────────────────────────────────────────────────────
 
+# ── RANK-ONE CONSTRAINT SYSTEM AND ITS CONSEQUENCES ───────────────────────────
 
-#----------------------------------------------------------------------------------
-# RANK-ONE CONSTRAINT SYSTEM AND ITS CONSEQUENCES
-#----------------------------------------------------------------------------------
-# Because of self-similarity, the PCS constraint system has rank one for AR(1).
-# While one can impose b' * (gamma_k - gamma_{k-1}) = beta for a single k, doing
-# so with beta > 0 forces the sign of b in a direction that yields CCF(h) < 0 —
-# a negative target correlation, which is unacceptable for a predictor of x_{t+h}.
-# See also Tutorial 14 (introduction) for further discussion.
+# Due to self-similarity, the PCS constraint system has rank one for the AR(1)
+# DGP. While it is possible to impose b' * (gamma_k - gamma_{k-1}) = beta for a
+# single k, doing so with beta > 0 forces the sign of b in a direction that yields
+# CCF(h) < 0 — a negative target correlation, which is unacceptable for a
+# predictor of x_{t+h}. See Tutorial 14 (introduction) for further discussion.
 #
-# No degree of freedom therefore remains to reshape the CCF away from the
-# exponentially decaying path. For a non-AR(1) DGP, some residual degrees of
-# freedom would exist and could be exploited — even if the constraint system is
-# not exactly feasible.
+# As a result, no degree of freedom remains to reshape the CCF away from the
+# exponentially decaying path imposed by the AR(1) structure. For a non-AR(1)
+# DGP, residual degrees of freedom would exist and could be exploited to at least
+# partially address the PCS constraints, even if the constraint system is not
+# exactly feasible.
 #
-# Rather than solving the PCS constraint system exactly (which would consume too
-# many degrees of freedom when feasible), we adopt the penalized criterion from
-# Wildi (2026), Equation 46 (Appendix E), with solution given by Equation 49.
-# The penalty weight nu > 0 (renamed lambda in these tutorials) balances target
-# correlation maximization against constraint deviation. It is not a Lagrange
-# multiplier but a soft regularization hyperparameter.
-#----------------------------------------------------------------------------------
+# Rather than solving the PCS constraint system exactly — which would consume
+# too many degrees of freedom when feasible — we adopt the penalized criterion
+# from Wildi (2026), Equation 46 (Appendix E), with the solution given by
+# Equation 49. The penalty weight nu > 0 (renamed lambda in these tutorials)
+# balances target correlation maximization against constraint deviation. It acts
+# as a soft regularization hyperparameter, not as a Lagrange multiplier.
+#───────────────────────────────────────────────────────────────────────────────
 
+# ── PERTURBATION STRATEGY: EXPANDING THE RANK ─────────────────────────────────
 
-#----------------------------------------------------------------------------------
-# PERTURBATION STRATEGY: EXPANDING THE RANK
-#----------------------------------------------------------------------------------
-# To overcome the rank-one limitation, we perturb the AR(1) DGP by introducing
-# infinitesimal, imperceptible departures from its rigid structure. This expands
+# To overcome the rank-one limitation of the AR(1) DGP, we introduce infinitesimal
+# and imperceptible departures from its rigid structure. These perturbations expand
 # the constraint system from rank 1 to rank 2 (or higher). For simplicity, only
 # rank-two perturbations are considered here.
 #
 # The perturbation magnitude is controlled by a scaling parameter delta > 0.
-# The choice of delta must balance two competing objectives:
-#   (i)  Small enough to remain imperceptible and preserve geometric interpretability.
+# Its choice must balance two competing objectives:
+#   (i)  Small enough to remain imperceptible and to preserve clean geometric
+#        interpretability.
 #   (ii) Large enough to avoid numerical precision issues.
-# In practice, delta ~ 10^{-5} is recommended. For theoretical purposes, delta is
-# treated as negligibly small, which simplifies the geometric analysis.
-#----------------------------------------------------------------------------------
+#
+# In practice, delta ~ 10^{-5} is recommended. For theoretical purposes, delta
+# is treated as negligibly small, which simplifies the geometric analysis.
+#───────────────────────────────────────────────────────────────────────────────
 
+# ── GEOMETRY OF THE SOLUTION: EIGENVECTORS V1 AND V2 ──────────────────────────
 
-#----------------------------------------------------------------------------------
-# GEOMETRY OF THE SOLUTION: V1 AND V2
-#----------------------------------------------------------------------------------
-# In our rank-two examples below, the PCS solution (Equation 49, Wildi (2026)) lives in a two-dimensional subspace
-# spanned by the two leading eigenvectors V1 and V2 of the matrix M, which encodes
-# the PCS constraint system.
+# In the rank-two setting, the PCS solution (Wildi (2026), Equation 49) lives in
+# a two-dimensional subspace spanned by the two leading eigenvectors V1 and V2
+# of the matrix M, which encodes the PCS constraint system.
 #
 # When delta is small:
-#   - V1 aligns closely with gamma_0 (up to sign), capturing the AR(1) DGP direction.
-#   - V2 is orthogonal to gamma_0 and captures the perturbation component that lies
-#     outside the AR(1) subspace. Orthogonality from V1=gamma0 signifies that  V2 
-#     fully decouples from present, i.e., V2 %*% gamma_0 = 0.
+#   - V1 aligns closely with gamma_0 (up to sign), capturing the original AR(1)
+#     DGP direction.
+#   - V2 is orthogonal to gamma_0 and captures the component of the perturbation
+#     lying outside the AR(1) subspace. This orthogonality — V2 %*% gamma_0 = 0
+#     — implies that V2 fully decouples from the present.
 #
-# In our Rank-2 examples, the PCS predictor takes the general form:
+# The PCS predictor takes the general form:
 #
-#   b = lambda1 * V1 + lambda2 * V2
+#   b = lambda1 * V1 + lambda2 * V2,
 #
-# where lambda1 and lambda2 are determined by the hyperparameters beta and lambda (beta and nu in equation 46).
-# Note: not all linear combinations of V1 and V2 are valid PCS solutions — the
-# solution is constrained to a specific subspace within the plane spanned by V1 and V2.
+# where lambda1 and lambda2 are determined by the PCS hyperparameters beta and
+# lambda (corresponding to beta and nu in Equation 46 of Wildi (2026)).
 #
-# Since V1 ≈ gamma_0, the PCS predictor is effectively a linear combination of the
-# classical MSE predictor gamma_0 and the fully decoupling vector V2. 
+# Important: not all linear combinations of V1 and V2 are valid PCS solutions.
+# The solution is constrained to a specific locus within the plane spanned by
+# V1 and V2.
+#
+# When delta ≈ 0, V1 ≈ gamma_0, and the PCS predictor can be interpreted as a
+# linear combination of:
+#   - The classical MSE predictor direction gamma_h (proportional to gamma_0), and
+#   - The fully decoupling vector V2.
+#
+# Full decoupling (b ≈ V2) is a theoretically valid strategy for generating
+# look-ahead behaviour, but it is often too extreme in practice, potentially
+# leading to sign inversion and uninterpretable predictions. The weight lambda2
+# on V2 — in combination with lambfa1, both governed by the PCS hyperparameters 
+# lambda and beta — enables controlled, partial decoupling: the predictor 
+# departs from gamma_0 toward full decoupling in a graduated and controllable  
+# manner.
+#───────────────────────────────────────────────────────────────────────────────
 
-# Decoupling from present is generally a valid approach to generate look ahead behaviour, Howvere, 
-# full decoupling is generally too much, possibly leading to uninterprtetable/undesirable sign inversion phenomena. 
-# The weight on V2
-# is governed by lambda and beta and enbales controlled, partial decoupling, departing away from gamma0 
-# in the direction of full decoupling in a controlled manner.
-#----------------------------------------------------------------------------------
+# ── DFP VS. PERTURBATION-BASED DECOUPLING ─────────────────────────────────────
 
-
-#----------------------------------------------------------------------------------
-# DFP VS. PERTURBATION-BASED DECOUPLING
-#----------------------------------------------------------------------------------
-# Full decoupling via V2 (orthogonal to gamma_0) induces look-ahead behaviour,
-# but is often too extreme as a standalone design choice. The PCS hyperparameters
-# allow for intermediate, partial decoupling between the MSE predictor (no
-# look-ahead) and full DFP (maximum look-ahead).
+# When delta ≈ 0, V1 ≈ gamma_0 so that V2 is orthogonal to gamma_0 and induces
+# full decoupling from the present. The PCS hyperparameters modulate the predictor
+# between two extremes:
+#   - No look-ahead:      b ≈ V1 ≈ gamma_0 ≈ gamma_h (replicates the MSE predictor).
+#   - Maximum look-ahead: b ≈ V2             (full decoupling from the present).
 #
-# An important distinction from the original DFP approach:
+# A key distinction from the original DFP approach:
 #   - In original DFP, decoupling arises intrinsically from the DGP structure,
-#     assuming sufficient flexibility in the data-generating process.
+#     provided the data-generating process is sufficiently flexible to support it.
 #   - Here, decoupling is exogenously imposed via the perturbation vector, which
 #     introduces an artificial direction orthogonal to the AR(1) subspace.
 #
-# Across all perturbation types considered in this tutorial, V1 ≈ gamma_0 is the
-# common element (for small delta). The distinguishing element is V2, which depends
-# on the specific perturbation chosen.
-#----------------------------------------------------------------------------------
+# The common element across all perturbation-based PCS predictors in this tutorial
+# is V1 ≈ gamma_0 ≈ gamma_h, the shared MSE predictor direction (valid when
+# delta ≈ 0). The distinguishing element is V2, the full decoupling vector, which
+# depends on the specific perturbation chosen.
+#───────────────────────────────────────────────────────────────────────────────
 
+# ── PERTURBATION TYPES ────────────────────────────────────────────────────────
 
-#----------------------------------------------------------------------------------
-# PERTURBATION TYPES
-#----------------------------------------------------------------------------------
-# Two main perturbation strategies are considered, both expanding rank from 1 to 2:
+# Two main perturbation strategies are considered, both expanding the rank from
+# 1 to 2:
 #
 #   1. Single-lag perturbation:
-#      A single coefficient of gamma_0 is slightly modified. This tends to be less
-#      effective at generating look-ahead behaviour.
+#      A single coefficient of gamma_0 is slightly modified. This approach tends
+#      to be less effective at generating look-ahead behaviour.
 #
 #   2. Multi-lag perturbation:
-#      The perturbation affects the entire lag sequence. Two specific forms are used:
+#      The perturbation affects the entire lag structure. Two specific forms are
+#      considered:
 #        (a) gamma_0 + delta * DGP1: DGP1 is an AR(1) with parameter (a1 + delta),
-#            distinct from gamma_0.
-#        (b) gamma_0 + delta * DGP2: DGP2 is based on an AR(2) specification.
+#            yielding a perturbed but structurally similar process to gamma_0.
+#        (b) gamma_0 + delta * DGP2: DGP2 is based on an AR(2) specification,
+#            introducing a qualitatively different lag structure.
 #
-# Both multi-lag forms perform roughly equivalently in terms of look-ahead behaviour.
-# A formal criterion for selecting an "optimal" perturbation is not yet available —
-# and it is unclear whether such optimality is even well-defined in this framework.
-# Both forms are of independent interest and could potentially be combined into a
-# single mixed look-ahead PCS specification.
-#----------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# The Decouple From Present (DFP) and Peak Correlation Shifting (PCS) forecast approaches aim to look ahead of the
-# classical MSE predictor in difficult forecasting problems, where the latter is "stuck at the present". This means
-# that the cross-correlation function (CCF) peaks at lag k=0 regardless of the forecast horizon h.
-
-# The PCS approach aims to shift the peak of the CCF away from zero, ideally locating it at the forecast horizon k=h,
-# while maintaining maximal tracking of x_{t+h}.
-
-# To achieve this, PCS constrains the path of the CCF between k=0 and k=h:
-#   - Type I   PCS: CCF(k) - CCF(k-1) = beta_h >= 0  for k = 1, ..., h
-#   - Type II  PCS: CCF(h) - CCF(h-1) = beta >= 0
-#   - Type III PCS: CCF(h) - CCF(0)   = beta >= 0
-
-# In some cases, the equations of the constraint system can be solved exactly. If, additionally, the target correlation
-# is positive, the problem is called feasible. The problem is called impossible if the CCF peak cannot be shifted to
-# k=h while ensuring a positive peak CCF(h) > 0. In general, impossible problems are also infeasible, but not always;
-# see Exercise 1 in Tutorial 13 for a counterexample.
-
-# Here we consider the most difficult forecasting problem, posed by a simple AR(1) data-generating process (DGP).
-# The AR(1) is the most challenging case because its autocovariance function satisfies the Yule-Walker equations:
-#   ACF(k) = a1 * ACF(k-1), a rank one system leaving nearly no room to `adjust' or re-shape the CCF.
-# As usual, denote the MSE predictors in MA-form as gamma_h, where gamma_0 is the nowcast, i.e., the original
-# Wold decomposition of the DGP. The Yule-Walker equations then imply:
-#   gamma_h = a1^k * gamma_{h+k}  for any h, k >= 0.
-# We refer to this property as self-similarity.
-# Self-similarity implies that for any predictor b, its CCF satisfies:
-#   CCF(k) = (b' %*% gamma_k) / (||b|| * ||gamma_0||) = a1^k * CCF(0).
-# If a1 > 0, the CCF peaks at k=0 and decreases monotonically at an exponential rate.
-# The DGP enforces this pattern on any predictor b through the Yule-Walker equations.
-
-# The rank of the constraint system is one:
-# One can impose b' * (gamma_k - gamma_{k-1}) = beta for any single k and any beta. However, if the sign of beta
-# also determines the sign of b, and if beta > 0, then CCF(h) < 0, meaning the target correlation is negative.
-# This is unacceptable for a predictor of x_{t+h}; see also the introduction in Tutorial 14.
-
-# Ultimately, no degree of freedom remains to impose a CCF pattern that deviates from the exponentially decaying path.
-# In this situation, directly constraining the CCF cannot induce look-ahead behaviour. If the DGP were not AR(1),
-# leaving some degrees of freedom available, the constraint system could potentially be addressed to some extent,
-# even if it were not fully feasible (i.e., not solvable exactly).
-# Since we do not aim at solving the PCS constraint system exactly — which would consume too many degrees of freedom
-# when feasible — we instead consider the penalized criterion in Wildi (2026), Equation 46 (Appendix E), with the
-# solution given by Equation 49. Here, the parameter nu > 0 is not a Lagrange multiplier but a penalty weight that
-# balances the trade-off between target correlation maximization and constraint deviation. Note that nu is renamed
-# lambda in our tutorials.
-
-# To address this limitation, we propose perturbing the DGP by allowing infinitesimal and therefore imperceptible
-# departures from the rigid AR(1) structure. These perturbations expand the constraint system from rank 1 to rank > 1.
-# For simplicity, we consider only rank-two perturbations here.
-
-# The magnitude of a perturbation is governed by a scaling parameter delta > 0, where delta is small. The choice of
-# delta must balance two conflicting objectives:
-#   (i)  as small as possible to ensure imperceptible perturbation and to preserve clean geometric interpretations;
-#   (ii) not so small as to compromise numerical precision.
-# For practical purposes, delta is selected in the range of 10^{-5}. For interpretive purposes, we treat it as
-# sufficiently small to simplify the underlying geometry.
-
-# The two-dimensional solution space for the PCS predictor is determined by gamma_0 (the original AR(1) DFP predictor)
-# and the perturbation vector. The solution from Equation 49 (Wildi (2026)) can be decomposed into an orthonormal
-# two-dimensional basis derived from the eigenvectors V1 and V2 of M, spanning the 2-dimensional PCS constraint system.
-# When delta is small:
-#   - V1 is nearly identical to gamma_0 (up to sign), representing the original AR(1) DGP direction.
-#   - V2 is orthogonal to gamma_0 and represents the component of the perturbation that lies orthogonal to the AR(1) DGP.
-
-# A vector V2 that is orthogonal to gamma_0 enables full decoupling from the present. However, this full decoupling
-# cannot be obtained intrinsically from the AR(1) structure alone; an extraneous perturbation is required to expand
-# the rank-one space to a rank-two (or higher-dimensional) space. This expansion occurs regardless of the size of
-# delta. As delta increases, the perturbation effect is magnified, and the simple geometric interpretation of V1 as
-# gamma_0 becomes less precise. Nevertheless, the effect on the predictor remains qualitatively the same, subject to
-# eventual recalibration of the hyperparameters.
-
-# In general, the PCS predictor takes the form:
-#   b = lambda1 * V1 + lambda2 * V2
-# where lambda1 and lambda2 are weights determined by the hyperparameters beta and lambda of the PCS criterion.
-# Note that the PCS predictor does not span the full space of V1 and V2 — not all linear combinations are solutions
-# of the PCS criterion — but the PCS solution does lie in the plane spanned by V1 and V2.
-
-# When delta is small, V1 (or V2) ≈ gamma_0 (up to sign and scale). Therefore, the PCS predictor is a linear
-# combination of gamma_0 (the classical MSE predictor, since gamma_h ∝ gamma_0) and the decoupling vector V2.
-# Decoupling From Present (DFP) is an effective strategy for inducing look-ahead behaviour. However, full decoupling
-# is often too extreme a design choice. The relative weight of the full decoupling vector V2 is modulated by the
-# parameters lambda and beta in the PCS problem specification, allowing for controlled, partial decoupling.
-# Note, however, a fundamental distinction between the original DFP approach and the decoupling introduced here:
-# in the original DFP approach, decoupling is obtained intrinsically, assuming the DGP is sufficiently flexible to
-# support it. In the present context, decoupling is imposed from the outside via a specific perturbation.
-
-# The common element across all perturbation-based PCS approaches in this tutorial is V1 ≈ gamma_0, assuming delta
-# is sufficiently small. The distinguishing element is V2 — the full decoupling vector — which depends on the
-# specific perturbation type employed.
-
-# We consider two main perturbation types:
-#   1. Single-lag perturbation:  only a single coefficient of gamma_0 is slightly modified.
-#   2. Multi-lag perturbation:   the entire lag sequence of coefficients is affected.
-# In both cases, only a single perturbation is introduced, i.e., the rank is expanded from one to two.
-
-# In practice, single-lag perturbations tend to be less effective at generating look-ahead behaviour.
-# For multi-lag perturbations, we consider two specific examples:
-#   1. gamma_0 + delta * DGP1, where DGP1 is based on an AR(1) with parameter a1 + delta (different from gamma_0).
-#   2. gamma_0 + delta * DGP2, where DGP2 is based on an AR(2) specification.
-
-# The type of perturbation affects the PCS predictor through the full decoupling vector V2. The single-lag
-# perturbation is the least effective, while the two multi-lag types perform roughly equivalently in terms of
-# look-ahead behaviour. Although a formal theoretical justification for selecting an "optimal" perturbation is
-# currently lacking — and it remains unclear whether optimality is even a well-defined concept in this framework —
-# both multi-lag forms discussed here are of interest and may eventually be combined into a single, mixed look-ahead PCS.
-
-
-
-
-
-# Decouple Form Present DFP) and Peak Correlation Shifting (PCS) forecast approaches aim at looking ahead of the classic 
-# MSE predictor in difficult forecast problems, where the latter is "stuck at present", meaing that the cross correlation function (CCF) 
-# peaks at lag k=0 irrespective of the forecast horizon h. 
-
-# The PCS aims at shifting the peak of the CCF away from zero, ideally locating it at the forecast horizon k=h, while 
-# keeping maximal track of x_{t+h}.
-
-# For this, the PCS constrains the path of the CCF between k=0 and k=h.
-# -Type 1 PCS considers CCF(k)-CCF(k-1)=beta_h>=0 for k=1,...,h
-# -Type II PCS considers CCF(h)-CCF(h-1)=beta>=0
-# -Type III PCS considers CCF(h)-CCF(0)=beta>=0
-
-# In some cases the equations of the constraint system can be solved exactly. If, in addition, the target correlation is positive, 
-# then the problem is called feasible. 
-# The problem is called impossible if one cannot shift the peak CCF to k=h, while ensuring a positive peak CCF(h)>0.
-# In general, impossible problems are also unfeasible but not always, see exercise 1 in tutorial 13 for a counter example.
-
-# Here we consider the most difficult forecast problem, posed by a simple AR(1)-data generating process (DGP).
-# The AR(1) is most difficult because ACF(k)=a1*ACF(k-1) (Yule-Walker equations), equivalently, 
-# Let, as usual, denote the MSE predictors in MA-form as gamma_h, with gamma_0 being the nowcast, i.e. the original Wold decomposition of the DGP.
-# Then the Yule-Walker equations imply gamma_h = a1^k * gamma_{h+k} for any h,k >= 0. We call this property self-similarity.
-# Self similarity implies that for any predictor b, its CCF sastisfies CCF(k)=b' %*% gamma_k / ||b||*||gamma0||=a1^k*CCF(0).
-# If a1>0, the CCF peaks at k=0 and decreases monotonically at an exponential rate.
-# The DGP conditions this pattern irrespective of b through the Yule-Walker equations. 
-
-# The rank of the constraint system is one: 
-# one can impose b' * (gamma_k - gamma_{k-1}) = beta for any single k and any beta. But if the sign of beta also 
-# determines the sign of b and if beta > 0, then CCF(h)<0, i.e., the target correlation is negative which is unacceptable for a predictor of x_{t+h}, 
-# see also the introduction in Tutorial 14. 
-# 
-
-# Ultimetaly, there is no degree of freedom left to impose a pattern of the CCF that deviates from the exponentially decaying path.
-# In this situation, addressing the CCF cannot work to induce look ahead behaviour. If the DGP where not AR(1), leaving some 
-#  degrees of freedom to address the constraints, then the problem might be addressed at least to some extent, even if the constrainst system wouldn't be feasible (solved exactly). 
-# Since we do not aim at solving the PCS constraint system exactly (which would eat up to many degrees of freedom when feasible) we consider 
-# the penalized criterion in Wildi (2026) equation 46, Appendix E with solution given by equation 49. Here, the paremeter nu>0 is not a Lagrangian multiplier but a penalty weight that 
-# balances the tradeoff between target correlation maximization and constraint deviation (the parameter nu is renamed lambda in our tutorials).
-
-# To emphasize this direction, we here propose to perturbate the DGP, allowing for infinitesimal and therefore imperceptible 
-# departures from the rigid AR(1) structure. These perturbations expand the rank=1 to rank>1. For simplicity, we 
-# consider rank two perturbations only. 
-
-# The size of a perturbation is determined by a scaling delta>0 where delta is a small. The size of delta should consider two 
-# conflicting purposes: as small as possible to allow for imperceptible perturbation (and easier geometric interpretations) 
-# but not too small so as to affect numerical precision. For practical purposes we select delta somewhere in the range on 10^5 and for 
-# interpretative purposes we assume it to be so small so as to simplify the underlying geometry. 
-
-
-
-# The two-diemsnional solution space for the PCS predictor is determined by gamma0 (the original AR(1) DFP) and the 
-# perturbation vector. The solution in equation 49 (Wildi (2026)) space can be decomposed into  
-# an orthonormal two-dimensional basis derived from eigenvectors V1 and V2 of M, spanning the 2-dimensional PCS constraint system. 
-# If delta is small, one of the two eigenvectors, say V1 is (nearly identical to) gamma0 (eventually up to sign), the AR(1) DGP, and the second eigenvector, V2 
-# which is orthogonal to gamma0, represents the that part of the perturbation that stands orthogonal to gamma0 or the AR(1) DGP.
-
-# A vector, V2, that stands orthogonal to gamma0 allows for full decoupling from gamma0. However, this full decoupling cannot be obtained intrinsically; rather, 
-# an extraneous perturbation is needed to unfold the rank one to a rank two (or higher dimensional) space. This unfolding 
-# happend irrespective of the size of the perturbation (delta). If delta increases, the perturbation effect is magnified and 
-# the simple geometric interpretation of V1 as gamma0 loosens, i.e., the geometric interpretation becomes less straightforward. However, 
-# the effect on the predictor remains the same, subject to eventual recalibration of the hyperparameters. 
-# 
-# In general
-# b = lambda1 * V1 + lambda 2 * V2
-# where lambda1 and lambda2 are weights determined by the hyperparameters beta and lambda of the the PCS criterion. Note that 
-# the PCS predictor does not occupy the full spave spanned by V1 and V2, i.e., not all linear combiantions are also solutions of 
-# the PCS criterion. But the PCS solution lies in the plane spanned by V1 and V2. 
-
-# If delta is small, then V1 (or V2) \approx gamma0 (up to sign and scale). Therefore the PCS predictor 
-# is a linear combination of gamma0 (the classic MSE predictor since gamma_h \propto gamma0) and of the decoupling 
-# vector V2. Decoupling From Present is an effective way towards obtaining look ahead behaviour. However, full decoupling 
-# is often too extreme a design. Here, the relative weight 
-# of the full decoupling V2 vector is modulated by lambda, beta in the PCS problem specification. This allows for controlled decoupling. 
-# Note however a fundamental difference between the original DFP approach and decoupling here: in the original 
-# approach decoupling is obtained intrinsically, assuming the DGP to be sufficiently flexible to allow for decoupling. 
-# In the present context, the decoupling is determined from the outside, by a specific perturbation.
-
-# The commonality of all perturbation based PCS in this tutorial is V1, i.e., gamma0, assuming delta is suffciently small. 
-# The difference is V2, the full decoupling vector, which is determined by the perturbation type. 
-
-# We here consider two main perturbation types: 
-# single lag: only a single lag of gamma0 is slightly modified 
-# multiple lags: the whole lag sequence is affected.
-# However, in both cases we only consider a single perturbation, i.e., the rank is expanded from one to two.
-
-# In applications, typically, the single lag perturbation is less effective in generating look ahead behaviour. 
-# For the multi-lag perturbations we consider two examples:
-# 1.  gamma0+delta*DGP1
-# 2   gamma0+delta*DGP2
-# where DGP1 is based on an AR(1) with parameter a1+delta, i.e., different from gamma0, and DGP2 is based on an AR(2) equation. 
-
-# Clearly, the type of perturbation affects the PCS predictor through the full decoupling vector V2. The single-lag perturbation is less effective, 
-# but the two full lag types are roughly equivalent in terms of look ahead beviour. While a fomrla (theoretical) justification 
-# for specifying an `optimal' perturbation is missing (it is not clear if optimality even applies to this framework), the 
-# two forms discussed here are interesting and might be eventually combined to a single mixed look ahead PCS.
-
-
-
-
-
-
-
-
-
-
-
-# If delta is small V[,1] \propto gamma0
-# V[,2] orthogonal to V[,1] and hence gamma0: therefore V[,2] fully decouples from gamma0
-# In AR(1) decoupling is impossible becuase gamma_h\propto gamma_h: decoupling is realized through perturbation.
-# Perturbation allows to generate an artificial  fully decoupled predictor. This does not lie in gamma0, gamma_h space as classic decoupling.
-# However, as shown in DFP, full decoupling generates a lead.
-# The perturbated PCS lie in the room spanned by gamma0 and fully perturbation decoupling (but PCS is only a subspace of that room/plane)
-# Assigning full weight to gamma0 replicates gammah (since gamma0 \pripto gammah)
-# Assiging full weight to perturbation maximzes look ahead. However, target correlation is not under explicit control in this case.
+# Both multi-lag forms perform roughly equivalently in terms of look-ahead
+# behaviour. A formal criterion for selecting an "optimal" perturbation does not
+# yet exist, and it remains unclear whether such optimality is even well-defined
+# within this framework. Both forms are of independent interest and could
+# potentially be combined into a unified, mixed look-ahead PCS specification 
+# (forecast combination).
+#───────────────────────────────────────────────────────────────────────────────
+
+# ── CAVEAT: NUMERICAL SENSITIVITY FOR SMALL DELTA ─────────────────────────────
+
+# Very small values of delta lead to nearly singular designs, where the predictor
+# becomes highly sensitive to small changes in the hyperparameters. It is therefore
+# not strictly necessary to choose delta very small in order to induce look-ahead
+# behaviour in the PCS predictor.
+#
+# Nevertheless, we deliberately work with small delta in this tutorial in order to
+# preserve the geometric interpretability of the solution:
+#   - V1 remains closely aligned with gamma_0 (equivalently, gamma_h), retaining
+#     its interpretation as the classical MSE predictor direction.
+#   - V2 retains its interpretation as the full decoupling direction, orthogonal
+#     to gamma_0 and determined by the specific perturbation chosen.
+#
+# As delta increases, these geometric correspondences gradually loosen, and the
+# clean decomposition of the PCS predictor into an MSE component (V1) and a
+# decoupling component (V2) becomes less transparent. However, the design is less 
+# sensistive to small changes in the hyperparameters which eventually facilitates 
+# the search for interesting look ahead alternatives.
+#───────────────────────────────────────────────────────────────────────────────
+
+# ── EXTENSION TO DFP ──────────────────────────────────────────────────────────
+#
+# The perturbation framework developed above for PCS extends naturally to the DFP
+# approach. Like PCS, DFP operates by manipulating the CCF of the predictor, but
+# its constraints are generally less restrictive — particularly when compared to
+# Type III PCS at longer horizons (h > 1).
+#
+# Consequently, the rank-expanding perturbation strategy can be applied to DFP
+# in exactly the same way: by introducing a small perturbation delta to the AR(1)
+# DGP, the rank-one constraint system is expanded to rank two, unlocking the
+# decoupling direction V2 and enabling controlled look-ahead behaviour under the
+# DFP criterion as well.
+#───────────────────────────────────────────────────────────────────────────────
 
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
+#
+# Example 1 — Impossibility
+#             Demonstrates that, for a pure AR(1) DGP, the PCS constraint system
+#             is impossible: the CCF peak cannot be shifted to k=h>0 while
+#             maintaining a positive target correlation.
+#
+# Example 2 — Single-lag perturbation.
+#             The first lag coefficient of gamma_0 is slightly modified. This is
+#             analogous to applying PCS to an ARMA(1,1) DGP, where the MA(1)
+#             parameter b1 perturbs only the lag-0 weight of gamma_0.
+#
+# Example 3 — Multi-lag AR(1) perturbation.
+#             The perturbation is based on a second AR(1) process with a slightly
+#             different parameter (a1 + delta), affecting the entire lag structure.
+#             Although both the original and perturbed processes are acyclical,
+#             the resulting PCS predictor adopts a nearly cyclical coefficient
+#             profile, reflecting the influence of the full decoupling vector V2.
+#
+# Example 4 — Multi-lag AR(2) perturbation.
+#             The perturbation is based on an AR(2) specification, introducing a
+#             qualitatively different lag structure. As with Example 3, the
+#             decoupling vector V2 is determined by the AR(2) perturbation and
+#             shapes the look-ahead profile of the PCS predictor accordingly.
+#
+#───────────────────────────────────────────────────────────────────────────────
 
-# Example 1 — Impossibility 
+
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ── BACKGROUND / REFERENCES ──────────────────────────────────────────────────
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     https://doi.org/10.48550/arXiv.2602.23087
+# ═════════════════════════════════════════════════════════════════════════════
 
 
-# Example 2 — perturbtaion: looks lik ARMA(1,1)
-
-# Examples 3– - AR(1) perturbation: cyclicality in a completely acacyclical framework
-
-# Example 4 - AR(2) perturbation
-
-# Example 5 - changing the target
 
 
 
