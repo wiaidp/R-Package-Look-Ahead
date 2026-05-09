@@ -810,11 +810,11 @@ plot_func()
 # the constraint is driven entirely by the decoupling direction V2, with V1
 # (the gamma_0 component) receiving zero weight. V2 is the primary
 # enabler of the PCS constraints and is therefore emphasized when lambda is 
-# large (as is the cae here): for sufficiently large positive or negative beta, 
+# large (as is the case here): for sufficiently large positive or negative beta, 
 # the predictor collapses onto ±V2 and the contribution of V1 vanishes.
 #
 # Between these two extremes, the predictor traces a continuum of optimal linear
-# combinations of V1 and V2, with the relative weights determined by the
+# combinations of V1 and V2, with the weights determined by the
 # interplay between the target correlation (governed by V1) and the constraint
 # satisfaction (governed by V2) for the specified values of lambda and beta.
 
@@ -871,8 +871,6 @@ colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4
 # ─────────────────────────────────────────────────────────────────────
 # 2.6 Plots
 # ─────────────────────────────────────────────────────────────────────
-
-
 
 plot_func()
 
@@ -933,310 +931,222 @@ plot_func()
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 3: FULL LAG PERTURBATION: THE AR(1) CASE
+# EXERCISE 3: FULL-LAG PERTURBATION — THE AR(1) CASE
 # ════════════════════════════════════════════════════════════════════
 
-# Introduce a single perturbation affecting all lags.
-# This expands the rank from 1 to two for any constraints (in conztrast to exercise 2, 
-# where gamma0 must be part of the constraints) 
-
-# perturbate gamma0 only and only slightly:
-# gammah_mat_perturbate[1,]<-(gammah_mat[1,]+delta*gamma_all_a1_perturbate[1:L])/sqrt(sum(gamma_all_a1_perturbate^2)) 
-# In this case V1 \approx gamma0 (the main direction with the largest eigenvalue is gamma0)
-# V2 is orthogonal to V1 \approx gamma0.
+# In contrast to Exercise 2, the perturbation introduced here affects all lags
+# of the Wold decomposition simultaneously, rather than a single lag only.
+# This guarantees that the rank of the constraint system is expanded from 1 to 2
+# for any PCS constraint type, without requiring gamma_0 itself to appear
+# explicitly in the constraint system. (In Exercise 2, the lag-0 perturbation
+# had no effect unless gamma_0 entered the constraints directly.)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.1 
+# 3.1 Full-Lag AR(1) Perturbation
 # ─────────────────────────────────────────────────────────────────────
 
-# Construct the MSE predictors gamma_i used for deriving delta_i=gamma_i-gamma_{i-1} 
-
+# Construct the MSE predictor coefficient vectors gamma_i used to form the
+# PCS constraint differences delta_i = gamma_i - gamma_{i-1}.
 gamma_all <- xi
-# --- Build the shifted covariance matrix 'gammah_mat' ---
-# Each row contains the MSE predictor coefficients (gamma_all) shifted by
-# a specific lead value drawn from 'Delta'. 
-# We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
-# and therefore we need gamma_{Delta[1] - 1} to define the first difference.
-gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]/sqrt(sum(gamma_all^2) ) 
-if (length(Delta) > 0)
-{
-  for (i in 1:length(Delta))
-  {
+
+# Build the shifted predictor matrix 'gammah_mat':
+# Each row contains the normalised gamma_all = xi coefficients shifted by a
+# specific lead drawn from Delta. We begin at Delta[1] - 1 because the first
+# constraint difference requires gamma_{Delta[1]-1}.
+gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] / sqrt(sum(gamma_all^2))
+if (length(Delta) > 0) {
+  for (i in 1:length(Delta)) {
     gammah_mat <- rbind(gammah_mat,
-                        gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
+                        gamma_all[Delta[i] + 1:L] / sqrt(sum(gamma_all^2)))
   }
 }
 
-# Perturbate a1
-delta<-0.001
-a1_perturbate<-a1+delta
+# Notes on normalisation:
+#
+# 1. The divisor sqrt(sum(gamma_all^2)) equals the standard deviation of the
+#    process (up to the innovation variance). Normalising by this quantity is
+#    consistent with interpreting the PCS constraints as conditions on
+#    correlations rather than raw covariances.
+#
+# 2. Strictly speaking, this normalisation is not required for the PCS
+#    optimisation to be well-defined; it is a scaling convention that simplifies
+#    the interpretation of the constraint parameter beta.
+#
+# 3. Note that b is not normalised by 1/sqrt(sum(b^2)), so beta does not
+#    represent a pure correlation in the strict sense. 
 
-xi_a1_perturbate <- c(1, ARMAtoMA(ar= a1_perturbate, ma=0,lag.max = 1000))
 
+# Perturb the AR(1) parameter: a1_perturbate = a1 + delta.
+# The resulting Wold decomposition xi_a1_perturbate differs from xi at every lag 
+# except zero, providing a full-lag perturbation direction.
+delta          <- 0.001
+a1_perturbate  <- a1 + delta
+xi_a1_perturbate <- c(1, ARMAtoMA(ar = a1_perturbate, ma = 0, lag.max = 1000))
 gamma_all_a1_perturbate <- xi_a1_perturbate
 
-
-ts.plot(xi-xi_a1_perturbate)
-
-gammah_mat_perturbate<- gammah_mat
-
-# Perturbate gamma0
-gammah_mat_perturbate[1,]<-gamma_all_a1_perturbate[1:L]/sqrt(sum(gamma_all_a1_perturbate^2))
-
-gammah_mat_perturbate[1,]<-(gammah_mat[1,]+delta*gamma_all_a1_perturbate[1:L])/sqrt(sum(gamma_all_a1_perturbate^2)) 
-                                                        
-
-lambda<-10000
-
-PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
-  
-
-
-
-b       <- PCS_obj$b
-d_delta <- PCS_obj$d_delta
-b_mat   <- cbind(b_mat, b)
-M<-PCS_obj$M
-N<-PCS_obj$N
-gamma_sol=PCS_obj$gamma_sol
-
-# ─────────────────────────────────────────────────────────────────────
-# 3.2 Background: Some Linear Algebra
-# ─────────────────────────────────────────────────────────────────────
-# The closed-form formula for PCS is: b <- solve(M) %*% gamma_sol
-# M depends on lambda but not on beta.
-# gamma_sol depends on lambda and beta.
-
-ts.plot(gamma_sol)
-# gamma_sol is not AR(1): the decay is not exponential with fixed a1:
-gamma_sol[2:L]/gamma_sol[1:(L-1)]
-
-eigenM<-eigen(M)
-V<-eigenM$vectors
-
-
-# M=I+lambda*N where N=sum_{k=1}^h (gamma_k-gamma_{k-1}) (gamma_k-gamma_{k-1})'
-# Check: difference vanishes:
-max(abs(M-diag(rep(1,L))-lambda*N))
-# N does not have rank one but two
-eigenN<-eigen(N)
-# Only two eigenvalue larger than 10^-10
-which(abs(eigenN$values)>10^(-10))
-# Lets have a look at the two eigenvectors of the non-vanishing eigenvalues:
-# Note: 
-#   The eigenvectors depend on the constraint-matrix only: they are independent of lambda or beta
-#   The eigenvalues depend on lambda, but not on beta
-#   gamma_sol depends on lambda*beta
+# Visualise the difference between the original and perturbed Wold coefficients.
 par(mfrow=c(1,1))
-ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N")
-# Some basic results:
-# -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
-# -Eigenvalues of M^{-1} are 1/(1+lambda*n_i).
-# -Eigenvectors of M are the same as eigenvectors of N.
-# -Rank(N)=2, Rank(M)=L
-par(mfrow=c(1,1))
-ts.plot(V[,1:2],main="First two eigenvectors of M")
-V[2:L,1]/V[1:(L-1),1]
-# V is orthogonal, gamma_sol is in the column space of the first two eigenvectors V[,1:2]. 
-# Therefore V[,k]%*%gamma_sol=0 if k>2.
-# Check:
-# Only the first element in the following vector is different from zero:
-t(V)%*%gamma_sol
-# Same here
-g<-(diag(1/eigenM$values)%*%t(V)%*%gamma_sol)
+ts.plot(xi - xi_a1_perturbate,
+        main = "Difference: original vs. perturbed Wold coefficients")
+
+# Construct the perturbed constraint matrix by replacing the first row of
+# gammah_mat (corresponding to gamma_{Delta[1]-1}) with its perturbed counterpart.
+gammah_mat_perturbate <- gammah_mat
+
+gammah_mat_perturbate[1, ] <-
+  (gammah_mat[1, ] + delta * gamma_all_a1_perturbate[1:L]) /
+  sqrt(sum(gamma_all_a1_perturbate^2))
+
+# Compute the PCS predictor using the perturbed constraint matrix.
+lambda  <- 10000
+PCS_obj <- PCS_perturbation_func(h, Delta, gamma_pcs, L, beta, lambda,
+                                 gammah_mat_perturbate)
+
+b         <- PCS_obj$b
+d_delta   <- PCS_obj$d_delta
+b_mat     <- cbind(b_mat, b)
+M         <- PCS_obj$M
+N         <- PCS_obj$N
+gamma_sol <- PCS_obj$gamma_sol
+
+
+# 3.2 Linear Algebra of the Rank-Two System
+#----------------------------------------------------------------------------------
+# The closed-form PCS solution is: b = solve(M) %*% gamma_sol.
+#   - M depends on lambda but not on beta.
+#   - gamma_sol depends on both lambda and beta (via lambda * beta).
+
+# gamma_sol is no longer perfectly AR(1): the consecutive ratio is not constant.
+ts.plot(gamma_sol, main = "gamma_sol: departure from AR(1) decay")
+# The ratio slowly evolves: this change is determined by delta.
+gamma_sol[2:L] / gamma_sol[1:(L - 1)]
+
+# Eigendecomposition of M.
+eigenM <- eigen(M)
+V      <- eigenM$vectors
+
+# Verify M = I + lambda * N: residual should vanish.
+max(abs(M - diag(rep(1, L)) - lambda * N))
+
+# Confirm rank two: exactly two eigenvalues of N exceed the threshold 10^{-10}.
+eigenN <- eigen(N)
+which(abs(eigenN$values) > 1e-10)
+
+# Key spectral properties:
+#   - Eigenvalues of M = I + lambda * N are: 1 + lambda * n_i (n_i from N).
+#   - Eigenvalues of M^{-1} are: 1 / (1 + lambda * n_i).
+#   - M and N share the same eigenvectors.
+#   - rank(N) = 2,  rank(M) = L.
+#   - The eigenvectors depend only on the constraint matrix (independent of lambda and beta).
+#   - The eigenvalues of N depend on the constraint matrix; those of M depend additionally on lambda.
+#   - gamma_sol depends on the product lambda * beta.
+
+# Visualise the two leading eigenvectors of N.
+par(mfrow = c(1, 1))
+ts.plot(eigenN$vectors[, 1:2],
+        main = "Leading eigenvectors of N (rank-two structure)")
+
+# Visualise the two leading eigenvectors of M.
+ts.plot(V[, 1:2], main = "Leading eigenvectors of M")
+
+# Confirm that V[,1] decays geometrically (AR(1) direction) if delta is small.
+V[2:L, 1] / V[1:(L - 1), 1]
+
+# Since gamma_sol lies in the column space of V[,1:2], all projections
+# t(V[,k]) %*% gamma_sol should vanish for k > 2.
+t(V) %*% gamma_sol
+
+# Intermediate vector g = diag(1/d) %*% t(V) %*% gamma_sol:
+# only its first two elements are non-zero.
+g <- diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 g
 
-# By the above b=solve(M)%*%gamma_sol and solve(M) = V%*%diag(1/eigenM$values)%*%t(V)
-# Since g:=diag(1/eigenM$values)%*%t(V)%*%gamma_sol has only the first element that does not vanish we infer 
-# that V%*%g = g[1] * V[,1] + g[2] * V[,2]
-# Check:
-abs(max(V%*%g-g[1]*V[,1]-g[2]*V[,2]))
+# Verify: b = V %*% g = g[1]*V[,1] + g[2]*V[,2]. Residual should vanish.
+max(abs(V %*% g - g[1] * V[, 1] - g[2] * V[, 2]))
 
-# We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol lies in the space spanned by V[,1] and V[,2] 
-# or xi[1:L] and xi_a1_perturbate[1:L].
-# The PCS predictor is a linear combination of V[,1] and V[,2]
+# The PCS predictor b lies in the plane spanned by V[,1] and V[,2], or
+# equivalently, by xi[1:L] and xi_a1_perturbate[1:L].
+b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 
-b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
-ts.plot(b)
-# the PCS predictor is not AR(1) in general (though it could be as a special case):
-b[2:L]/b[1:(L-1)]
-# This holds irrespective of lambda.
+ts.plot(b, main = "PCS predictor: rank-two, full-lag perturbation")
 
-# ─────────────────────────────────────────────────────────────────────
-# 3.3 Play the Expanded Rank-Game: Strong Regularization
-# ─────────────────────────────────────────────────────────────────────
+# Confirm departure from AR(1): consecutive ratios are no longer constant.
+b[2:L] / b[1:(L - 1)]
 
-# We fix lambda to a very strong regularization
-# We then vary beta: the two extreme beta values correspond to plus and minus the 
-# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
-# lambda1 depends on beta.
-# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
+# This result holds for any lambda > 0 and any beta.
 
 
+# 3.3 Exploring the Rank-Two System: Strong Regularisation
+#----------------------------------------------------------------------------------
+# Under strong regularisation, the PCS predictor transitions smoothly between
+# the two extremes ±V[,2] as beta varies, passing through -V[,1] at the
+# tipping point where the V[,2] contribution vanishes.
+# The weights on V[,1] and V[,2] are governed by lambda and beta.
 
-# Very strong regularization
-lambda<-5000000
+# Strong regularisation weight.
+lambda <- 5000000
 
-# Tipping points: the two extremes are -V[,2] and +V[,2]
-# For beta=0.000000269 one obtains -V[,1]
+# Grid of beta values spanning the transition between the two extremes.
+beta_vec <- c(-1, 0, 0.3, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45,
+              0.455, 0.46, 0.47, 0.5, 5) / 5000000
 
-beta_vec<-c(-1,0,0.3,0.4,0.41,0.42,0.43,0.44,0.45,0.455,0.46,0.47,0.5,5)/5000000
+Delta <- 1:h
+b_mat <- NULL
 
-Delta<-1:h
-
-b_mat<-NULL
-for (i in 1:length(beta_vec))
-{
-  
-  beta<-beta_vec[i]
-  PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
-  
-  b       <- PCS_obj$b
-  b_mat<-cbind(b_mat,b)
+for (i in 1:length(beta_vec)) {
+  beta    <- beta_vec[i]
+  PCS_obj <- PCS_perturbation_func(h, Delta, gamma_pcs, L, beta, lambda,
+                                   gammah_mat_perturbate)
+  b     <- PCS_obj$b
+  b_mat <- cbind(b_mat, b)
 }
-filter_mat<-cbind(gamma0,b_mat)
-colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8)))
+
+# Prepend the classical MSE predictor (gamma_0) as a reference.
+filter_mat           <- cbind(gamma0, b_mat)
+colnames(filter_mat) <- c("MSE",
+                          paste("lambda =", round(lambda, 2),
+                                ", beta =", round(beta_vec, 8)))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Plots
 # ─────────────────────────────────────────────────────────────────────
 
+plot_func()
 
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(2,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
-
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-# ── Right panel: cross-correlation functions (CCF) ────────────────────
-# For each predictor, compute the CCF against the nowcast gamma0 at lags
-# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
-# a horizontal line marks zero correlation.
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V1", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V2", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-
-
-
-# As in exercise 2.3, the PCS predictor is a linear combination of gamma0 (AR(1)) and 
-# gamma0_perturbated or, alternatively, of V[,1] and V[,2].
-# In contrast to exercise the rank is two.
-# In contrast to exercise 2, the perturbation does not affect lag 0 only, but also 
-#   all other lags.
-# The result is a seemingl richer structure of the solution space, allowing, among others, 
-# a sort of cyclical pattern in a purely aperiodic framework (with monotonically decaying weights).
-
+# ── Interpretation of Predictors: Full-Lag AR(1) Perturbation ─────────────────
+#
+# In contrast to Exercise 2, where the perturbation was confined to lag 0, the
+# full-lag AR(1) perturbation affects every coefficient of the PCS predictor b.
+# This richer perturbation structure expands the solution space more broadly,
+# enabling, among other things, a seemingly cyclical coefficient profile — a
+# notably non-trivial outcome in an inherently aperiodic framework where the
+# underlying Wold coefficients decay monotonically.
+#
+# Under strong regularisation, the PCS predictors transition smoothly from -V2
+# to +V2 as beta increases. The two extremes, ±V2, correspond to configurations
+# where constraint satisfaction is driven entirely by the decoupling direction
+# V2, with V1 (the gamma_0 component) receiving zero weight. V2 is the primary
+# enabler of the PCS constraints and is therefore emphasised when lambda is
+# large: the optimiser allocates most of its budget to satisfying the constraints
+# via V2, at the expense of the target correlation carried by V1.
+#
+# Between the two extremes, the predictor traces a continuum of optimal linear
+# combinations of V1 and V2, with the relative weights determined by the
+# interplay between target correlation maximisation (governed by V1) and
+# constraint satisfaction (governed by V2), for the specified values of lambda
+# and beta.
+#
+# ── Interpretation of CCF: Full-Lag AR(1) Perturbation ────────────────────────
+#
+# In contrast to Exercise 2, the CCF in Panel 4 (CCF against V2) now exhibits
+# genuine look-ahead behaviour: as beta increases, the peak of the CCF shifts
+# progressively to the right, toward the target horizon h. This right-shifting
+# of the CCF peak reflects the increasing weight placed on the full decoupling
+# direction V2, which — unlike the lag-0 perturbation in Exercise 2 — reshapes
+# the predictor across all lags and thereby induces a meaningful lead in the
+# correlation structure.
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5 Apply and Compare Predictors
