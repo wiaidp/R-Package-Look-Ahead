@@ -232,9 +232,6 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat, Type_III=F,scaled_constraints=F)
 {
   
-  print("1")
-  print(dim(gammah_mat))
-  
 
   # MSE h-step predictor  
   gammah<-gamma_pcs[h+1:L]
