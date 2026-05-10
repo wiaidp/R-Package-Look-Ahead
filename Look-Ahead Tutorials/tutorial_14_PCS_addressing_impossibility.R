@@ -238,55 +238,90 @@
 #             profile, reflecting the influence of the full decoupling vector V2.
 #
 # Example 4 — Multi-lag AR(2) perturbation.
-#             The perturbation is based on an AR(2) specification, introducing a
-#             qualitatively different lag structure. As with Example 3, the
-#             decoupling vector V2 is determined by the AR(2) perturbation and
-#             shapes the look-ahead profile of the PCS predictor accordingly.
+#             The perturbation is based on an AR(2) specification, introducing
+#             a qualitatively different lag structure relative to the original
+#             AR(1) DGP. As in Example 3, the decoupling direction V2 is
+#             determined by the perturbation and shapes the look-ahead profile
+#             of the PCS predictor accordingly. However, since the AR(2)
+#             perturbation introduces a more severe misspecification than its
+#             AR(1) counterpart, the regularization weight lambda should be
+#             kept small to moderate: excessively large lambda assigns
+#             disproportionate weight to the misspecified constraints, compared 
+#             to the proper forecast target, hence risking unusable predictors.
 #
 
 ################################################################################
-# Main Take-Away:
-
-# The AR(1) structure renders it impossible to shift the CCF peak to the right.
-# More precisely, no linear predictor can alter the exponentially decaying
-# profile of the CCF at positive lags. In this sense, the AR(1) forecast problem 
-# is THE HARDEST LOOK AHEAD FORECAST PROBLEM.
-
-# How to Address Look-Ahead Behaviour When the CCF Peak Cannot Be Shifted?
+# Main Take-Aways:
 #
-# Although the right tail of the CCF is entirely determined by the AR(1) 
-# structure and is therefore immutable, the left tail remains accessible to
-# manipulation via the choice of predictor. The following observations,
+# ─────────────────────────────────────────────────────────────────────────────
+# I) Inducing Look-Ahead Behaviour in the Context of Impossible Problems
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# A forecast problem is called impossible when the CCF peak cannot be relocated
+# to the forecast horizon k = h while remaining of positive height. Even so,
+# the problem generally remains amenable to look-ahead behaviour: predictors
+# exist that are left-shifted relative to the MSE benchmark while simultaneously
+# maximising tracking accuracy. The CCF peak may be fixed at the origin (k = 0),
+# yet effective anticipatory behaviour can still be recovered by reshaping the
+# left tail of the CCF. This tutorial demonstrates the effectiveness of
+# perturbation approaches in achieving this dual objective.
+
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# II) Left Tail of the CCF
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# The AR(1) structure of the "hardest forecast problem" examined in this 
+# tutorial renders it impossible to shift the CCF peak to the right.
+# More precisely, no linear predictor can alter the exponentially decaying
+# profile of the CCF at positive lags. In this sense, the AR(1) forecast
+# problem represents the hardest possible look-ahead forecast problem.
+#
+#---------------------------------------------------------------------------
+# How to Address Look-Ahead Behaviour When the CCF Peak Cannot Be Shifted?
+#---------------------------------------------------------------------------
+#
+# Although the right tail of the CCF is entirely determined by the AR(1)
+# structure and is therefore immutable, the LEFT tail remains accessible to
+# manipulation via the choice of predictor. The following observation,
 # carried over from Exercise 3.5, elaborate on this point:
 #
-# Key observations:
-#   - As beta (the slope hyper parameter) increases, the empirical CCF becomes 
-#     increasingly right-skewed, reflecting a growing lead of the PCS predictor 
-#     relative to the MSE predictor.
-#
-#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
-#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
-#     consequence of the Yule-Walker equations and holds for any linear predictor
-#     b. No non-zero predictor can alter this decay shape.
-#
-#   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
-#     impossible under the AR(1) DGP (see Exercise 1).
-#
 #   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
-#     predictor yields a symmetric CCF, the PCS predictor becomes progressively 
-#     more asymmetric as beta increases. Effective look-ahead behaviour is thus 
-#     achieved by skewing the CCF rightward — that is, by down-weighting the 
+#     predictor yields a symmetric CCF, the PCS predictor becomes progressively
+#     more asymmetric as beta increases. Effective look-ahead behaviour is thus
+#     achieved by skewing the CCF rightward — that is, by down-weighting the
 #     contribution of negative lags.
 #
-# Summary:
-# When the right tail of the CCF cannot be modified — as is structurally
-# the case for the AR(1) DGP — attention shifts to the left tail. By
-# introducing suitable perturbations to the original DGP (which may be
-# made arbitrarily small), the left tail can be shaped to induce look-ahead
-# behaviour. This offers a principled resolution to an otherwise impossible
-# problem: rather than attempting to shift the CCF peak directly, one
-# instead recovers effective lead behaviour by redistributing CCF mass
-# away from negative lags.
+# By introducing suitable perturbations to the original DGP (which may be made 
+# arbitrarily small), the left tail can be shaped to induce look-ahead behaviour. 
+# This offers a principled resolution to an otherwise impossible problem: rather
+# than attempting to shift the CCF peak rightwards, one instead recovers
+# effective lead behaviour by redistributing CCF mass away from negative lags.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# III) Severity of Perturbation Misspecification
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# In general, a perturbation introduces a degree of model misspecification:
+# without it, the constraint space determined by the DGP would be of
+# insufficient rank to admit meaningful look-ahead behaviour. The severity
+# of this misspecification, however, varies considerably across designs.
+#
+# Exercise 3 illustrates a mild case: the perturbation modifies the DGP via
+# a closely related model assumption (also AR(1) in structure), keeping the
+# misspecification minimal. Exercise 4 demonstrates a moderately more severe
+# case, in which an AR(2)-type perturbation is applied to the original AR(1)
+# DGP. While the AR(2) is structurally close to the AR(1), the increased
+# distance between the two model classes introduces a non-negligible degree
+# of misspecification relative to Exercise 3.
+#
+# When the misspecification of the constraint equations is substantial, it is
+# advisable to limit the regularization weight to small or moderate values,
+# so that the target correlation retains meaningful influence in the
+# optimisation. If the regularization is too strong, excessive weight is
+# assigned to the misspecified perturbed constraints, potentially yielding
+# unusable predictors. Exercise 4 illustrates these points.
+
 ################################################################################
 
 
