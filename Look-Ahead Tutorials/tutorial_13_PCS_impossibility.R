@@ -1035,7 +1035,7 @@ for (i in 1:ncol(filter_mat_ar))
 
 # Target slope values for the single Type III constraint:
 #   b' * (gamma_h - gamma_{h-1}) = beta
-beta_vec <- c(0.8, 0.6, 0.3, 0, -0.1)
+beta_vec <- c(-0.8, -0.4,  0, 0.4, 0.8)
 
 # Single constraint imposed between k = 0 and k = h: CCF(h)-CC(F)>0.
 Delta <- c(0,h)
@@ -1068,6 +1068,11 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
+filter_mat_pcs <- cbind(gamma0, gammah, b_mat)
+colnames(filter_mat_pcs) <- c("Nowcast", "MSE", paste("PCS ", beta_vec, sep = ""))
+
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.13 Plot Predictor Filters
@@ -1075,11 +1080,11 @@ for (i in seq_along(beta_vec)) {
 
 par(mfrow = c(1, 2))
 
-colo     <- c("black", "green", rainbow(ncol(filter_mat) - 2))
+colo     <- c("black", "green", rainbow(ncol(filter_mat_pcs) - 2))
 
 # ── Left panel: filter coefficient profiles ───────────────────────────
 # Display original nowcast and MSE as well as unit-length PCS filter coefficients.
-mplot <- filter_mat
+mplot <- filter_mat_pcs
 # Check: sum of squared coefficients per filter (filter energy proxy).
 # DFP are unit-length adjusted.
 apply(mplot^2, 2, sum)
@@ -1111,11 +1116,11 @@ box()
 # a horizontal line marks zero correlation.
 max_lag<-0
 ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
+for (i in 1:ncol(filter_mat_pcs))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
+                     max_lag, h, filter_mat_pcs[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat_pcs)
 rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
 
 mplot <- ccf_mat
@@ -1138,15 +1143,21 @@ axis(1, at     = 1:nrow(mplot),
 axis(2)
 box()
 
-# Outcome:
-# For the negative constraint parameter beta = -0.1, the resulting PCS
-# predictor satisfies the look-ahead condition CCF(h) - CCF(0) > 0:
-ccf_mat["CCF at lead: 12", ncol(ccf_mat)] - ccf_mat["CCF at lead: 0", ncol(ccf_mat)]
-# Note that beta is proportional (but not identical) to the slope.
 
-# Here we see CCF(h) - CCF (0) for all predictors: the difference vanishes when beta=0.
+# Here we see CCF(h) - CCF (0) for all predictors: 
 ccf_mat["CCF at lead: 12",] - ccf_mat["CCF at lead: 0", ]
 
+# Outcome: imposing a positive slope via beta > 0 yields CCF(h) - CCF(0) > 0,
+# as required by the constraints. However, the CCF peak cannot be shifted
+# beyond lag k = 1. Furthermore, excessively large beta induces sign inversion
+# (blue and violet curves): although CCF(h) - CCF(0) continues to increase,
+# the CCF itself becomes negative, indicating a loss of meaningful correlation
+# with the target.
+#
+# Notably, the moderate PCS design (cyan) shifts the CCF peak to lag k = 1
+# while maintaining a positive CCF throughout, confirming that the originally
+# impossible problem — shifting the CCF peak to h=12 under the AR(1) DGP — is
+# feasible under the type III PCS.
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1365,6 +1376,10 @@ box()
 # EXERCISE 3: Impossible and Infeasible — Case B (PCS Type I)
 # ════════════════════════════════════════════════════════════════════
 #
+# Case B infeasibility: the constraints can be solved (unlike case A in the 
+# previous exercise) but the target correlation is negative. Thus the 
+# predictor is unusable, i.e., the problem is infeasible.
+#
 # ─────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises
 # the empirical framework (process specification, filter length, forecast
@@ -1560,7 +1575,7 @@ apply(d_delta^2, 1, sum)
 #
 # Exercises 4–6 examine an easier, *possible* forecast problem based on
 # an AR(2) DGP. Possibility means that there exists a predictor whose
-# CCF peaks at horizon h with a strictly positive value — in contrast to
+# CCF peaks at horizon h=12 with a strictly positive value — in contrast to
 # the ARMA(1,1) setting of Exercises 1–3, where no such predictor exists.
 # Despite the problem being possible, the specific constraint formulation
 # adopted in Exercise 4 (PCS Type I, unscaled) renders it infeasible.
@@ -1571,7 +1586,6 @@ apply(d_delta^2, 1, sum)
 # the empirical framework (process specification, filter length, forecast
 # horizon, and MA coefficient vector) required by all subsequent exercises.
 # ─────────────────────────────────────────────────────────────────────
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.1 Specify the AR(2) Model
@@ -1701,7 +1715,8 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # --- Check 2: Positive target covariance ---
 # For positive beta (positive CCF slope), the target covariance is
-# negative, indicating sign reversal — consistent with Case A infeasibility.
+# negative, indicating sign reversal: the corresponding predictors are 
+# unusable.
 t(b_mat) %*% gammah
 
 # Assemble all filters (nowcast, MSE benchmark, and PCS variants) into a
@@ -1770,7 +1785,7 @@ box()
 #     this misspecification).
 #
 # Population CCFs:
-#   - The positive beta CCFS overlap; the positive beta CCFs overlap too.
+#   - The positive beta CCFS overlap; the negative beta CCFs overlap too.
 #   - With positive beta (positive slope), the CCFs do increase from k = 0 
 #     to k = h, but remain largely negative and do not peak at k = h. 
 #     The look-ahead objective is therefore not achieved in any meaningful sense.
@@ -1809,7 +1824,7 @@ box()
 lambda <- 1
 
 # Retain the same beta grid as in Exercise 4.
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)*100
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1970,7 +1985,7 @@ lambda <- 10^10
 
 # A fine grid of small beta values is used to trace the effect of the
 # slope constraint on the CCF peak location.
-beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3) / 50
+beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.01, 0.02, 0.03)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2063,6 +2078,9 @@ for (i in 1:ncol(filter_mat))
   ccf_mat <- cbind(ccf_mat,
                    compute_acf_at_lags_zero_delta_func(
                      max_lag, h, filter_mat[, i], xi)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
 mplot <- ccf_mat
 
 plot(mplot[, 1],
@@ -2078,6 +2096,15 @@ abline(v = max_lag + 1 + h,   lty = 2)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
+
+# Confirm the constraints:
+# The sign of CCF[12] - CCF[11] is determined by the sign of beta. Note,
+# however, that beta does not equal the CCF difference numerically, since
+# the predictor b is not normalised to unit length — beta specifies the
+# desired sign and direction of the slope, not its exact magnitude as a
+# correlation coefficient.
+
+ccf_mat["CCF at lead: 12",]-ccf_mat["CCF at lead: 11",]
 
 
 
@@ -2099,7 +2126,6 @@ box()
 
 # ════════════════════════════════════════════════════════════════════
 # Exercise 7: PCS Type III (Making the Possible Problem Feasible, Part Two) 
-#
 # ════════════════════════════════════════════════════════════════════
 #
 # ─────────────────────────────────────────────────────────────────────
@@ -2150,7 +2176,9 @@ lambda <- 10^10
 
 # A coarser grid is used and fairly large positive values are required to 
 # shift the peak of the CCF towards k=h: 
-beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3) *2
+beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3) *20
+# In contrast, for the PCS Type II in the previous exercise, a vanishing 
+# beta = 0 was sufficient to shift the peak of the CCF to k = h. 
 
 
 
@@ -2289,7 +2317,7 @@ box()
 #
 # Both Type II and Type III are feasible and correctly specified in this
 # exercise, and both are efficient in the sense that they maximize the
-# peak height CCF(h) ate k=h.
+# peak height CCF(h) at k=h.
 #
 # This stands in contrast to Type I, which is infeasible and misspecified
 # for this DGP. The inherent misspecification can be partially mitigated
@@ -2304,7 +2332,7 @@ box()
 # either CCF(h) - CCF(h-1) (Type II) or CCF(h) - CCF(0) (Type III) — is
 # insufficient to reliably locate the CCF peak at the target horizon k = h.
 # By enforcing a monotonically increasing CCF profile across all lags from
-# k = 0 to k = h, Type I imposes a much stronger structural requirement on
+# k = 0 to k = h, Type I imposes a stronger structural requirement on
 # the filter, which can be decisive when the DGP offers little natural
 # support for peak displacement to the desired horizon (as is the case for 
 # the above periodic AR(2) DGP).
