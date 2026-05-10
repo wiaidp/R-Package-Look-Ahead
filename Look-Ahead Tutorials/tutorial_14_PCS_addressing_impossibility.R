@@ -243,7 +243,53 @@
 #             decoupling vector V2 is determined by the AR(2) perturbation and
 #             shapes the look-ahead profile of the PCS predictor accordingly.
 #
-#───────────────────────────────────────────────────────────────────────────────
+
+################################################################################
+# Main Take-Away:
+
+# The AR(1) structure renders it impossible to shift the CCF peak to the right.
+# More precisely, no linear predictor can alter the exponentially decaying
+# profile of the CCF at positive lags. In this sense, the AR(1) forecast problem 
+# is THE HARDEST LOOK AHEAD FORECAST PROBLEM.
+
+# How to Address Look-Ahead Behaviour When the CCF Peak Cannot Be Shifted?
+#
+# Although the right tail of the CCF is entirely determined by the AR(1) 
+# structure and is therefore immutable, the left tail remains accessible to
+# manipulation via the choice of predictor. The following observations,
+# carried over from Exercise 3.5, elaborate on this point:
+#
+# Key observations:
+#   - As beta (the slope hyper parameter) increases, the empirical CCF becomes 
+#     increasingly right-skewed, reflecting a growing lead of the PCS predictor 
+#     relative to the MSE predictor.
+#
+#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     consequence of the Yule-Walker equations and holds for any linear predictor
+#     b. No non-zero predictor can alter this decay shape.
+#
+#   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
+#     impossible under the AR(1) DGP (see Exercise 1).
+#
+#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
+#     predictor yields a symmetric CCF, the PCS predictor becomes progressively 
+#     more asymmetric as beta increases. Effective look-ahead behaviour is thus 
+#     achieved by skewing the CCF rightward — that is, by down-weighting the 
+#     contribution of negative lags.
+#
+# Summary:
+# When the right tail of the CCF cannot be modified — as is structurally
+# the case for the AR(1) DGP — attention shifts to the left tail. By
+# introducing suitable perturbations to the original DGP (which may be
+# made arbitrarily small), the left tail can be shaped to induce look-ahead
+# behaviour. This offers a principled resolution to an otherwise impossible
+# problem: rather than attempting to shift the CCF peak directly, one
+# instead recovers effective lead behaviour by redistributing CCF mass
+# away from negative lags.
+################################################################################
+
+
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -784,9 +830,10 @@ plot_func<-function()
   axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
   axis(2)
   box()
+  return(colo)
 }
 
-plot_func()
+colo<-plot_func()
 
 
 # ── Interpretation of Predictors ──────────────────────────────────────────────
@@ -872,7 +919,7 @@ colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4
 # 2.6 Plots
 # ─────────────────────────────────────────────────────────────────────
 
-plot_func()
+colo<-plot_func()
 
 # ── Interpretation of Predictors (Medium Regularisation) ──────────────────────
 #
@@ -998,8 +1045,12 @@ gammah_mat_perturbate[1, ] <-
   (gammah_mat[1, ] + delta * gamma_all_a1_perturbate[1:L]) /
   sqrt(sum(gamma_all_a1_perturbate^2))
 
-# Compute the PCS predictor using the perturbed constraint matrix.
-lambda  <- 10000
+# Select initial parameter values to analyse the geometry of the perturbed
+# PCS problem; for illustration we select a larger lambda, prioritizing the constraints 
+# over the target correlation.
+lambda <- 10000
+beta   <- 0
+
 PCS_obj <- PCS_perturbation_func(h, Delta, gamma_pcs, L, beta, lambda,
                                  gammah_mat_perturbate)
 
@@ -1045,10 +1096,10 @@ which(abs(eigenN$values) > 1e-10)
 # Visualise the two leading eigenvectors of N.
 par(mfrow = c(1, 1))
 ts.plot(eigenN$vectors[, 1:2],
-        main = "Leading eigenvectors of N (rank-two structure)")
+        main = "Leading eigenvectors of N (rank-two structure)",lty=1:2)
 
 # Visualise the two leading eigenvectors of M.
-ts.plot(V[, 1:2], main = "Leading eigenvectors of M")
+ts.plot(V[, 1:2], main = "Leading eigenvectors of M",lty=1:2)
 
 # Confirm that V[,1] decays geometrically (AR(1) direction) if delta is small.
 V[2:L, 1] / V[1:(L - 1), 1]
@@ -1071,10 +1122,13 @@ b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 
 ts.plot(b, main = "PCS predictor: rank-two, full-lag perturbation")
 
-# Confirm departure from AR(1): consecutive ratios are no longer constant.
+# Confirm departure from AR(1): consecutive ratios are no longer constant if 
+# lambda is large.
 b[2:L] / b[1:(L - 1)]
 
-# This result holds for any lambda > 0 and any beta.
+# This result holds for any lambda > 0 and any beta but larger lambda emphasize 
+# the constraints (which are perturbated) more strongly, leading to stronger 
+# departure of b from the original AR(1) profile.
 
 
 # 3.3 Exploring the Rank-Two System: Strong Regularisation
@@ -1089,7 +1143,7 @@ lambda <- 5000000
 
 # Grid of beta values spanning the transition between the two extremes.
 beta_vec <- c(-1, 0, 0.3, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45,
-              0.455, 0.46, 0.47, 0.5, 5) / 5000000
+              0.455, 0.46, 0.47, 0.5, 5) / lambda
 
 Delta <- 1:h
 b_mat <- NULL
@@ -1104,16 +1158,17 @@ for (i in 1:length(beta_vec)) {
 
 # Prepend the classical MSE predictor (gamma_0) as a reference.
 filter_mat           <- cbind(gamma0, b_mat)
+# Beta is scaled by lambda in the column names: to allow readability in plots.
 colnames(filter_mat) <- c("MSE",
                           paste("lambda =", round(lambda, 2),
-                                ", beta =", round(beta_vec, 8)))
+                                ", beta =", round(beta_vec*lambda, 8)))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Plots
 # ─────────────────────────────────────────────────────────────────────
 
-plot_func()
+colo<-plot_func()
 
 # ── Interpretation of Predictors: Full-Lag AR(1) Perturbation ─────────────────
 #
@@ -1138,6 +1193,16 @@ plot_func()
 # constraint satisfaction (governed by V2), for the specified values of lambda
 # and beta.
 #
+# The PCS design exhibits sensitivity to the choice of beta: small perturbations
+# within the interval [0.3/lambda, 0.5/lambda] primarily drive the transition from
+# -V2 to +V2. This sensitivity reflects the near-singularity of the design as delta
+# approaches zero — a fundamental trade-off inherent to the interpretability of the
+# parameterization. Specifically, as delta -> 0, V1 converges to gamma0 (the direction
+# associated with the AR(1) process), while V2 aligns with the fully decoupling
+# direction. For larger delta, the design becomes less singular (less sensitive 
+# to beta) but also less interpretable.
+
+#
 # ── Interpretation of CCF: Full-Lag AR(1) Perturbation ────────────────────────
 #
 # In contrast to Exercise 2, the CCF in Panel 4 (CCF against V2) now exhibits
@@ -1152,27 +1217,34 @@ plot_func()
 # 3.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
-len<-10000
+# Simulate a long realisation of the AR(1) DGP for filter evaluation.
+len     <- 10000
 set.seed(534)
+x_filt  <- rnorm(len)
 
-x_filt <- rnorm(len)
-
+# Apply each predictor filter to the simulated series.
 y_out_mat <- NULL
 for (i in 1:ncol(filter_mat))
   y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
 colnames(y_out_mat) <- colnames(filter_mat)
 
 
-
-anf<-150
-enf<-500
-# Select the relevant PCS: 
-# -Smaller beta imply a lag
-# -larger beta (columns >= 10) are increasingly leading.
-# -The more they lead the more the predictor appears to invert the sign; 
-# -Very difficult forecast problem.
+# ── Full-range overview: all predictor outputs ─────────────────────────────────
+# Display a broad sub-sample to compare the behaviour of all predictors.
+# Observations:
+#   - Smaller beta values produce lagging predictors (relative to the MSE).
+#   - Larger beta values (columns >= 10) produce increasingly leading predictors.
+#   - As the degree of lead increases, predictors tend toward sign inversion,
+#     reflecting the fundamental difficulty of the AR(1) forecasting problem.
+#   - We select the leading predictors as well as the MSE benchmark predictor.
+#   - All series are standardized to simplify visual inspection.
 select_pcs<-10:ncol(y_out_mat)
 select_vec<-c(1,select_pcs)
+
+# Longer sub-sample
+anf<-100
+enf<-500
+
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1180,7 +1252,6 @@ coli<-c("black",colo[select_pcs])
 
 par(mfrow = c(1, 1))
 
-# Full-sample overview of all predictor outputs.
 ts.plot(mplot,
         main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
         lty = c(2, 1, rep(1, ncol(mplot) - 1)),
@@ -1190,19 +1261,19 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 
 
-# -Very difficult forecast problem.
-
-# Here we show look ahead predictors that do not emphasize sign inversion:
-# Select a narrower time span to magnify the look ahead effect.
-# Note: the look-ahead effect mainly works on longer swings. Short-term 
-# random spikes cannot be predicted. 
-# This particular `long swing' look ahead behaviour might be relevant in the 
-# context of business cycle analysis, where crises are typically determined by 
-# longer and stronger downturns, i.e., negative swings.
+# ── Narrow sub-sample: magnifying the look-ahead effect ───────────────────────
+# Zoom into a shorter window to highlight the look-ahead behaviour of selected
+# predictors, avoiding those with pronounced sign inversion.
+#
+# Note: the look-ahead effect operates primarily on longer swings in the series.
+# Short-term random spikes are inherently unpredictable. This long-swing
+# look-ahead property may be particularly relevant in business cycle analysis,
+# where economically significant episodes — such as recessions — are typically
+# characterised by sustained negative swings rather than isolated shocks.
 anf<-280
 enf<-400
 
-select_pcs<-10:12
+select_pcs<-10:13
 select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
@@ -1221,16 +1292,31 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 
 
+# ── Empirical CCF:  ───────────────────────────────────────────────────────────
+# Compute the empirical cross-correlation function (CCF) between the MSE
+# predictor output (column 1) and the selected (leading) PCS predictor output.
+#
+# Key observations:
+#   - As beta increases, the empirical CCF becomes increasingly right-skewed,
+#     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
+#
+#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     consequence of the Yule-Walker equations and holds for any linear predictor b.
+#     No non-zero predictor can alter this decay shape.
+#
+#   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
+#     impossible under the AR(1) DGP (see Exercise 1).
+#
+#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
+#     predictor (first panel) yields a symmetric CCF, the PCS predictor becomes
+#     progressively more asymmetric as beta increases. Effective look-ahead 
+#     behaviour (illustrated in the predictor plot above) is thus achieved by 
+#     skewing the CCF rightward — that is, by down-weighting the contribution 
+#     of negative lags.
 
-# For increasing beta, the CCF is increasingly skewed
-mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
-colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
-
-
-# Note: the right tail (to the right of lag 0) of the ccf always corresponds to the AR(1).
-# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
-# It is impossible to shift the peak of the CCF to the right of zero in the AR(1) case (with a1>0).
-# Nevertheless, look ahead behaviour is obtained by skewing the CCF. 
+mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
+colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1245,20 +1331,26 @@ ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
 # 3.6 Medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
-# We fix lambda to a very strong regularization
-# We then vary beta: the two extreme beta values correspond to plus and minus the 
-# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
-# lambda1 depends on beta.
-# For beta~0.000000269 one obtains -V[,1], i.e., lambda1=0.
-
-
+# Lambda is fixed at a moderate regularization strength. Beta is then
+# varied across a grid of values. The two extreme values of beta
+# correspond to the first eigenvector V[,1] with opposite signs
+# (-V[,1] and +V[,1]), with intermediate solutions of the form
+# -V[,2] + lambda1 * V[,1] (up to optimal scaling), where lambda1 depends 
+# continuously on beta.
 
 # Medium regularization
 lambda<-5
 
-# Tipping points: the two extremes are -V[,2] and +V[,2]
-# For beta=0.000000269 one obtains -V[,1]
-beta_vec<-c(0,0.086,0.0872,0.0874,0.08745,0.08746,0.08747,0.0875,0.0877,0.088,0.09)
+# Note: the design exhibits marked sensitivity to beta — small perturbations
+# in beta can induce substantial changes in the PCS solution — a consequence
+# of the near-singularity of the PCS criterion as delta shrinks toward zero.
+# This singularity is not merely a numerical inconvenience; it is intimately
+# tied to interpretability: as delta -> 0, the first eigenvector V1 converges
+# to gamma0 (the AR(1) autocovariance direction), while V2 aligns with the
+# full decoupling direction induced by the perturbation. Small delta thus
+# sharpens the geometric separation between these two directions, at the cost
+# of an increasingly ill-conditioned optimisation landscape. This trade-off is
+# deliberate: interpretability is here prioritised over numerical stability.
 
 beta_vec<-c(2,2.055,2.057,2.058,2.059,2.0591,2.0592,2.0593,2.0594,2.0595,2.06,2.1)/lambda
 
@@ -1283,150 +1375,77 @@ colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(be
 # 3.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
+# The PCS predictor transitions smoothly between the two boundary solutions
+# -V1 and +V1, passing through -V2 at an intermediate tipping point.
 
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(2,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
+# The CCF in the fourth panel illustrates look ahead behaviour: the CCF peak 
+# is shifted rightwards along the fully decoupled V2 direction.
 
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
+colo<-plot_func()
 
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-# ── Right panel: cross-correlation functions (CCF) ────────────────────
-# For each predictor, compute the CCF against the nowcast gamma0 at lags
-# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
-# a horizontal line marks zero correlation.
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V1", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V2", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.8 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
-len<-10000
+# Simulate a long realisation of the AR(1) DGP for filter evaluation.
+len     <- 10000
 set.seed(534)
+x_filt  <- rnorm(len)
 
-x_filt <- rnorm(len)
-
+# Apply each predictor filter to the simulated series.
 y_out_mat <- NULL
 for (i in 1:ncol(filter_mat))
   y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
 colnames(y_out_mat) <- colnames(filter_mat)
 
 
-anf<-150
+# ── Full-range overview: all predictor outputs ─────────────────────────────────
+# Display a broad sub-sample to compare the behaviour of all predictors.
+# Observations:
+#   - Smaller beta values produce lagging predictors (relative to the MSE).
+#   - Larger beta values (columns >= 10) produce increasingly leading predictors.
+#   - As the degree of lead increases, predictors tend toward sign inversion,
+#     reflecting the fundamental difficulty of the AR(1) forecasting problem.
+#   - We select the leading predictors as well as the MSE benchmark predictor.
+#   - The leading predictors shift the CCF peak to the right in the 4-th panel 
+#     of the previous CCF plot (along the full decoupling direction V2).
+#   - All series are standardized to simplify visual inspection.
+select_pcs<-c(4:7)
+select_vec<-c(1,select_pcs)
+
+# Longer sub-sample
+anf<-100
 enf<-500
 
-# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
-# For increasing beta the predictros appear to change sign.
-# Very difficult forecast problem.
-select_pcs<-c(4:7)
+mplot<-scale(y_out_mat[anf:enf,select_vec])
+colnames(mplot)<-colnames(y_out_mat)[select_vec]
+
+coli<-c("black",colo[select_pcs])
+
+par(mfrow = c(1, 1))
+
+ts.plot(mplot,
+        main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
+        lty = c(2, 1, rep(1, ncol(mplot) - 1)),
+        lwd = c(2, rep(1, ncol(mplot) - 1)))
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = coli[i], line = -i)
+
+
+# ── Narrow sub-sample: magnifying the look-ahead effect ───────────────────────
+# Zoom into a shorter window to highlight the look-ahead behaviour of selected
+# predictors, avoiding those with pronounced sign inversion.
+#
+# Note: the look-ahead effect operates primarily on longer swings in the series.
+# Short-term random spikes are inherently unpredictable. This long-swing
+# look-ahead property may be particularly relevant in business cycle analysis,
+# where economically significant episodes — such as recessions — are typically
+# characterised by sustained negative swings rather than isolated shocks.
+anf<-280
+enf<-400
+
 select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
@@ -1445,13 +1464,31 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 
 
-# For increasing beta, the CCF is increasingly skewed
-mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
-colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
+# ── Empirical CCF:  ───────────────────────────────────────────────────────────
+# Compute the empirical cross-correlation function (CCF) between the MSE
+# predictor output (column 1) and the selected (leading) PCS predictor output.
+#
+# Key observations:
+#   - As beta increases, the empirical CCF becomes increasingly right-skewed,
+#     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
+#
+#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     consequence of the Yule-Walker equations and holds for any linear predictor b.
+#     No non-zero predictor can alter this decay shape.
+#
+#   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
+#     impossible under the AR(1) DGP (see Exercise 1).
+#
+#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
+#     predictor (first panel) yields a symmetric CCF, the PCS predictor becomes
+#     progressively more asymmetric as beta increases. Effective look-ahead 
+#     behaviour (illustrated in the predictor plot above) is thus achieved by 
+#     skewing the CCF rightward — that is, by down-weighting the contribution 
+#     of negative lags.
 
-
-# Note: the right tail of the ccf always corresponds to the AR(1).
-# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
+mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
+colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
@@ -1465,384 +1502,225 @@ ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
 # EXERCISE 4: ALTERNATIVE AR(2) PERTURBATION
 # ════════════════════════════════════════════════════════════════════
 
-# perturbate gamma0 only and only slightly:
-# gammah_mat_perturbate_ar2[1,]<-gammah_mat[1,]+delta*gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
-# In this case V1 \approx gamma0 (the main direction with the largest eigenvalue is gamma0)
-# V2 is orthogonal to V1 \approx gamma0.
+# In analogy to Exercise 3, we propose a perturbation acting across all lags.
+# Here, however, the perturbation takes the form of an AR(2) modification:
+# the original AR(1) autocovariance structure is overlaid with an AR(2)
+# component whose weight can be made arbitrarily small, rendering its
+# effect on the DGP imperceptible.
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.1 
+# 4.1 Perturbation: AR(2) Type
 # ─────────────────────────────────────────────────────────────────────
+#
 
-# Construct the MSE predictors gamma_i used for deriving delta_i=gamma_i-gamma_{i-1} 
-
+# MSE predictor coefficients derived from the original AR(1) DGP,
+# used to define the PCS constraints
 gamma_all <- xi
-# --- Build the shifted covariance matrix 'gammah_mat' ---
-# Each row contains the MSE predictor coefficients (gamma_all) shifted by
-# a specific lead value drawn from 'Delta'. 
-# We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
-# and therefore we need gamma_{Delta[1] - 1} to define the first difference.
-gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]/sqrt(sum(gamma_all^2) ) 
-if (length(Delta) > 0)
-{
-  for (i in 1:length(Delta))
-  {
+
+# Build the shifted covariance matrix 'gammah_mat':
+# each row contains the MSE predictor coefficients (gamma_all) shifted by
+# a specific lead value drawn from 'Delta'.
+# The initialisation starts at Delta[1] - 1 because the constraints are
+# expressed as first differences (gamma_h - gamma_{h-1}), requiring
+# gamma_{Delta[1] - 1} to define the first such difference.
+gammah_mat <- gamma_all[Delta[1] - 1 + 1:L] / sqrt(sum(gamma_all^2))
+if (length(Delta) > 0) {
+  for (i in 1:length(Delta)) {
     gammah_mat <- rbind(gammah_mat,
-                        gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
+                        gamma_all[Delta[i] + 1:L] / sqrt(sum(gamma_all^2)))
   }
 }
 
-# Specify a periodic AR(2)
-a1_ar2<-1.81381 
-a2_ar2<--0.8291025 
-xi_ar2_all <- c(1, ARMAtoMA(ar= c(a1_ar2,a2_ar2), ma=0,lag.max = 2000))
-k_start<-20
-k_start<-0
-xi_ar2<-xi_ar2_all[k_start+1:1001]
+# Specify a periodic AR(2) process as the perturbation component
+a1_ar2 <- 1.81381
+a2_ar2 <- -0.8291025
+xi_ar2_all <- c(1, ARMAtoMA(ar = c(a1_ar2, a2_ar2), ma = 0, lag.max = 2000))
+k_start <- 20
+xi_ar2  <- xi_ar2_all[k_start + 1:1001]
 
 gamma_all_ar2 <- xi_ar2
 
-par(mfrow=c(1,1))
-ts.plot(cbind(xi,xi_ar2),col=c("black","red"))
+# Visual comparison of the AR(1) and AR(2) autocovariance sequences
+par(mfrow = c(1, 1))
+ts.plot(cbind(xi, xi_ar2), col = c("black", "red"),
+        main = "AR(1) (black) and AR(2) (red)")
 
-gammah_mat_perturbate_ar2<- gammah_mat
+# Construct the imperceptible perturbation by scaling the AR(2) component
+# by a small weight delta
+delta <- 0.0001
 
-gammah_mat_perturbate_ar2[1,]<-gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
+gammah_mat_perturbate_ar2 <- gammah_mat
 
-delta<-0.0001
+# Modify only the first row of gammah_mat (corresponding to gamma_0):
+# the constraint system has rank 2, so it suffices to perturb gamma_0 alone.
+# All remaining rows entering the constraints retain the original AR(1) DGP.
+gammah_mat_perturbate_ar2[1, ] <- gammah_mat[1, ] +
+  delta * gamma_all_ar2[1:L] / sqrt(sum(gamma_all_ar2^2))
 
-gammah_mat_perturbate_ar2[1,]<-gammah_mat[1,]+delta*gamma_all_ar2[1:L]/sqrt(sum(gamma_all_ar2^2)) 
+# Select initial parameter values to analyse the geometry of the perturbed
+# PCS problem; any reasonably sized (beta, lambda) pair is suitable here
+lambda <- 5
+beta   <- 0
 
+# Compute the PCS predictor under the AR(2) perturbation
+PCS_obj  <- PCS_perturbation_func(h, Delta, gamma_pcs, L, beta, lambda,
+                                  gammah_mat_perturbate_ar2)
 
+b        <- PCS_obj$b
+d_delta  <- PCS_obj$d_delta
+b_mat    <- cbind(b_mat, b)
+M        <- PCS_obj$M
+N        <- PCS_obj$N
+gamma_sol <- PCS_obj$gamma_sol
 
-
-PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate_ar2)
-
-
-
-
-b       <- PCS_obj$b
-d_delta <- PCS_obj$d_delta
-b_mat   <- cbind(b_mat, b)
-M<-PCS_obj$M
-N<-PCS_obj$N
-gamma_sol=PCS_obj$gamma_sol
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.2 Background: Some Linear Algebra
+# 4.2 Background: Linear Algebra of the PCS Solution
 # ─────────────────────────────────────────────────────────────────────
-# The closed-form formula for PCS is: b <- solve(M) %*% gamma_sol
-# M depends on lambda but not on beta.
-# gamma_sol depends on lambda and beta.
+#
+# The closed-form PCS solution is: b <- solve(M) %*% gamma_sol
+#   - M depends on lambda but not on beta.
+#   - gamma_sol depends on both lambda and beta.
+# ─────────────────────────────────────────────────────────────────────
 
+# Inspect gamma_sol: its decay is not purely exponential, confirming
+# that it does not follow the AR(1) autocovariance structure
 ts.plot(gamma_sol)
-# gamma_sol is not AR(1): the decay is not exponential with fixed a1:
-gamma_sol[2:L]/gamma_sol[1:(L-1)]
+gamma_sol[2:L] / gamma_sol[1:(L - 1)]
 
-eigenM<-eigen(M)
-V<-eigenM$vectors
+eigenM <- eigen(M)
+V      <- eigenM$vectors
 
+# M = I + lambda * N, where N = sum_{k=1}^{h} (gamma_k - gamma_{k-1})(gamma_k - gamma_{k-1})'
+# Verify: the following maximum absolute difference should be (near) zero
+max(abs(M - diag(rep(1, L)) - lambda * N))
 
-# M=I+lambda*N where N=sum_{k=1}^h (gamma_k-gamma_{k-1}) (gamma_k-gamma_{k-1})'
-# Check: difference vanishes:
-max(abs(M-diag(rep(1,L))-lambda*N))
-# N does not have rank one but two
-eigenN<-eigen(N)
-# Only two eigenvalues larger than 10^-10
-which(abs(eigenN$values)>10^(-10))
-# Lets have a look at the two eigenvectors of the non-vanishing eigenvalues:
-par(mfrow=c(1,1))
-ts.plot(eigenN$vectors[,1:2], main="Eigenvectors of non-vanishing eigenvalues of N",lty=1:2)
-V[2:L,1]/V[1:(L-1),1]
-# Some basic results:
-# -Eigenvalues of M=I+lambda*N are 1+lambda*n_i where n_i are eigenvalues of N.
-# -Eigenvalues of M^{-1} are 1/(1+lamba*n_i).
-# -Eigenvectors of M are the same as eigenvectors of N.
-# -Rank(N)=2, Rank(M)=L
-ts.plot(V[,1:2],main="First two eigenvectors of M",lty=1:2)
-# V is orthogonal, gamma_sol is in the column space of the first two eigenvectors V[,1:2]. 
-# Therefore V[,k]%*%gamma_sol=0 if k>2.
-# Check:
-# Only the first element in the following vector is different from zero:
-t(V)%*%gamma_sol
-# Same here
-g<-(diag(1/eigenM$values)%*%t(V)%*%gamma_sol)
+# N has rank 2: only two eigenvalues exceed the numerical threshold 1e-10
+eigenN <- eigen(N)
+which(abs(eigenN$values) > 1e-10)
+
+# Inspect the two eigenvectors associated with the non-vanishing eigenvalues of N
+par(mfrow = c(1, 1))
+ts.plot(eigenN$vectors[, 1:2],
+        main = "Eigenvectors of non-zero eigenvalues of N", lty = 1:2)
+
+# Key spectral results:
+#   - Eigenvalues of M = I + lambda*N are 1 + lambda * n_i, where n_i are
+#     the eigenvalues of N.
+#   - Eigenvalues of M^{-1} are 1 / (1 + lambda * n_i).
+#   - M and N share the same eigenvectors.
+#   - Rank(N) = 2; Rank(M) = L (M is full rank for any lambda > 0).
+# Hint: the sign of the eigenvectors is arbitrary: the eigenvectors of M and N 
+# may differ with regards to signs.
+ts.plot(V[, 1:2], main = "First two eigenvectors of M", lty = 1:2)
+
+# gamma_sol lies in the column space of V[,1:2]:
+# consequently, t(V[,k]) %*% gamma_sol = 0 for all k > 2.
+# Verification: only the first two elements of t(V) %*% gamma_sol are non-zero
+t(V) %*% gamma_sol
+
+# Compute the projected and scaled coefficients g
+g <- diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 g
 
-# By the above b=solve(M)%*%gamma_sol and solve(M) = V%*%diag(1/eigenM$values)%*%t(V)
-# Since g:=diag(1/eigenM$values)%*%t(V)%*%gamma_sol has only the first element that does not vanish we infer 
-# that V%*%g = g[1] * V[,1] + g[2] * V[,2]
-# Check:
-abs(max(V%*%g-g[1]*V[,1]-g[2]*V[,2]))
+# Since b = solve(M) %*% gamma_sol = V %*% diag(1/eigenM$values) %*% t(V) %*% gamma_sol,
+# and g has only two non-zero elements, it follows that:
+#   b = V %*% g = g[1] * V[,1] + g[2] * V[,2]
+# Verification: the following maximum absolute deviation should be (near) zero
+abs(max(V %*% g - g[1] * V[, 1] - g[2] * V[, 2]))
 
-# We conclude that b=V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol lies in the space spanned by V[,1] and V[,2] 
-# or xi[1:L] and xi_a1_perturbate[1:L].
-# The PCS predictor is a linear combination of V[,1] and V[,2]
-
-b<-V%*%diag(1/eigenM$values)%*%t(V)%*%gamma_sol
+# Conclusion: the PCS predictor b lies in the space spanned by V[,1] and V[,2]
+# (equivalently, by xi[1:L] and the perturbed AR(2) direction).
+# It is therefore a linear combination of these two eigenvectors,
+# irrespective of the choice of lambda.
+b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 ts.plot(b)
-# the PCS predictor is not AR(1) in general (though it could be as a special case):
-b[2:L]/b[1:(L-1)]
-# This holds irrespective of lambda.
+
+# Confirm that b does not follow AR(1) decay in general: larger lambda emphasize 
+# the constraints (which are perturbated) and favors departure from the original 
+# AR(1) profile.
+b[2:L] / b[1:(L - 1)]
+
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.3 Play the Expanded Rank-Game: strong regularization
+# 4.3 Rank-Expansion Game: Strong Regularization
+# ─────────────────────────────────────────────────────────────────────
+#
+# Lambda is fixed at a very large value (strong regularization) and beta
+# is varied across a grid. The two boundary values of beta correspond to
+# -V[,2] and +V[,2], with intermediate solutions of the form
+# -V[,1] + lambda1 * V[,2], where lambda1 depends continuously on beta.
 # ─────────────────────────────────────────────────────────────────────
 
-# We fix lambda to a very strong regularization
-# We then vary beta: the two extreme beta values correspond to plus and minus the 
-# second eigenvector V[,2] with combinations -V[,1]+lambda1*V[,2] in between, where 
-# lambda1 depends on beta.
+# Strong regularization
+lambda <- 5000000
 
+# Beta grid spanning the transition between the two boundary solutions
+# -V[,2] and +V[,2], passing through -V[,1] at the tipping point
+beta_vec <- c(-10, -1, 0, 1, 1.2, 1.25, 1.27, 1.3,
+              1.35, 1.4, 1.5, 2, 10) / lambda
 
+Delta <- 1:h
 
-# Very strong regularization
-lambda<-5000000
-
-# Tipping points: the two extremes are -V[,2] and +V[,2]
-# For beta=0.000000269 one obtains -V[,1]
-
-beta_vec<-c(-10,-1,0,1,1.2,1.25,1.27,1.3,1.35,1.4,1.5,2,10)/lambda
-
-Delta<-1:h
-
-b_mat<-NULL
-for (i in 1:length(beta_vec))
-{
-  
-  beta<-beta_vec[i]
-  PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate_ar2)
-  
+# Compute PCS predictor coefficients for each value of beta
+b_mat <- NULL
+for (i in 1:length(beta_vec)) {
+  beta    <- beta_vec[i]
+  PCS_obj <- PCS_perturbation_func(h, Delta, gamma_pcs, L, beta, lambda,
+                                   gammah_mat_perturbate_ar2)
   b       <- PCS_obj$b
-  b_mat<-cbind(b_mat,b)
+  b_mat   <- cbind(b_mat, b)
 }
-filter_mat<-cbind(gamma0,b_mat)
-colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8)))
+
+# Combine MSE baseline with PCS predictors; label columns accordingly
+filter_mat <- cbind(gamma0, b_mat)
+colnames(filter_mat) <- c("MSE",
+                          paste("lambda =", round(lambda, 2),
+                                ", beta =", round(beta_vec, 8)))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.4 Plots
 # ─────────────────────────────────────────────────────────────────────
 
+# The PCS predictor transitions smoothly between the two boundary solutions
+# -V2 and +V2, passing through -V1 at an intermediate tipping point.
+#
+# Note: V1 appears with an inverted sign because the monotonically increasing
+# CCF required by the constraints cannot be achieved without reversing the
+# sign of the DGP direction encoded in V1. The very large lambda selected
+# here amplifies this effect, driving the solution toward the sign-inverted
+# direction as the constraint penalty dominates the optimisation objective.
+#
+# However, in contrast to Exercise 3, the CCF against xi (second panel)
+# is either near zero or negative throughout. This indicates that placing
+# excessive weight on the perturbed AR(2) constraints via large lambda
+# induces misspecification: the predictor loses meaningful correlation
+# with the target. A more balanced strategy is to employ small to
+# moderate values of lambda, so that target correlation remains a
+# relevant and influential component of the optimisation objective.
 
-
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(2,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
-
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-# ── Right panel: cross-correlation functions (CCF) ────────────────────
-# For each predictor, compute the CCF against the nowcast gamma0 at lags
-# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
-# a horizontal line marks zero correlation.
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against AR(1)", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V1", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V2", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-
-# Note
-# -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
-
-# b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi%*%xi)).
-
-# -Consider that the following slight modification 
-#     b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
-#   would be fixed since xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
-#   is constant (not dependent on i if xi is the AR(1) DGP).
-# -However, xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) is proportional to a^i i.e. decreases exponentially.
-
-# Conclusions:
-# 1. The observed decrease of the CCF is only due to the scaling effect in xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) 
-#     and corresponds to a^i: all CCF's in the right panel decay with a^i.
-# 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
-# 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
-#     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
-
-
-
-
-
-# Against the AR(2) benchmark the PCS shifts the peak forward as intended.
-
+colo<-plot_func()
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
-len<-10000
-set.seed(534)
-
-x_filt <- rnorm(len)
-
-y_out_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  y_out_mat <- cbind(y_out_mat, filter(x_filt, filter_mat[, i], side = 1))
-colnames(y_out_mat) <- colnames(filter_mat)
-
-
-anf<-150
-enf<-500
-
-# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
-# For increasing beta the predictros appear to change sign.
-# Very difficult forecast problem.
-select_pcs<-c(1:5)
-select_vec<-c(1,select_pcs)
-mplot<-scale(y_out_mat[anf:enf,select_vec])
-colnames(mplot)<-colnames(y_out_mat)[select_vec]
-
-coli<-c("black",colo[select_pcs])
-
-par(mfrow = c(1, 1))
-
-# Full-sample overview of all predictor outputs.
-ts.plot(mplot,
-        main = "Predictor Outputs", col = coli, xlab = "", ylab = "",
-        lty = c(2, 1, rep(1, ncol(mplot) - 1)),
-        lwd = c(2, rep(1, ncol(mplot) - 1)))
-abline(h = 0)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i], col = coli[i], line = -i)
-
-
-# For increasing beta, the CCF is increasingly skewed
-mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
-colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
-
-
-# Note: the right tail of the ccf always corresponds to the AR(1).
-# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
-par(mfrow=c(2,2))
-ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
-ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
-ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
-
-
-
-
+# Since the above PCS predictors are misspecified under strong regularization,
+# forecast comparisons are omitted for this configuration.
 
 
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.6 Play the Expanded Rank-Game: medium Regularization
+# 4.6 Medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
 # We fix lambda to a medium regularization
 # We then vary beta: the two extreme beta values correspond to plus and minus the 
-# first eigenvector V[,1] with combinations V[,2]+lambda1*V[,2] in between, where 
+# first eigenvector V[,1] with combinations V[,2]+lambda1*V[,1] in between, where 
 # lambda1 depends on beta.
 
 
@@ -1878,126 +1756,7 @@ colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(be
 # ─────────────────────────────────────────────────────────────────────
 
 
-colo<-rainbow(ncol(filter_mat))
-par(mfrow=c(2,2))
-mplot <- scale(filter_mat,center=F,scale=T)
-# Check: sum of squared coefficients per filter (filter energy proxy).
-# DFP are unit-length adjusted.
-apply(mplot^2, 2, sum)
-
-plot(mplot[, 1],
-     main = "Scaled Predictors", axes = F, type = "l",
-     xlab = "Lags", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(mplot), max(mplot)))
-mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
-# Overlay remaining filters with colour-coded legend labels
-for (i in 2:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-  mtext(colnames(mplot)[i], col = colo[i], line = -i)
-}
-
-# Redraw the MSE h-step filter on top to ensure visibility
-lines(mplot[, 2], col = colo[2])
-
-axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
-     labels = c(0, (1:(nrow(mplot) / 10)) * 10))
-axis(2)
-box()
-
-# ── Right panel: cross-correlation functions (CCF) ────────────────────
-# For each predictor, compute the CCF against the nowcast gamma0 at lags
-# 0, 1, …, max_lag - 1. A vertical dashed line marks the target horizon h;
-# a horizontal line marks zero correlation.
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], xi)$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against AR(1)", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,1])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V1", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
-
-
-max_lag<-0
-ccf_mat <- NULL
-for (i in 1:ncol(filter_mat))
-  ccf_mat <- cbind(ccf_mat,
-                   compute_acf_at_lags_zero_delta_func(
-                     max_lag, h, filter_mat[, i], V[,2])$cor_vec)
-colnames(ccf_mat)<-colnames(filter_mat)
-rownames(ccf_mat)<-paste("CCF at lead: ",-max_lag-1+1:nrow(ccf_mat),sep="")
-
-mplot <- ccf_mat
-
-plot(mplot[, 1],
-     main = "CCF against V2", axes = F, type = "l",
-     xlab = "", ylab = "",
-     col  = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
-
-for (i in 1:ncol(mplot)) {
-  lines(mplot[, i], col = colo[i],lwd=ifelse(colnames(mplot)[i]=="MSE",2,1),lty=ifelse(colnames(mplot)[i]=="MSE",2,1))
-}
-
-abline(v = 1 + h, lty = 2)   # vertical marker at target horizon h
-abline(h = 0)                 # zero-correlation reference line
-
-axis(1, at     = 1:nrow(mplot),
-     labels = -1 + 1:nrow(mplot))
-axis(2)
-box()
+colo<-plot_func()
 
 # Note
 # -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
@@ -2073,6 +1832,8 @@ ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
 
 
 
+# Under misspecification (AR(2) perturbation) emphasizing the perturbated constraints
+# too heavily (through large lambda) might lead to unusable predictors.
 
 
 # Main Take-Aways
