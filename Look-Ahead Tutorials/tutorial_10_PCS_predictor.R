@@ -981,7 +981,7 @@ gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 #      solution close to exact constraint satisfaction.
 # Negative or zero values of beta are also included as reference cases to
 # illustrate how the CCF profile and peak location respond to the slope target.
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+beta_vec <- c(-0.2, -0.1, 0, 0.01, 0.02, 0.05)
 
 # Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
 # here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
@@ -1011,7 +1011,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
+  PCS_obj <- PCS_func(h,Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1250,7 +1250,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 # Fix the target slope and vary the regularisation weight.
 # A moderately small positive beta encourages a peak shift toward h without
 # being as restrictive as the large-beta cases in Exercise 3.
-beta <- 0.1
+beta <- 0.05
 
 # Constrained lag set: Type I) requires a positive slope at every lag
 # from 1 to h, enforcing a monotonically increasing CCF over {0, …, h}.
@@ -1258,7 +1258,7 @@ Delta <- 1:h
 
 # Range of regularisation weights: from near-zero (loose constraints, high
 # flexibility) to very large (tight constraints, near-exact slope enforcement).
-lambda_vec <- c(0.1, 0.5, 1, 5, 10, 10000)
+lambda_vec <- c(0.1, 0.5, 1, 5, 10, 30,10000)
 
 b_mat <- NULL    # filter coefficients, one column per lambda value
 
@@ -1267,7 +1267,7 @@ for (i in seq_along(lambda_vec)) {
   lambda <- lambda_vec[i]
   
   # Compute the regularised PCS Type I) predictor.
-  PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
+  PCS_obj <- PCS_func(h,Delta, xi, L, beta, lambda)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta
@@ -1366,14 +1366,17 @@ box()
 #   The results are qualitatively similar to Exercise 3, but with two key
 #   differences:
 #
-#   - For fixed beta = 0.1, increasing lambda progressively tightens the
+#   - For fixed beta = 0.05, increasing lambda progressively tightens the
 #     slope constraints, pushing the CCF peak toward k = h = 5. Values of
-#     lambda > 10 can be regarded as strong regularisation, producing near-
+#     lambda > 100 can be regarded as strong regularisation, producing near-
 #     linear CCF profiles as in Exercise 3.
 #
 #   - Reducing lambda relaxes the monotonicity constraints, granting the
 #     optimiser more freedom to maximise target correlation at lag h (peak
-#     height) without being forced to maintain a rigid linear CCF path.
+#     height) without being forced to maintain a rigid linear CCF path. 
+#     As an example, the designs based on lambda=30 (blue) and lambda=10000 
+#     (violet) both shift the peak CCF to h. But the less stron regularization 
+#     lambda=30 (blue) achieves a larger target correlation (a higher peak value).
 #     This illustrates the core accuracy–timeliness trade-off: lighter
 #     regularisation favours correlation height; heavier regularisation
 #     affirms `clearer' peak location through tighter control of the CCF slope.
@@ -1415,8 +1418,8 @@ for (i in 1:ncol(filter_mat))
 
 # Outcome:
 #   Qualitatively similar to Exercise 3. The key advantage here is that using
-#   a weaker slope (beta = 0.1) combined with a moderate regularisation weight
-#   (lambda ~ 5) is sufficient to achieve full look-ahead behaviour — shifting
+#   a weaker slope (beta = 0.05) combined with a moderate regularisation weight
+#   (lambda ~ 30) is sufficient to achieve full look-ahead behaviour — shifting
 #   the CCF peak to k = h = 5 — while maintaining a tighter tracking of the
 #   target at horizon h, i.e., a higher peak height than in Exercise 3.
 
@@ -1503,12 +1506,12 @@ b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 
 # The following combination of constraint parameters has been determined 
 # empirically to align with quasi full decoupling of the PCS:
-beta<-c(0.299)
+beta<-c(0.05265)
 Delta <- 1:h
-lambda <- 10
+lambda <- 1000
 
 # Compute PCS Type I) predictor.
-PCS_obj <- PCS_func(Delta, xi, L, beta, lambda)
+PCS_obj <- PCS_func(h,Delta, xi, L, beta, lambda)
 
 # Retrieve MSE optimally scaled PCS: to align with scale of MSE-DFP above. 
 b_pcs_mse <- PCS_obj$b_mse
@@ -1583,9 +1586,10 @@ ccf_mat
 #   exactly zero (DFP) or nearly zero (PCS) at lag k = 0.
 #
 #   Under an equivalent full-decoupling constraint, the DFP predictor is
-#   guaranteed to outperform PCS (or any other predictor) in terms of target
-#   correlation at the forecast horizon k = h = 5 (see ccf_mat above).
-#   In practice, however, the margin of outperformance may be small.
+#   guaranteed to at least equal (in general outperform) PCS (or any other 
+#   predictor) in terms of target correlation at the forecast horizon k = h = 5
+#   (see ccf_mat above).
+#   In practice, however, the margin of outperformance may be small. Here, 
 #   Inspecting the CCF plot (or the corresponding table) reveals a subtle
 #   qualitative difference: the PCS CCF (cyan) is marginally more linear over
 #   {0, …, h} (the degree of linearity governed by the choice of lambda),

@@ -668,8 +668,13 @@ summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 lambda <- 5000000
 
 # Grid of beta values spanning the two extreme directions.
-beta_vec <- c(-1, -0.1, 0, 0.0000001, 0.0000002, 0.00000025,
-              0.000000269, 0.0000003, 0.0000005, 0.00001, 10)
+beta_vec<-c(0.000e+00, 0.5 , 1 , 1.25,  1.345,  1.5,
+  2.5,  50)/lambda
+
+beta_vec<-c(-5.000e+05,  0,2,2.5,2.7,2.8,2.9,3,4,5)/lambda
+
+
+beta_vec*lambda
 
 Delta <- 1:h
 b_mat <- NULL
@@ -684,7 +689,7 @@ for (i in 1:length(beta_vec)) {
 
 filter_mat           <- b_mat
 colnames(filter_mat) <- paste("lambda =", round(lambda, 2),
-                              ", beta =", round(beta_vec, 8))
+                              ", beta*lambda =", round(beta_vec*lambda, 8))
 
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -841,16 +846,19 @@ colo<-plot_func()
 # The predictor profiles displayed in Panel 1 illustrate the effect of the
 # single-lag perturbation at lag 0. Because the perturbation affects only the
 # lag-0 coefficient of xi, the PCS predictor b follows the standard AR(1)
-# decay profile for all lags k > 0. The perturbation provides a single degree
+# decay profile for all lags k > 0 (up to possible sign inversion). 
+# The perturbation provides a single degree
 # of freedom — a fine-tuning adjustment at lag 0 only — without altering the
 # structure of the predictor at any other lag.
 #
 # This limited flexibility is the key limitation of the single-lag perturbation:
 # it expands the rank from 1 to 2, but the additional degree of freedom is
-# confined entirely to lag 0. As a result, the look-ahead behaviour induced by
-# V2 (Panel 4) is relatively modest compared to multi-lag perturbations, which
+# confined entirely to lag 0. As a result, the look-ahead behaviour along the 
+# full decoupling direction V2 (Panel 4) can shift the peak from k=0 to k=1, at 
+# most. This effect is relatively modest compared to multi-lag perturbations, which
 # reshape the predictor profile across all lags and thereby generate a richer
-# decoupling effect, see exercises 3 and 4 below.
+# decoupling effect, generating strong peak-shifts along their full decoupling 
+# directions V2, see exercises 3 and 4 below.
 #
 # Under strong regularisation, the PCS predictors transition smoothly from -V2
 # to +V2 as beta increases. The two extremes, ±V2, reflect configurations where
@@ -864,6 +872,14 @@ colo<-plot_func()
 # combinations of V1 and V2, with the weights determined by the
 # interplay between the target correlation (governed by V1) and the constraint
 # satisfaction (governed by V2) for the specified values of lambda and beta.
+#
+# Placing very strong emphasis on the constraints relative to the target
+# correlation objective drives the solution toward -V1, obtained here for
+# beta close to 0.8/lambda (cyan). Sign inversion of V1 (equivalently, of gamma_0
+# or xi) is the only mechanism by which a monotonically increasing CCF over
+# lags k = 0, ..., h can be achieved under this configuration. The resulting
+# sign-inverted predictor is, however, practically unusable, as it implies
+# forecasting in the opposite direction to the target.
 
 # ── Interpretation of CCF Panels ──────────────────────────────────────────────
 #
@@ -879,15 +895,16 @@ colo<-plot_func()
 #   fixed AR(1) profile: it is identical across all predictors b, regardless of
 #   the choice of hyperparameters beta and lambda. It coincides with the CCF
 #   profile in Panel 2 (CCF against xi), up to a possible sign change induced
-#   by the constraints.
+#   by the constraints (when lambda is large).
 #
 # Panel 4 — CCF against V2:
-#   Isolates the full decoupling contribution introduced by the perturbation.
+#   Isolates the `full decoupling' direction (V2) introduced by the perturbation.
 #   This component captures the idiosyncratic look-ahead effect that arises
 #   exclusively from the extraneous perturbation. Unlike the V1 component, it
 #   varies with the hyperparameters and depends directly on the type and
 #   direction of the perturbation chosen. Different perturbations yield different
-#   V2 vectors and therefore different look-ahead profiles in this panel.
+#   V2 vectors and therefore different look-ahead profiles in this panel, see 
+#   exercises 3 and 4 below.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -898,7 +915,20 @@ colo<-plot_func()
 # Medium regularization
 lambda<-5
 # Tipping points: the two extremes are -V[,1] and +V[,1]
-beta_vec<-c(0,0.086,0.0874,0.08745,0.08746,0.08747,0.0875,0.088,0.09)
+beta_vec<-c(0.900000, 0.902000, 0.902500, 0.902750, 0.902850, 0.902940, 0.902945, 0.902975, 0.903000, 0.903050, 0.903250, 0.905500)/lambda
+
+# Note:
+# The PCS design exhibits marked sensitivity to the choice of beta: small
+# changes in beta drive the transition from -V1 to +V1. This sensitivity
+# reflects the near-singularity of the design as delta shrinks toward zero —
+# a fundamental trade-off inherent to the interpretability of the
+# parameterisation. Specifically, as delta -> 0, V1 converges to gamma0 (the
+# direction associated with the AR(1) process), while V2 aligns with the fully
+# decoupling direction induced by the perturbation, rendering the design
+# geometrically interpretable. Conversely, larger values of delta alleviate
+# the near-singularity — reducing sensitivity to beta — but at the cost of
+# a less structured and less interpretable geometry. This trade-off is
+# deliberate: interpretability is here prioritised over numerical regularity.
 
 b_mat<-NULL
 for (i in 1:length(beta_vec))
@@ -911,9 +941,8 @@ for (i in 1:length(beta_vec))
   b_mat<-cbind(b_mat,b)
 }
 
-filter_mat<-b_mat
-colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta=",round(beta_vec,4))
-
+filter_mat<-scale(b_mat)
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,7))
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.6 Plots
@@ -1142,8 +1171,7 @@ b[2:L] / b[1:(L - 1)]
 lambda <- 5000000
 
 # Grid of beta values spanning the transition between the two extremes.
-beta_vec <- c(-1, 0, 0.3, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45,
-              0.455, 0.46, 0.47, 0.5, 5) / lambda
+beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
 
 Delta <- 1:h
 b_mat <- NULL
@@ -1161,9 +1189,9 @@ filter_mat           <- cbind(gamma0, b_mat)
 # Beta is scaled by lambda in the column names: to allow readability in plots.
 colnames(filter_mat) <- c("MSE",
                           paste("lambda =", round(lambda, 2),
-                                ", beta =", round(beta_vec*lambda, 8)))
+                                ", beta*lambda =", round(beta_vec*lambda, 8)))
 
-
+head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Plots
 # ─────────────────────────────────────────────────────────────────────
@@ -1193,11 +1221,9 @@ colo<-plot_func()
 # constraint satisfaction (governed by V2), for the specified values of lambda
 # and beta.
 #
-# The PCS design exhibits sensitivity to the choice of beta: small perturbations
-# within the interval [0.3/lambda, 0.5/lambda] primarily drive the transition from
-# -V2 to +V2. This sensitivity reflects the near-singularity of the design as delta
-# approaches zero — a fundamental trade-off inherent to the interpretability of the
-# parameterization. Specifically, as delta -> 0, V1 converges to gamma0 (the direction
+# The PCS design exhibits sensitivity to the choice of beta when delta is small. 
+# Small delta allow a better geometric interpretation. 
+# Specifically, as delta -> 0, V1 converges to gamma0 (the direction
 # associated with the AR(1) process), while V2 aligns with the fully decoupling
 # direction. For larger delta, the design becomes less singular (less sensitive 
 # to beta) but also less interpretable.
@@ -1207,12 +1233,19 @@ colo<-plot_func()
 #
 # In contrast to Exercise 2, the CCF in Panel 4 (CCF against V2) now exhibits
 # genuine look-ahead behaviour: as beta increases, the peak of the CCF shifts
-# progressively to the right, toward the target horizon h. This right-shifting
-# of the CCF peak reflects the increasing weight placed on the full decoupling
-# direction V2, which — unlike the lag-0 perturbation in Exercise 2 — reshapes
-# the predictor across all lags and thereby induces a meaningful lead in the
-# correlation structure.
+# progressively to the right. This right-shifting of the CCF peak reflects the 
+# increasing weight placed on the full decoupling direction V2 by increasing 
+# beta, which — unlike the lag-0 perturbation in Exercise 2 — reshapes
+# the predictor across all lags and thereby induces a meaningful lead or 
+# left-shift as demonstrated in the predictor plots in the next exercise 3.5.
 
+# Notes:
+# 1. At lag 0, the CCF of the MSE predictor vanishes in panel 4:
+#    CCF_MSE(0) = 0. This is a consequence of full decoupling along V2:
+#    the MSE predictor has no instantaneous correlation with the target
+#    at lag 0 in this direction.
+# 2. The left-shift of the CCF peak of the PCS predictors along the decoupling 
+#    direction V2 can exceed the forecast horizon h. 
 # ─────────────────────────────────────────────────────────────────────
 # 3.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
@@ -1273,8 +1306,6 @@ for (i in 1:ncol(mplot))
 anf<-280
 enf<-400
 
-select_pcs<-10:13
-select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
@@ -1308,7 +1339,8 @@ for (i in 1:ncol(mplot))
 #   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
 #     impossible under the AR(1) DGP (see Exercise 1).
 #
-#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
+#   - Only the left tail of the CCF is amenable to modification in the AR1) case. 
+#     Whereas the MSE
 #     predictor (first panel) yields a symmetric CCF, the PCS predictor becomes
 #     progressively more asymmetric as beta increases. Effective look-ahead 
 #     behaviour (illustrated in the predictor plot above) is thus achieved by 
@@ -1318,10 +1350,10 @@ for (i in 1:ncol(mplot))
 mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
-ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
-ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
-ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
 
 
 
@@ -1352,8 +1384,7 @@ lambda<-5
 # of an increasingly ill-conditioned optimisation landscape. This trade-off is
 # deliberate: interpretability is here prioritised over numerical stability.
 
-beta_vec<-c(2,2.055,2.057,2.058,2.059,2.0591,2.0592,2.0593,2.0594,2.0595,2.06,2.1)/lambda
-
+beta_vec<-c(4.25,4.251,4.2513,4.2516,4.2518,4.252,4.2521,4.2522,4.2523,4.2524,4.2525,4.253,4.26,4.27)/lambda
 
 Delta<-1:h
 
@@ -1368,18 +1399,20 @@ for (i in 1:length(beta_vec))
   b_mat<-cbind(b_mat,b)
 }
 filter_mat<-cbind(gamma0,b_mat)
-colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8)))
+colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,8)))
 
-
+head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 3.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 # The PCS predictor transitions smoothly between the two boundary solutions
-# -V1 and +V1, passing through -V2 at an intermediate tipping point.
+# -V1 and +V1, passing through V2 at an intermediate tipping point.
 
 # The CCF in the fourth panel illustrates look ahead behaviour: the CCF peak 
-# is shifted rightwards along the fully decoupled V2 direction.
+# is shifted rightwards along the fully decoupled V2 direction. However, 
+# too strong look ahead (larger beta) induce sign inversion  (negative CCF 
+# against xi).
 
 colo<-plot_func()
 
@@ -1403,15 +1436,11 @@ colnames(y_out_mat) <- colnames(filter_mat)
 # ── Full-range overview: all predictor outputs ─────────────────────────────────
 # Display a broad sub-sample to compare the behaviour of all predictors.
 # Observations:
-#   - Smaller beta values produce lagging predictors (relative to the MSE).
-#   - Larger beta values (columns >= 10) produce increasingly leading predictors.
-#   - As the degree of lead increases, predictors tend toward sign inversion,
-#     reflecting the fundamental difficulty of the AR(1) forecasting problem.
-#   - We select the leading predictors as well as the MSE benchmark predictor.
-#   - The leading predictors shift the CCF peak to the right in the 4-th panel 
-#     of the previous CCF plot (along the full decoupling direction V2).
-#   - All series are standardized to simplify visual inspection.
-select_pcs<-c(4:7)
+# We select the first 5 PCS designs with look ahead (right-shift of CCF peak 
+# along full decoupling V2 direction) but without sign inversion. For 
+# illustration  we also include the sixth PCS which is subject to sign 
+# inversion (negative CCF against xi). 
+select_pcs<-c(1:6)
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -1490,10 +1519,10 @@ for (i in 1:ncol(mplot))
 mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
-ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
-ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
-ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,6],main=colnames(mplot_ccf)[6])
 
 
 
@@ -1672,6 +1701,8 @@ lambda <- 5000000
 beta_vec <- c(-10, -1, 0, 1, 1.2, 1.25, 1.27, 1.3,
               1.35, 1.4, 1.5, 2, 10) / lambda
 
+beta_vec <- c(-10, 1,  2,2.2, 2.3,2.4,2.5,2.6,2.7,2.85,3,3.5,10) / lambda
+
 Delta <- 1:h
 
 # Compute PCS predictor coefficients for each value of beta
@@ -1688,9 +1719,9 @@ for (i in 1:length(beta_vec)) {
 filter_mat <- cbind(gamma0, b_mat)
 colnames(filter_mat) <- c("MSE",
                           paste("lambda =", round(lambda, 2),
-                                ", beta =", round(beta_vec, 8)))
+                                ", beta*lambda =", round(lambda*beta_vec, 8)))
 
-
+head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 4.4 Plots
 # ─────────────────────────────────────────────────────────────────────
@@ -1698,7 +1729,8 @@ colnames(filter_mat) <- c("MSE",
 # The PCS predictor transitions smoothly between the two boundary solutions
 # -V2 and +V2, passing through -V1 at an intermediate tipping point.
 #
-# Note: V1 appears with an inverted sign because the monotonically increasing
+# Note: V1 (corresponding to beta*lambda around 2.85 in the first panel below) 
+# appears with an inverted sign -V1 because the monotonically increasing
 # CCF required by the constraints cannot be achieved without reversing the
 # sign of the DGP direction encoded in V1. The very large lambda selected
 # here amplifies this effect, driving the solution toward the sign-inverted
@@ -1707,8 +1739,8 @@ colnames(filter_mat) <- c("MSE",
 # However, in contrast to Exercise 3, the CCF against xi (second panel)
 # is either near zero or negative throughout. This indicates that placing
 # excessive weight on the perturbed AR(2) constraints via large lambda
-# induces misspecification: the predictor loses meaningful correlation
-# with the target. A more balanced strategy is to employ small to
+# induces misspecification in this example: the predictor loses meaningful 
+# correlation with the target. A more balanced strategy is to employ small to
 # moderate values of lambda, so that target correlation remains a
 # relevant and influential component of the optimisation objective.
 
@@ -1719,8 +1751,14 @@ colo<-plot_func()
 # 4.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
-# Since the above PCS predictors are misspecified under strong regularization,
-# forecast comparisons are omitted for this configuration.
+# The PCS predictors obtained under strong regularization (large lambda)
+# are biased toward sign inversion in this example. This arises primarily from the
+# misspecification of the perturbation: unlike Exercise 3, where the
+# perturbation is aligned with the AR(1) structure, the AR(2) perturbation
+# introduced here is not, causing the constraint penalty to dominate and
+# distort the solution. The CCF against xi (second panel) confirms this
+# sign inversion, and forecast comparisons are therefore omitted for
+# this configuration.
 
 
 
@@ -1740,9 +1778,7 @@ colo<-plot_func()
 lambda<-5
 
 # Tipping points: the two extremes are -V[,2] and +V[,2]
-# For beta=0.000000269 one obtains -V[,1]
-
-beta_vec<-c(0.43,0.4371,0.4372,0.43725,0.43727,0.4373,0.43733,0.43735,0.4374,0.4375,0.438)/lambda
+beta_vec<-c(0.9,0.9026,0.9027,0.90275,0.9028,0.90282,0.90285,0.90286,0.90288,0.9029,0.90292,0.90295,0.903,0.904,0.905)/lambda
 
 
 Delta<-1:h
@@ -1758,34 +1794,32 @@ for (i in 1:length(beta_vec))
   b_mat<-cbind(b_mat,b)
 }
 filter_mat<-cbind(gamma0,b_mat)
-colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta=",round(beta_vec,8)))
+colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",round(lambda*beta_vec,8)))
 
+head(scale(filter_mat))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
+# In contrast to Section 4.4 (strong regularization, large lambda), a weak
+# or moderate regularization (small to medium lambda) assigns meaningful
+# weight to the target correlation objective, thereby avoiding the overt
+# misspecification induced by the AR(2) perturbation — provided beta does
+# not become too large. Excessively large beta places disproportionate
+# emphasis on the constraints, eventually driving the predictor into sign-
+# inversion territory, as evidenced by the negative CCF against xi
+# (second panel).
+#
+# The CCF along the fully decoupling direction V2 (fourth panel) confirms
+# peak shifting of the CCF: as beta increases, the CCF peak shifts progressively to
+# the right, up to the point at which sign inversion occurs.
+
+# The predictor comparisons presented below are restricted to PCS designs
+# that do not exhibit sign inversion.
 
 colo<-plot_func()
-
-# Note
-# -The CCF is evaluated against the true AR(1) DGP, i.e., xi:
-
-# b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi%*%xi)).
-
-# -Consider that the following slight modification 
-#     b[1:min(L,L_gamma-i)]%*%xi[i+(1:min(L,L_gamma-i))]/(sqrt(b%*%(b))*sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
-#   would be fixed since xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi[i+(1:min(L,L_gamma-i))]%*%xi[i+(1:min(L,L_gamma-i))]))
-#   is constant (not dependent on i if xi is the AR(1) DGP).
-# -However, xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) is proportional to a^i i.e. decreases exponentially.
-
-# Conclusions:
-# 1. The observed decrease of the CCF is only due to the scaling effect in xi[i+(1:min(L,L_gamma-i))]/(sqrt(xi%*%xi)) 
-#     and corresponds to a^i: all CCF's in the right panel decay with a^i.
-# 2. It is not possible to have a locally increasing CCF except through sign inversion (impossibility and infeasibility)
-# 3. In the original AR(2)-case (Tutorial 13) the peak of the CCF could be shifted because xi corresponded to the AR(2),i.e., one could rely on phase effect.
-#     But here xi is AR(1): no phase effect. As a result, even the AR(2)-perturbation is unable to shift the peak.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1803,13 +1837,24 @@ for (i in 1:ncol(filter_mat))
 colnames(y_out_mat) <- colnames(filter_mat)
 
 
-anf<-150
-enf<-500
+# ── Narrow sub-sample: magnifying the look-ahead effect ───────────────────────
+# Zoom into a shorter window to highlight the look-ahead behaviour of selected
+# predictors, avoiding those with pronounced sign inversion.
+#
+# Note: the look-ahead effect operates primarily on longer swings in the series.
+# Short-term random spikes are inherently unpredictable. This long-swing
+# look-ahead property may be particularly relevant in business cycle analysis,
+# where economically significant episodes — such as recessions — are typically
+# characterised by sustained negative swings rather than isolated shocks.
+anf<-280
+enf<-400
 
-# Select the relevant PCS: For increasing beta the predictors are increasingly left-shifted.
-# For increasing beta the predictros appear to change sign.
-# Very difficult forecast problem.
-select_pcs<-c(2:5)
+# Select PCS designs that do not exhibit sign inversion (columns 1:5): all
+# of these maintain a positive CCF against xi (second panel in the plot
+# above). For completeness, the first sign-inverting design (column 6) is 
+# also included to illustrate the onset of sign inversion.
+select_pcs<-2:6
+
 select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
@@ -1828,18 +1873,37 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = coli[i], line = -i)
 
 
-# For increasing beta, the CCF is increasingly skewed
-mplot_ccf<-scale(na.exclude(y_out_mat[,select_vec]))
-colnames(mplot_ccf)<-colnames(y_out_mat)[select_vec]
+# ── Empirical CCF:  ───────────────────────────────────────────────────────────
+# Compute the empirical cross-correlation function (CCF) between the MSE
+# predictor output (column 1) and the selected (leading) PCS predictor output.
+#
+# Key observations:
+#   - As beta increases, the empirical CCF becomes increasingly right-skewed,
+#     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
+#
+#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     consequence of the Yule-Walker equations and holds for any linear predictor b.
+#     No non-zero predictor can alter this decay shape.
+#
+#   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
+#     impossible under the AR(1) DGP (see Exercise 1).
+#
+#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
+#     predictor (first panel) yields a symmetric CCF, the PCS predictor becomes
+#     progressively more asymmetric as beta increases. Effective look-ahead 
+#     behaviour (illustrated in the predictor plot above) is thus achieved by 
+#     skewing the CCF rightward — that is, by down-weighting the contribution 
+#     of negative lags.
 
-
-# Note: the right tail of the ccf always corresponds to the AR(1).
-# This is because b' * gama_h \propto a1^h because gammah=a1^h*gamma0
+mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
+colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
-ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[1])
-ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[2])
-ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[3])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
+ccf(mplot_ccf[,1],mplot_ccf[,6],main=colnames(mplot_ccf)[6])
+
 
 
 
