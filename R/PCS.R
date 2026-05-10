@@ -93,38 +93,10 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   #
   # forces the CCF to increase by beta from lead Delta[i] to lead Delta[i+1].
   #
-  # Why normalise the rows of gammah_mat before differencing?
-  # ──────────────────────────────────────────────────────────
-  # The rows of gammah_mat are normalised to unit length before the differences
-  # are formed. This ensures that the constraint b' * d_delta[i, ] = beta
-  # imposes a *uniform* slope of beta across all consecutive lead pairs,
-  # regardless of the raw norms of the underlying MSE predictors.
-  #
-  # Without normalisation, the differences d_delta[i, ] would have unequal
-  # norms across i, so the same value of beta would correspond to different
-  # effective slopes for different lead pairs — making the constraint
-  # inhomogeneous and difficult to interpret.
-  #
-  # Asymptotic interpretation (large lambda):
-  # ─────────────────────────────────────────
-  # When the system is feasible and lambda -> Inf, the regularised solution
-  # converges to the exact constrained solution, and the slope of the CCF
-  # between consecutive leads is:
-  #
-  #   CCF(Delta[i+1]) - CCF(Delta[i])  =  b' * d_delta[i, ]  =  beta
-  #
   # When scaled_constraints==T then we use unit-scaled d_delta[i, ]
   # This implies that b' * d_delta[i, ]  =  beta does not depend on changing scales of gamma_h-gamma_{h-1) in delta (and the scale of b is fixed).
   #  -In an AR(1) case the system is then still feasible (whereas if scaled_constraints==F, the system is not feasible anymore)  
   
-  # If gamma_k are all normalized to unit length then 
-  # Since CCF(k) = b' * gamma_k / ||b||, the
-  # slope in terms of the CCF is:
-  #
-  #   CCF(Delta[i+1]) - CCF(Delta[i])  = b' * (gamma_{i+1}- gamma_i)/ ||b||=  beta / ||b||
-  #
-  # However, if gamma_i are of different lengths, then the link between the slope of the CCF 
-  # and beta is not fixed anymore (depends on i)
   if (scaled_constraints)
   {
     d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2))
@@ -199,7 +171,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   #    The second term encodes the desired target slope into the linear system:
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
-  gamma_sol <- gammah_mat[length(Delta), ] + lambda * slope * d_delta[1, ]
+  gamma_sol <- gamma_pcs[h+1:L] + lambda * slope * d_delta[1, ]
   if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
@@ -228,8 +200,9 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 }
 
 
-
-PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat, Type_III=F,scaled_constraints=F)
+# gamma_pcs is the original unperturbated matrix with MSE predictors: this is used to specify the target h-step ahead MSE predictor
+# gammah_mat_perturbated is the matrix of perturbated MSE predictors: this is used to build the constraints
+PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_perturbated, Type_III=F,scaled_constraints=F)
 {
   
 
@@ -242,21 +215,11 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat,
   # internal slope.
   slope <- -beta
   
-  gamma_all <- gamma_pcs
-  
-  
-  # --- Build the shifted covariance matrix 'gammah_mat' ---
-  # Each row contains the MSE predictor coefficients (gamma_all) shifted by
-  # a specific lead value drawn from 'Delta'. 
-  # We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
-  # and therefore we need gamma_{Delta[1] - 1} to define the first difference.
-
-  
   # --- Compute consecutive difference vectors ('d_delta') ---
   # Each row of d_delta is the difference between two consecutive rows of
-  # gammah_mat:
+  # gammah_mat_perturbated:
   #
-  #   d_delta[i, ] = gammah_mat[i, ] - gammah_mat[i + 1, ]
+  #   d_delta[i, ] = gammah_mat_perturbated[i, ] - gammah_mat_perturbated[i + 1, ]
   #
   # These differences encode the pairwise monotonicity constraints: requiring
   #
@@ -264,44 +227,16 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat,
   #
   # forces the CCF to increase by beta from lead Delta[i] to lead Delta[i+1].
   #
-  # Why normalise the rows of gammah_mat before differencing?
-  # ──────────────────────────────────────────────────────────
-  # The rows of gammah_mat are normalised to unit length before the differences
-  # are formed. This ensures that the constraint b' * d_delta[i, ] = beta
-  # imposes a *uniform* slope of beta across all consecutive lead pairs,
-  # regardless of the raw norms of the underlying MSE predictors.
-  #
-  # Without normalisation, the differences d_delta[i, ] would have unequal
-  # norms across i, so the same value of beta would correspond to different
-  # effective slopes for different lead pairs — making the constraint
-  # inhomogeneous and difficult to interpret.
-  #
-  # Asymptotic interpretation (large lambda):
-  # ─────────────────────────────────────────
-  # When the system is feasible and lambda -> Inf, the regularised solution
-  # converges to the exact constrained solution, and the slope of the CCF
-  # between consecutive leads is:
-  #
-  #   CCF(Delta[i+1]) - CCF(Delta[i])  =  b' * d_delta[i, ]  =  beta
-  #
   # When scaled_constraints==T then we use unit-scaled d_delta[i, ]
   # This implies that b' * d_delta[i, ]  =  beta does not depend on changing scales of gamma_h-gamma_{h-1) in delta (and the scale of b is fixed).
   #  -In an AR(1) case the system is then still feasible (whereas if scaled_constraints==F, the system is not feasible anymore)  
   
-  # If gamma_k are all normalized to unit length then 
-  # Since CCF(k) = b' * gamma_k / ||b||, the
-  # slope in terms of the CCF is:
-  #
-  #   CCF(Delta[i+1]) - CCF(Delta[i])  = b' * (gamma_{i+1}- gamma_i)/ ||b||=  beta / ||b||
-  #
-  # However, if gamma_i are of different lengths, then the link between the slope of the CCF 
-  # and beta is not fixed anymore (depends on i)
   if (scaled_constraints)
   {
-    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/(sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2)))
+    d_delta <- (gammah_mat_perturbated[1, ] - gammah_mat_perturbated[2, ])/(sqrt(sum((gammah_mat_perturbated[1, ] - gammah_mat_perturbated[2, ])^2)))
   }
   {
-    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
+    d_delta <- (gammah_mat_perturbated[1, ] - gammah_mat_perturbated[2, ])
   }
   if (length(Delta) > 1&!Type_III)
   {
@@ -309,10 +244,10 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat,
     {
       if (scaled_constraints)
       {
-        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+        d_delta <- rbind(d_delta, (gammah_mat_perturbated[i, ] - gammah_mat_perturbated[i + 1, ])/sqrt(sum((gammah_mat_perturbated[i, ] - gammah_mat_perturbated[i + 1, ])^2)))
       } else
       {
-        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))
+        d_delta <- rbind(d_delta, (gammah_mat_perturbated[i, ] - gammah_mat_perturbated[i + 1, ]))
       } 
     }
   }
@@ -370,7 +305,7 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat,
   #    The second term encodes the desired target slope into the linear system:
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
-  gamma_sol <- gammah_mat[length(Delta), ] + lambda * slope * d_delta[1, ]
+  gamma_sol <- gammah + lambda * slope * d_delta[1, ]
   if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
@@ -405,7 +340,8 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat,
 
 
 
-
+###########################################################################################################################
+# Older designs
 
 PCS_delta_perturbation_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,perturbation_delta_mat=NULL,scaled_constraints=F)
 {

@@ -1533,10 +1533,14 @@ if (length(Delta) > 0) {
 }
 
 # Specify a periodic AR(2) process as the perturbation component
-a1_ar2 <- 1.81381
-a2_ar2 <- -0.8291025
+
+omega<-pi/48
+mod<-0.95
+a1_ar2<-2*mod*cos(omega)
+a2_ar2<--mod^2
+
 xi_ar2_all <- c(1, ARMAtoMA(ar = c(a1_ar2, a2_ar2), ma = 0, lag.max = 2000))
-k_start <- 20
+k_start <- 12
 xi_ar2  <- xi_ar2_all[k_start + 1:1001]
 
 gamma_all_ar2 <- xi_ar2
@@ -1644,13 +1648,20 @@ b[2:L] / b[1:(L - 1)]
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 4.3 Rank-Expansion Game: Strong Regularization
+# 4.3 Rank-Expansion: Strong Regularization
 # ─────────────────────────────────────────────────────────────────────
 #
 # Lambda is fixed at a very large value (strong regularization) and beta
 # is varied across a grid. The two boundary values of beta correspond to
 # -V[,2] and +V[,2], with intermediate solutions of the form
 # -V[,1] + lambda1 * V[,2], where lambda1 depends continuously on beta.
+
+# In this example, the minus sign -V[,1] on V1 is due to the large lambda: emphasizing strongly 
+# an increasing CCF(k), from k=0,...,h, through the constraints, is only possible 
+# through sign inversion of gamma_0, i.e., -V1.
+
+# When the perturbation conditions the constraints into a misspecified design 
+# (here AR(2) instead of AR(1)), emphasizing the constraints at the detriment of the target correlation through a large lambda might be problematic.
 # ─────────────────────────────────────────────────────────────────────
 
 # Strong regularization
