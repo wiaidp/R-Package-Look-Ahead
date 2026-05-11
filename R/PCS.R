@@ -195,7 +195,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,N=N,gamma_sol=gamma_sol))
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah))
   
 }
 
@@ -327,7 +327,54 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  return(list(b = b, d_delta = d_delta,b_mse=b_mse,gamma_sol=gamma_sol,M=M,N=N,gamma_sol=gamma_sol))
+  # Find a range of beta values where b changes systematically (between V1 to V2 or conversely).
+  # 1. Tipping points: the value of beta at which changes of the profile are strong
+  # b depends linearly on beta: b=solve(M)%*%(gammah+lambda*beta*apply(d_delta,2,sum))
+  # i.e. b can be decomposed into solve(M)%*%gammah (fixed part: does not depend on beta) and 
+  # solve(M)%*%(lambda*beta*apply(d_delta,2,sum)), the variable part which depends on beta. 
+  # We can determine values of beta such that the variable part matches the fixed part: these 
+  # are TIPPING POINTS of beta, where the PROFILE of the PCS predictor is sensitive to beta 
+  # because gammah (fixed part) and apply(d_delta,2,sum) (variable part) point in different 
+  # directions: smaller/larger values than the tipping point of beta affect the PROFILE of b.
+  # Much larger or much smaller values of beta affect the scale but not the profile of b.
+  # For given lambda we here find the tipping points of beta for all lags:
+  tipping_points_beta<-solve(M)%*%gammah/(lambda*solve(M)%*%apply(d_delta,2,sum))
+  derivative_beta<-(lambda*solve(M)%*%apply(d_delta,2,sum))
+  # Alternative derivation of tipping points of beta
+  solve(M)%*%gammah/derivative_beta
+  # 2. Sensitivity of profile of b to changes in beta at the tipping points
+  # We are mainly interested in the first few lags
+  beta_tipping<-mean(tipping_points_beta[1:min(3,L)])
+  # Compute b at the tipping point:
+  b_tipping<-solve(M)%*%(gammah-lambda*(beta_tipping)*apply(d_delta,2,sum))
+  # The scale is small because beta_tipping nearly cancels fixed and variable parts.
+  # They cannot cancel exactly because target and constraints are linearly independent (rank 
+  # larger one, either naturally or through perturbation). Note that if the rank is augmented 
+  # artificially, through a perturbation, and if delta is small, then b_tipping is close to 
+  # (but not exactly) zero. This generates a nearly singular design since the sensitivity 
+  # of the profile of b concerns the unity-scaled b/|b|: so if |b|\approx 0 the sensitivity is high.
+#  ts.plot(b_tipping)
+  # We now compute the derivative of b/|b| with respect to beta: (note that derivative_beta does not depend on beta)
+  derivative_unity_tipping<-(derivative_beta*(sum(b_tipping^2))-
+                               b_tipping*as.double((t(b_tipping)%*%derivative_beta)))/sqrt(sum(b_tipping^2))^3
+  # A change of one (i.e. from b_unity_tipping to b_unity_tipping + 1) would require a change of beta given by:
+  beta_delta<-1/derivative_unity_tipping
+  # Scaling back to the original scale of b_tipping leaves this beta effect unchanged (both the fixed 
+  # as well as the variable parts are affected equally by the scaling: derivative_unity_tipping is independent of the scale).
+
+  # We are mainly interested in the first few lags k_lags
+  k_lags<-3
+  # Take the mean of the first few lags of tipping_points_beta: this gives the center of the grid:
+  tipping_point<-mean(tipping_points_beta[1:3])
+  # Take the mean of the first few lags of beta_delta: this gives the step width for points left and right to the center:
+  # We scale by 1/10 since the original belta_delta step is too large (beta_delta corresponds to a unit change 
+  # in the coefficients: the grid with scale=1/10 corresponds to 0.1 steps in the coefficients).
+  scale<-1/10
+  delta<-abs(mean(beta_delta[1:3])*scale)
+  
+  beta_vec<-tipping_point+((-5):5)*delta
+  
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse,gamma_sol=gamma_sol,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,tipping_points_beta=tipping_points_beta,beta_delta=beta_delta,beta_vec=beta_vec))
   
 }
 

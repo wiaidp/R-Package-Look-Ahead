@@ -1232,8 +1232,45 @@ b[2:L] / b[1:(L - 1)]
 # Strong regularisation weight.
 lambda <- 5000000
 
-# Grid of beta values spanning the transition between the two extremes.
-beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
+# Note: the design exhibits marked sensitivity to beta — small perturbations
+# in beta can induce substantial changes in the PCS solution — a consequence
+# of the near-singularity of the PCS criterion as delta shrinks toward zero.
+# This singularity is not merely a numerical inconvenience; it is intimately
+# tied to interpretability: as delta -> 0, the first eigenvector V1 converges
+# to gamma0 (the AR(1) autocovariance direction), while V2 aligns with the
+# full decoupling direction induced by the perturbation. Small delta thus
+# sharpens the geometric separation between these two directions, at the cost
+# of an increasingly ill-conditioned optimisation landscape. This trade-off is
+# deliberate: interpretability is here prioritised over numerical stability.
+
+if (F)
+{
+# Manual grid
+  beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
+}
+
+# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# automatically returns a grid of beta values centred on the tipping point
+# — where the sensitivity of the PCS solution with respect to beta is
+# highest. Any initial beta may be supplied; the function locates the
+# tipping point internally and constructs a symmetric grid around it.
+#
+# The asymptotic behaviour of the grid tails depends on lambda:
+#   - Large lambda: the perturbed constraint system dominates, and the
+#     left and right tails converge to -V[,2] and +V[,2] respectively,
+#     since V2 is determined by the perturbation.
+#   - Small lambda: the constraints are effectively down-weighted and the
+#     target correlation dominates, causing the tails to converge to
+#     -V[,1] and +V[,1] respectively, since V1 aligns with the MSE
+#     predictor direction gamma_h.
+
+# The grid is independent of beta: any value can be supplied
+beta<-0.
+
+PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
+
+# Grid of beta values 
+beta_vec<-PCS_obj$beta_vec
 
 Delta <- 1:h
 b_mat <- NULL
@@ -1328,12 +1365,12 @@ colnames(y_out_mat) <- colnames(filter_mat)
 # Display a broad sub-sample to compare the behaviour of all predictors.
 # Observations:
 #   - Smaller beta values produce lagging predictors (relative to the MSE).
-#   - Larger beta values (columns >= 10) produce increasingly leading predictors.
+#   - Larger beta values produce increasingly leading predictors.
 #   - As the degree of lead increases, predictors tend toward sign inversion,
 #     reflecting the fundamental difficulty of the AR(1) forecasting problem.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
-select_pcs<-10:ncol(y_out_mat)
+select_pcs<-9:ncol(y_out_mat)
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -1413,9 +1450,9 @@ mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
 
 
 
@@ -1425,29 +1462,30 @@ ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
 # 3.6 Medium Regularization
 # ─────────────────────────────────────────────────────────────────────
 
-# Lambda is fixed at a moderate regularization strength. Beta is then
-# varied across a grid of values. The two extreme values of beta
-# correspond to the first eigenvector V[,1] with opposite signs
-# (-V[,1] and +V[,1]), with intermediate solutions of the form
-# -V[,2] + lambda1 * V[,1] (up to optimal scaling), where lambda1 depends 
-# continuously on beta.
+# Lambda is fixed at a moderate regularization strength. 
 
-# Medium regularization
 lambda<-5
 
-# Note: the design exhibits marked sensitivity to beta — small perturbations
-# in beta can induce substantial changes in the PCS solution — a consequence
-# of the near-singularity of the PCS criterion as delta shrinks toward zero.
-# This singularity is not merely a numerical inconvenience; it is intimately
-# tied to interpretability: as delta -> 0, the first eigenvector V1 converges
-# to gamma0 (the AR(1) autocovariance direction), while V2 aligns with the
-# full decoupling direction induced by the perturbation. Small delta thus
-# sharpens the geometric separation between these two directions, at the cost
-# of an increasingly ill-conditioned optimisation landscape. This trade-off is
-# deliberate: interpretability is here prioritised over numerical stability.
+# Note: the design exhibits marked sensitivity to beta when delta is small.
+if (F)
+{
+  # Manual grid
+  beta_vec<-c(4.25,4.251,4.2513,4.2516,4.2518,4.252,4.2521,4.2522,4.2523,4.2524,4.2525,4.253,4.26,4.27)/lambda
+}
 
-beta_vec<-c(4.25,4.251,4.2513,4.2516,4.2518,4.252,4.2521,4.2522,4.2523,4.2524,4.2525,4.253,4.26,4.27)/lambda
+# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# automatically returns a grid of beta values centred on the tipping point
+# — where the sensitivity of the PCS solution with respect to beta is
+# highest. 
 
+# The grid is independent of beta: any value can be supplied
+beta<-0.
+
+PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
+
+# Grid of beta values 
+beta_vec<-PCS_obj$beta_vec
+# PCS constraint system (as above: lags 1 to h).
 Delta<-1:h
 
 b_mat<-NULL
@@ -1502,7 +1540,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 # along full decoupling V2 direction) but without sign inversion. For 
 # illustration  we also include the sixth PCS which is subject to sign 
 # inversion (negative CCF against xi). 
-select_pcs<-c(1:6)
+select_pcs<-c(2:6)
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -1581,10 +1619,10 @@ for (i in 1:ncol(mplot))
 mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
+ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
 ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
-ccf(mplot_ccf[,1],mplot_ccf[,6],main=colnames(mplot_ccf)[6])
 
 
 
@@ -1758,14 +1796,29 @@ b[2:L] / b[1:(L - 1)]
 # Strong regularization
 lambda <- 5000000
 
-# Beta grid spanning the transition between the two boundary solutions
-# -V[,2] and +V[,2], passing through -V[,1] at the tipping point
-beta_vec <- c(-10, -1, 0, 1, 1.2, 1.25, 1.27, 1.3,
-              1.35, 1.4, 1.5, 2, 10) / lambda
+# Note: the design exhibits marked sensitivity to beta when delta is small.
+if (F)
+{
+  # Manual grid
+  beta_vec <- c(-10, 1,  2,2.2, 2.3,2.4,2.5,2.6,2.7,2.85,3,3.5,10) / lambda
+}
 
-beta_vec <- c(-10, 1,  2,2.2, 2.3,2.4,2.5,2.6,2.7,2.85,3,3.5,10) / lambda
+# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# automatically returns a grid of beta values centred on the tipping point
+# — where the sensitivity of the PCS solution with respect to beta is
+# highest. 
 
-Delta <- 1:h
+# The grid is independent of beta: any value can be supplied
+beta<-0.
+
+# We must supply the new AR(2) perturbation : gammah_mat_perturbate_ar2
+
+PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate_ar2)
+
+# Grid of beta values 
+beta_vec<-PCS_obj$beta_vec
+# PCS constraint system (as above: lags 1 to h).
+Delta<-1:h
 
 # Compute PCS predictor coefficients for each value of beta
 b_mat <- NULL
@@ -1791,7 +1844,7 @@ head(scale(filter_mat))
 # The PCS predictor transitions smoothly between the two boundary solutions
 # -V2 and +V2, passing through -V1 at an intermediate tipping point.
 #
-# Note: V1 (corresponding to beta*lambda around 2.85 in the first panel below) 
+# Note: V1 (corresponding to beta*lambda around 2.78 in the first panel below) 
 # appears with an inverted sign -V1 because the monotonically increasing
 # CCF required by the constraints cannot be achieved without reversing the
 # sign of the DGP direction encoded in V1. The very large lambda selected
@@ -1839,10 +1892,28 @@ colo<-plot_func()
 # Medium regularization
 lambda<-5
 
-# Tipping points: the two extremes are -V[,2] and +V[,2]
-beta_vec<-c(0.9,0.9026,0.9027,0.90275,0.9028,0.90282,0.90285,0.90286,0.90288,0.9029,0.90292,0.90295,0.903,0.904,0.905)/lambda
+# Note: the design exhibits marked sensitivity to beta when delta is small.
+if (F)
+{
+  # Manual grid
+  beta_vec<-c(0.9,0.9026,0.9027,0.90275,0.9028,0.90282,0.90285,0.90286,0.90288,0.9029,0.90292,0.90295,0.903,0.904,0.905)/lambda
+}
 
+# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# automatically returns a grid of beta values centred on the tipping point
+# — where the sensitivity of the PCS solution with respect to beta is
+# highest. 
 
+# The grid is independent of beta: any value can be supplied
+beta<-0.
+
+# We must supply the new AR(2) perturbation : gammah_mat_perturbate_ar2
+
+PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate_ar2)
+
+# Grid of beta values 
+beta_vec<-PCS_obj$beta_vec
+# PCS constraint system (as above: lags 1 to h).
 Delta<-1:h
 
 b_mat<-NULL
@@ -1962,9 +2033,9 @@ mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
 ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
+ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
+ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
-ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
-ccf(mplot_ccf[,1],mplot_ccf[,6],main=colnames(mplot_ccf)[6])
 
 
 
