@@ -200,8 +200,15 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 }
 
 
-# gamma_pcs is the original unperturbated matrix with MSE predictors: this is used to specify the target h-step ahead MSE predictor
-# gammah_mat_perturbated is the matrix of perturbated MSE predictors: this is used to build the constraints
+
+
+
+
+
+# The following function applies perturbations in problems that are too difficult or impossible to solve.
+# The function requires the original as well as the perturbated system:
+#  -gamma_pcs is the original unperturbated matrix with MSE predictors: this is used to specify the target h-step ahead MSE predictor
+#  -gammah_mat_perturbated is the matrix of perturbated MSE predictors: this is used to build the constraints
 PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_perturbated, Type_III=F,scaled_constraints=F)
 {
   
@@ -325,55 +332,105 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_
   # as discussed in the rank diagnostic above).
   abs(d_delta %*% b - slope)
   
+  # Optimal MSE scaling:
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  # Find a range of beta values where b changes systematically (between V1 to V2 or conversely).
-  # 1. Tipping points: the value of beta at which changes of the profile are strong
-  # b depends linearly on beta: b=solve(M)%*%(gammah+lambda*beta*apply(d_delta,2,sum))
-  # i.e. b can be decomposed into solve(M)%*%gammah (fixed part: does not depend on beta) and 
-  # solve(M)%*%(lambda*beta*apply(d_delta,2,sum)), the variable part which depends on beta. 
-  # We can determine values of beta such that the variable part matches the fixed part: these 
-  # are TIPPING POINTS of beta, where the PROFILE of the PCS predictor is sensitive to beta 
-  # because gammah (fixed part) and apply(d_delta,2,sum) (variable part) point in different 
-  # directions: smaller/larger values than the tipping point of beta affect the PROFILE of b.
-  # Much larger or much smaller values of beta affect the scale but not the profile of b.
-  # For given lambda we here find the tipping points of beta for all lags:
-  tipping_points_beta<-solve(M)%*%gammah/(lambda*solve(M)%*%apply(d_delta,2,sum))
-  derivative_beta<-(lambda*solve(M)%*%apply(d_delta,2,sum))
-  # Alternative derivation of tipping points of beta
-  solve(M)%*%gammah/derivative_beta
-  # 2. Sensitivity of profile of b to changes in beta at the tipping points
-  # We are mainly interested in the first few lags
-  beta_tipping<-mean(tipping_points_beta[1:min(3,L)])
-  # Compute b at the tipping point:
-  b_tipping<-solve(M)%*%(gammah-lambda*(beta_tipping)*apply(d_delta,2,sum))
-  # The scale is small because beta_tipping nearly cancels fixed and variable parts.
-  # They cannot cancel exactly because target and constraints are linearly independent (rank 
-  # larger one, either naturally or through perturbation). Note that if the rank is augmented 
-  # artificially, through a perturbation, and if delta is small, then b_tipping is close to 
-  # (but not exactly) zero. This generates a nearly singular design since the sensitivity 
-  # of the profile of b concerns the unity-scaled b/|b|: so if |b|\approx 0 the sensitivity is high.
-#  ts.plot(b_tipping)
-  # We now compute the derivative of b/|b| with respect to beta: (note that derivative_beta does not depend on beta)
-  derivative_unity_tipping<-(derivative_beta*(sum(b_tipping^2))-
-                               b_tipping*as.double((t(b_tipping)%*%derivative_beta)))/sqrt(sum(b_tipping^2))^3
-  # A change of one (i.e. from b_unity_tipping to b_unity_tipping + 1) would require a change of beta given by:
-  beta_delta<-1/derivative_unity_tipping
-  # Scaling back to the original scale of b_tipping leaves this beta effect unchanged (both the fixed 
-  # as well as the variable parts are affected equally by the scaling: derivative_unity_tipping is independent of the scale).
+  # For a perturbed constraint system, it is informative to assess the effect
+  # of the perturbation on the PCS predictor by evaluating a representative
+  # grid of solutions. For a given lambda, the goal is to identify a grid of
+  # beta values — the slope parameter governing the constraint system — such
+  # that the resulting PCS predictors span the full range of qualitatively
+  # distinct behaviours.
+  
+  # Task: identify a range of beta values over which b changes systematically,
+  # transitioning between the directions V1 and V2 (or conversely).
+  #
+  # 1. Tipping Points of Beta: loci of maximum sensitivity to beta.
+  #
+  # b depends linearly on beta:
+  #   b = solve(M) %*% (gammah + lambda * beta * apply(d_delta, 2, sum))
+  #
+  # This decomposes into two parts:
+  #   - Fixed part:    solve(M) %*% gammah                                     (independent of beta)
+  #   - Variable part: solve(M) %*% (lambda * beta * apply(d_delta, 2, sum))   (scales with beta)
+  #
+  # Tipping points are values of beta at which the variable part matches the
+  # fixed part in magnitude. At these points, the profile of b is maximally
+  # sensitive to beta: the fixed part (gammah) and the variable part
+  # (apply(d_delta, 2, sum)) point in opposing directions — a consequence of
+  # either the DGP structure or the perturbation — so that small changes in
+  # beta induce a directional switch in b. By contrast, values of beta far
+  # from the tipping point affect only the scale of b, leaving the normalised
+  # profile b / |b| unchanged. The quantity of primary interest is therefore
+  # this normalised profile and, in particular, the directional switch it
+  # undergoes at the tipping point.
+  
+  # Compute tipping points of beta (all lags) under the given lambda: these correspond
+  # to points of beta at which fixed and variable parts cancel.
+  # Note: the sign here should be negative but we change the sign of beta at the start 
+  # (slope <- -beta, see above code line) and therefore we maintain a positive sign here.
+  tipping_points_beta <- solve(M) %*% gammah /
+    (lambda * solve(M) %*% apply(d_delta, 2, sum))
+  # Compute the derivative with respect to beta: since b is linear in beta, this 
+  # the derivative is fixed.
+  derivative_beta     <- lambda * solve(M) %*% apply(d_delta, 2, sum)
+  
+  # Alternative derivation of tipping points (verification: the below should vanish)
+  max(abs(tipping_points_beta+solve(M) %*% gammah / derivative_beta))
+  
+  # 2. Sensitivity of the Profile of b at the Tipping Point
+  #
+  # Focus on the first few lags, where sensitivity is most practically relevant.
+  beta_tipping <- mean(tipping_points_beta[1:min(3, L)])
+  
+  # Compute b at the tipping point: recall that we must change sign (slope = -beta in previous formula of b): 
+  #  use minus lambda * beta_tipping * apply(d_delta, 2, sum)
+  b_tipping <- solve(M) %*% (gammah - lambda * beta_tipping *
+                               apply(d_delta, 2, sum))
+  
+  # b_tipping is small in scale because beta_tipping nearly cancels the fixed
+  # and variable parts. Exact cancellation is precluded by the linear
+  # independence of the target and constraint directions (rank greater than
+  # one, either naturally or through perturbation). When the rank is augmented
+  # artificially via a small-delta perturbation, b_tipping is close to — but
+  # not exactly — zero. This induces a near-singular design: since profile
+  # sensitivity concerns the unit-normalised b / |b|, a small |b| implies
+  # high sensitivity of the profile (direction) to changes in beta.
+  
+  # ts.plot(b_tipping)
+  
+  # Compute the derivative of b / |b| with respect to beta at the tipping
+  # point (note: derivative_beta does not depend on beta)
+  derivative_unity_tipping <-
+    (derivative_beta * sum(b_tipping^2) -
+       b_tipping * as.double(t(b_tipping) %*% derivative_beta)) /
+    sqrt(sum(b_tipping^2))^3
+  # Compute a step width for beta points on the grid, centered about tipping_points_beta.
+  # This step-width beta_delta is the change in beta required to induce a unit change in
+  # b / |b|, i.e. to shift the normalised profile by one unit (this step is too large and will be re-scaled below)
+  beta_delta <- 1 / derivative_unity_tipping
+  
+  # Note: rescaling b_tipping does not affect beta_delta, since both the
+  # fixed and variable parts scale equally — derivative_unity_tipping is
+  # scale-invariant.
+  
+  # Construct the beta grid centred on the tipping point
+  k_lags <- 3  # number of lags used to define the grid centre and step width
+  
+  # Grid centre: mean of tipping_points_beta over the first k_lags lags (these are generally important lags of a predictor)
+  tipping_point <- mean(tipping_points_beta[1:k_lags])
+  
+  # Grid step width: mean of beta_delta over the first k_lags lags, scaled
+  # down by a factor of 1/10. The unscaled beta_delta corresponds to a unit
+  # change in the coefficients; scaling by 1/10 yields steps of 0.1 in
+  # coefficient space, providing finer resolution around the tipping point.
+  scale <- 1/10
+  delta <- abs(mean(beta_delta[1:k_lags]) * scale)
+  
+  # Symmetric beta grid: 11 points spanning +/- 5 steps around the tipping point
+  beta_vec <- tipping_point + ((-5):5) * delta
+  
 
-  # We are mainly interested in the first few lags k_lags
-  k_lags<-3
-  # Take the mean of the first few lags of tipping_points_beta: this gives the center of the grid:
-  tipping_point<-mean(tipping_points_beta[1:3])
-  # Take the mean of the first few lags of beta_delta: this gives the step width for points left and right to the center:
-  # We scale by 1/10 since the original belta_delta step is too large (beta_delta corresponds to a unit change 
-  # in the coefficients: the grid with scale=1/10 corresponds to 0.1 steps in the coefficients).
-  scale<-1/10
-  delta<-abs(mean(beta_delta[1:3])*scale)
-  
-  beta_vec<-tipping_point+((-5):5)*delta
-  
   return(list(b = b, d_delta = d_delta,b_mse=b_mse,gamma_sol=gamma_sol,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,tipping_points_beta=tipping_points_beta,beta_delta=beta_delta,beta_vec=beta_vec))
   
 }
