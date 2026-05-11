@@ -461,8 +461,9 @@ apply(filter_mat^2, 2, sum)
 #     tighter decoupling demands an increasingly strict alpha0 bound to
 #     compensate for the simultaneous zero-shrinkage effect.
 #
-#   - As alpha0 decreases the smooth, regular shapes of the MSE filters (green,
-#     darkgreen) become progressively more unsmooth and ragged. 
+#   - As alpha0 decreases the DFP predictors become unsmooth and ragged, 
+#     contrasting with the smooth, regular shapes of the MSE filters (green,
+#     darkgreen). 
 #
 #   - Increased decoupling (look-ahead behaviour) emphasises features of the 
 #     data-generating process that are obscured/ignored by the unconstrained 

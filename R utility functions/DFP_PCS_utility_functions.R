@@ -2065,3 +2065,145 @@ MSE_LA_closed_form_rank_two_func_old<-function(criterion_number,h,sup_vec_target
 }
 
 
+
+
+
+plot_func<-function()
+{
+  colo <- rainbow(ncol(filter_mat))
+  par(mfrow = c(2, 2))
+  
+  # Scale all filters to unit energy for visual comparability.
+  mplot <- scale(filter_mat, center = FALSE, scale = TRUE)
+  
+  # Verify filter energies after scaling (should all equal 1).
+  apply(mplot^2, 2, sum)
+  
+  # ── Panel 1: Scaled predictor coefficient profiles ────────────────────────────
+  plot(mplot[, 1],
+       main = "Scaled Predictors", axes = FALSE, type = "l",
+       xlab = "Lags", ylab = "",
+       col  = colo[1], lwd = 1,
+       ylim = c(min(mplot), max(mplot)))
+  mtext(colnames(mplot)[1], col = colo[1], line = -1)
+  
+  for (i in 2:ncol(mplot)) {
+    lines(mplot[, i],
+          col = colo[i],
+          lwd = ifelse(colnames(mplot)[i] == "MSE", 2, 1),
+          lty = ifelse(colnames(mplot)[i] == "MSE", 2, 1))
+    mtext(colnames(mplot)[i], col = colo[i], line = -i)
+  }
+  lines(mplot[, 2], col = colo[2])   # Redraw second filter on top for visibility.
+  
+  axis(1, at     = c(0, (1:(nrow(mplot) / 10)) * 10),
+       labels = c(0, (1:(nrow(mplot) / 10)) * 10))
+  axis(2)
+  box()
+  
+  # ── Panel 2: CCF against xi (Wold decomposition) ──────────────────────────────
+  # For each predictor, compute the CCF against xi at lags 0, 1, ..., h.
+  # The dashed vertical line marks the target horizon h; the horizontal line
+  # marks zero correlation.
+  max_lag <- 0
+  ccf_mat <- NULL
+  for (i in 1:ncol(filter_mat))
+    ccf_mat <- cbind(ccf_mat,
+                     compute_acf_at_lags_zero_delta_func(
+                       max_lag, h, filter_mat[, i], xi)$cor_vec)
+  colnames(ccf_mat) <- colnames(filter_mat)
+  rownames(ccf_mat) <- paste("CCF at lead:", -max_lag - 1 + 1:nrow(ccf_mat))
+  
+  mplot <- ccf_mat
+  
+  plot(mplot[, 1],
+       main = "CCF against xi", axes = FALSE, type = "l",
+       xlab = "", ylab = "",
+       col  = colo[1], lwd = 1,
+       ylim = c(min(0, min(mplot)), max(mplot)))
+  
+  for (i in 1:ncol(mplot)) {
+    lines(mplot[, i],
+          col = colo[i],
+          lwd = ifelse(colnames(mplot)[i] == "MSE", 2, 1),
+          lty = ifelse(colnames(mplot)[i] == "MSE", 2, 1))
+  }
+  
+  abline(v = 1 + h, lty = 2)   # Vertical marker at target horizon h.
+  abline(h = 0)                 # Zero-correlation reference line.
+  
+  axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+  axis(2)
+  box()
+  
+  # ── Panel 3: CCF against V1 (leading eigenvector of M) ────────────────────────
+  # V[,1] ≈ gamma_0 (up to sign) when delta is small, so this panel isolates
+  # the gamma_0 contribution to the CCF.
+  max_lag <- 0
+  ccf_mat <- NULL
+  for (i in 1:ncol(filter_mat))
+    ccf_mat <- cbind(ccf_mat,
+                     compute_acf_at_lags_zero_delta_func(
+                       max_lag, h, filter_mat[, i], V[, 1])$cor_vec)
+  colnames(ccf_mat) <- colnames(filter_mat)
+  rownames(ccf_mat) <- paste("CCF at lead:", -max_lag - 1 + 1:nrow(ccf_mat))
+  
+  mplot <- ccf_mat
+  
+  plot(mplot[, 1],
+       main = "CCF against V1", axes = FALSE, type = "l",
+       xlab = "", ylab = "",
+       col  = colo[1], lwd = 1,
+       ylim = c(min(0, min(mplot)), max(mplot)))
+  
+  for (i in 1:ncol(mplot)) {
+    lines(mplot[, i],
+          col = colo[i],
+          lwd = ifelse(colnames(mplot)[i] == "MSE", 2, 1),
+          lty = ifelse(colnames(mplot)[i] == "MSE", 2, 1))
+  }
+  
+  abline(v = 1 + h, lty = 2)
+  abline(h = 0)
+  
+  axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+  axis(2)
+  box()
+  
+  # ── Panel 4: CCF against V2 (second eigenvector of M) ─────────────────────────
+  # V[,2] is orthogonal to V[,1] ≈ gamma_0 and captures the full decoupling
+  # direction introduced by the perturbation.
+  max_lag <- 0
+  ccf_mat <- NULL
+  for (i in 1:ncol(filter_mat))
+    ccf_mat <- cbind(ccf_mat,
+                     compute_acf_at_lags_zero_delta_func(
+                       max_lag, h, filter_mat[, i], V[, 2])$cor_vec)
+  colnames(ccf_mat) <- colnames(filter_mat)
+  rownames(ccf_mat) <- paste("CCF at lead:", -max_lag - 1 + 1:nrow(ccf_mat))
+  
+  mplot <- ccf_mat
+  
+  plot(mplot[, 1],
+       main = "CCF against V2", axes = FALSE, type = "l",
+       xlab = "", ylab = "",
+       col  = colo[1], lwd = 1,
+       ylim = c(min(0, min(mplot)), max(mplot)))
+  
+  for (i in 1:ncol(mplot)) {
+    lines(mplot[, i],
+          col = colo[i],
+          lwd = ifelse(colnames(mplot)[i] == "MSE", 2, 1),
+          lty = ifelse(colnames(mplot)[i] == "MSE", 2, 1))
+  }
+  
+  abline(v = 1 + h, lty = 2)
+  abline(h = 0)
+  
+  axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+  axis(2)
+  box()
+  return(colo)
+}
+
+
