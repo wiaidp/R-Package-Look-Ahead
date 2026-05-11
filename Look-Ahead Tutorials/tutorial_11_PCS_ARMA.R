@@ -384,6 +384,9 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # Regularisation weight (penalty on constraint deviation): strong regularisation.
 lambda <- 0.1
 
+Delta<-c(h-1,h)
+
+
 # Constraint slope parameter (negative here to probe the impossible regime).
 beta <- -0.0001
 
@@ -401,19 +404,22 @@ gamma_sol <- PCS_obj$gamma_sol
 
 beta_vec<-PCS_obj$beta_vec
 
-beta_vec[1:5]
+
+
+#beta_vec<-beta_vec_pcs[1]+(1:10)*(beta_vec_pcs[2]-beta_vec_pcs[1])/10
 
 
 #───────────────────────────────────────────────────────────────────────────────
 # 1.3 Run PCS
 #───────────────────────────────────────────────────────────────────────────────
 
+Type_III=T
 b_mat<-NULL
 for (i in 1:length(beta_vec))
 {
   
   beta<-beta_vec[i]
-  PCS_obj<-PCS_func(h, Delta, xi, L, beta, lambda)
+  PCS_obj<-PCS_func(h, Delta, xi, L, beta, lambda,Type_III)
   
   b       <- PCS_obj$b
   b_mat<-cbind(b_mat,b)
@@ -523,7 +529,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 #     reflecting the fundamental difficulty of the AR(1) forecasting problem.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
-select_pcs<-2:3
+select_pcs<-2:ncol(filter_mat)
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
