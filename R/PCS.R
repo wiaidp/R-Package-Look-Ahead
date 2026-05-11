@@ -195,7 +195,101 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   
   b_mse<-b*as.double(t(b)%*%gammah/(t(b)%*%b))
   
-  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah))
+  # For a given constraint system, it is informative to assess the effect
+  # of the hyperparameters on the PCS predictor by evaluating a representative
+  # grid of solutions. For a given lambda, the goal is to identify a grid of
+  # beta values — the slope parameter governing the constraint system — such
+  # that the resulting PCS predictors span the full range of qualitatively
+  # distinct behaviours.
+  
+  # Task: identify a range of beta values over which b changes systematically,
+  # transitioning between the directions V1 and V2 (or conversely).
+  #
+  # 1. Tipping Points of Beta: loci of maximum sensitivity to beta.
+  #
+  # b depends linearly on beta:
+  #   b = solve(M) %*% (gammah + lambda * beta * apply(d_delta, 2, sum))
+  #
+  # This decomposes into two parts:
+  #   - Fixed part:    solve(M) %*% gammah                                     (independent of beta)
+  #   - Variable part: solve(M) %*% (lambda * beta * apply(d_delta, 2, sum))   (scales with beta)
+  #
+  # Tipping points are values of beta at which the variable part matches the
+  # fixed part in magnitude. At these points, the profile of b is maximally
+  # sensitive to beta: the fixed part (gammah) and the variable part
+  # (apply(d_delta, 2, sum)) point in different directions so that small changes in
+  # beta induce a directional switch in b. By contrast, values of beta far
+  # from the tipping point affect only the scale of b, leaving the normalised
+  # profile b / |b| unchanged. The quantity of primary interest is therefore
+  # this normalised profile and, in particular, the directional switch it
+  # undergoes in the vicinity of the tipping point.
+  
+  # Compute tipping points of beta (all lags) under the given lambda: these correspond
+  # to points of beta at which fixed and variable parts cancel.
+  # Note: the sign here should be negative but we change the sign of beta at the start 
+  # (slope <- -beta, see above code line) and therefore we maintain a positive sign here.
+  tipping_points_beta <- solve(M) %*% gammah /
+    (lambda * solve(M) %*% apply(d_delta, 2, sum))
+  # Compute the derivative with respect to beta: since b is linear in beta, this 
+  # the derivative is fixed.
+  derivative_beta     <- lambda * solve(M) %*% apply(d_delta, 2, sum)
+  
+  # Alternative derivation of tipping points (verification: the below should vanish)
+  max(abs(tipping_points_beta+solve(M) %*% gammah / derivative_beta))
+  
+  # 2. Sensitivity of the Profile of b at the Tipping Point
+  #
+  # Focus on the first few lags, where sensitivity is most practically relevant.
+  beta_tipping <- mean(tipping_points_beta[1:min(3, L)])
+  
+  # Compute b at the tipping point: recall that we must change sign (slope = -beta in previous formula of b): 
+  #  use minus lambda * beta_tipping * apply(d_delta, 2, sum)
+  b_tipping <- solve(M) %*% (gammah - lambda * beta_tipping *
+                               apply(d_delta, 2, sum))
+  
+  # b_tipping is generally smaller in scale because beta_tipping cancels fixed
+  # and variable parts. Exact cancellation is precluded by the linear
+  # independence of the target and constraint directions (rank greater than
+  # one, as assumed here). This may induce a near-singular design: since profile
+  # sensitivity concerns the unit-normalised b / |b|, a small |b| implies
+  # high sensitivity of the profile (direction) to changes in beta.
+  
+  # ts.plot(b_tipping)
+  
+  # Compute the derivative of b / |b| with respect to beta at the tipping
+  # point (note: derivative_beta does not depend on beta)
+  derivative_unity_tipping <-
+    (derivative_beta * sum(b_tipping^2) -
+       b_tipping * as.double(t(b_tipping) %*% derivative_beta)) /
+    sqrt(sum(b_tipping^2))^3
+  # Compute a step width for beta points on the grid, centered about tipping_points_beta.
+  # This step-width beta_delta is the change in beta required to induce a unit change in
+  # b / |b|, i.e. to shift the normalised profile by one unit (this step is too large and will be re-scaled below)
+  beta_delta <- 1 / derivative_unity_tipping
+  
+  # Note: rescaling b_tipping does not affect beta_delta, since both the
+  # fixed and variable parts scale equally — derivative_unity_tipping is
+  # scale-invariant.
+  
+  # Construct the beta grid centred on the tipping point
+  k_lags <- 3  # number of lags used to define the grid centre and step width
+  
+  # Grid centre: mean of tipping_points_beta over the first k_lags lags (these are generally important lags of a predictor)
+  tipping_point <- mean(tipping_points_beta[1:k_lags])
+  
+  # Grid step width: mean of beta_delta over the first k_lags lags, scaled
+  # down by a factor of 1/10. The unscaled beta_delta corresponds to a unit
+  # change in the coefficients; scaling by 1/10 yields steps of 0.1 in
+  # coefficient space, providing finer resolution around the tipping point.
+  scale <- 1/10
+  delta <- abs(mean(beta_delta[1:k_lags]) * scale)
+  
+  # Symmetric beta grid: 11 points spanning +/- 5 steps around the tipping point
+  beta_vec <- tipping_point + c(-100,-10,-7,((-5):5),7,10,100) * delta
+  
+  
+  
+  return(list(b = b, d_delta = d_delta,b_mse=b_mse,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,beta_vec=beta_vec))
   
 }
 
@@ -357,13 +451,13 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_
   # Tipping points are values of beta at which the variable part matches the
   # fixed part in magnitude. At these points, the profile of b is maximally
   # sensitive to beta: the fixed part (gammah) and the variable part
-  # (apply(d_delta, 2, sum)) point in opposing directions — a consequence of
+  # (apply(d_delta, 2, sum)) point in different directions — a consequence of
   # either the DGP structure or the perturbation — so that small changes in
   # beta induce a directional switch in b. By contrast, values of beta far
   # from the tipping point affect only the scale of b, leaving the normalised
   # profile b / |b| unchanged. The quantity of primary interest is therefore
   # this normalised profile and, in particular, the directional switch it
-  # undergoes at the tipping point.
+  # undergoes in the vicinity of the tipping point.
   
   # Compute tipping points of beta (all lags) under the given lambda: these correspond
   # to points of beta at which fixed and variable parts cancel.
