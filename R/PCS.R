@@ -428,8 +428,8 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_
   delta <- abs(mean(beta_delta[1:k_lags]) * scale)
   
   # Symmetric beta grid: 11 points spanning +/- 5 steps around the tipping point
-  beta_vec <- tipping_point + ((-5):5) * delta
-  
+  beta_vec <- tipping_point + c(-10,-7,((-5):5),7,10) * delta
+
 
   return(list(b = b, d_delta = d_delta,b_mse=b_mse,gamma_sol=gamma_sol,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,tipping_points_beta=tipping_points_beta,beta_delta=beta_delta,beta_vec=beta_vec))
   

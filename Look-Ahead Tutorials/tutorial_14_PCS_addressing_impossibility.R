@@ -730,9 +730,8 @@ summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 lambda <- 5000000
 
 # Grid of beta values spanning the two extreme directions.
-beta_vec<-c(0.000e+00, 0.5 , 1 , 1.25,  1.345,  1.5,
-  2.5,  50)/lambda
-
+# Note: in exercises 3 and 4, the new function PCS_perturbation_func() will 
+# generate automatically a grid of relevant beta values.
 beta_vec<-c(-5.000e+05,  0,2,2.5,2.7,2.8,2.9,3,4,5)/lambda
 
 
@@ -977,6 +976,8 @@ colo<-plot_func()
 # Medium regularization
 lambda<-5
 # Tipping points: the two extremes are -V[,1] and +V[,1]
+# Note: in exercises 3 and 4, the new function PCS_perturbation_func() will 
+# generate automatically a grid of relevant beta values.
 beta_vec<-c(0.900000, 0.902000, 0.902500, 0.902750, 0.902850, 0.902940, 0.902945, 0.902975, 0.903000, 0.903050, 0.903250, 0.905500)/lambda
 
 # Note:
@@ -1249,7 +1250,7 @@ if (F)
   beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
 }
 
-# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# Instead of cumbersome manual tuning of beta as in exercise 2, PCS_perturbation_func()
 # automatically returns a grid of beta values centred on the tipping point
 # — where the sensitivity of the PCS solution with respect to beta is
 # highest. Any initial beta may be supplied; the function locates the
@@ -1370,7 +1371,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 #     reflecting the fundamental difficulty of the AR(1) forecasting problem.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
-select_pcs<-9:ncol(y_out_mat)
+select_pcs<-11:ncol(y_out_mat)
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -1986,7 +1987,7 @@ enf<-400
 # of these maintain a positive CCF against xi (second panel in the plot
 # above). For completeness, the first sign-inverting design (column 6) is 
 # also included to illustrate the onset of sign inversion.
-select_pcs<-2:6
+select_pcs<-1:7
 
 select_vec<-c(1,select_pcs)
 mplot<-scale(y_out_mat[anf:enf,select_vec])
@@ -2044,12 +2045,79 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # too heavily (through large lambda) might lead to unusable predictors.
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main Take-Aways
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 1. The AR(1) forecast problem is self-similar and one-dimensional: the PCS
+#    problem is impossible and the constraint system is rank-deficient.
+#
+# 2. Perturbing the DGP expands the column space of the PCS constraint system,
+#    resolving the rank deficiency and restoring feasibility.
+#
+# 3. While the magnitude of the perturbation is irrelevant
+#    (it can be scaled arbitrarily through delta), its type and shape are consequential:
+#      - Single-lag vs. multi-lag perturbations induce different constraint structures.
+#      - AR(1) vs. AR(2) perturbations yield qualitatively different decoupling
+#        directions V2, and hence different look-ahead profiles.
+#      - Other DGPs would induce their own specific perturbation pattern.
+#
+# 4. Three perturbation types were analysed:
+#      i.  Delta-type (lag 0 only): structurally analogous to an ARMA(1,1)
+#          process with a small MA(1) coefficient when delta is small.
+#      ii. AR(1)-type (all lags): the perturbation spreads across all lags
+#          according to a slightly modified AR(1) parameter.
+#      iii.AR(2)-type (all lags, periodic): unlike perturbations (i) and (ii),
+#          this perturbation differs from the original DGP not only in
+#          magnitude but also in shape, introducing a more severe
+#          misspecification.
+#
+# 5. In all cases considered, the rank of the constraint system increases from
+#    1 to 2. The PCS solution lies in the space spanned by the original AR(1)
+#    direction and the perturbation vector — the first two eigenvectors of the
+#    constraint matrix corresponding to its two non-vanishing eigenvalues.
+#    These are, respectively: the unit vector e1 (delta-type), the modified
+#    AR(1) vector, or the AR(2) vector.
+#
+# 6. When the perturbation is mildly misspecified (as in Exercise 3),
+#    meaningful look-ahead PCS predictors can be obtained across a wide
+#    range of regularization weights lambda — both large (strong) and
+#    small (weak). When the misspecification is more severe (as in
+#    Exercise 4), large lambda amplifies the distortion by over-weighting
+#    the misspecified perturbed constraints, potentially yielding unusable
+#    predictors. In such cases, small to moderate lambda is recommended,
+#    so that the target correlation retains sufficient influence in the
+#    optimisation.
+#
+# 7. Navigating this two-dimensional space via lambda and beta — rather than
+#    by directly weighting V1 and V2 — ensures optimality: not all linear
+#    combinations of V1 and V2 correspond to optimal PCS predictors.
+#
+# 8. In principle, multiple perturbations could further increase the rank of
+#    the constraint system. However, this risks placing excessive weight on
+#    the constraint objectives at the expense of the target correlation
+#    CCF(h), potentially degrading forecast performance.
+#
+# 9. In principle, multiple look ahead predictors could be derived from 
+#    different perturbations and aggregated into a combined look ahead design.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
 # Main Take-Aways
 
 # -The AR(1) forecast problem is self-similar and one-dimensional and the PCS problem is impossible and infeasible.
 # -Perturbating the DGP allows to expand the column-space of the PCS constraint system.
-# -While the size of the perturbation is irrelevant, the shape is relevant.
-# -We analyzed three sorts of perturbation:
+# -While the size of the perturbation is irrelevant, the type (single-lag, multiple lags) and shape 
+# (AR(1) vs. AR(2) perturbation) are relevant.
+# -We analyzed three kinds of perturbation:
 # 1. delta-type at lag 0 (this is similar to the structure of an ARMA(1,1) with a very small MA(1)-term when delta is small)
 # 2. AR(1)-type: the perturbation spreads over all lags according to a slightly modified AR(1) parameter.
 # 3. AR(2)-type: we selected a periodic AR(2). In constrast to perturbations 1 and 2,  the perturbation here is sizeable not only 
@@ -2057,8 +2125,8 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 
 # -In all considered cases the rank increased from 1 to two. The PCS solution lies in the space spanned 
 #     by the original AR(1) and the perturbation vector (the first two eigenvectors of the constraint matrix corresponding to the two non-vanishing eigenvalues): either delta (e1), modified AR(1) or AR(2).
-# -Changing lambda and beta allows to navigate in these spaces. Alternatively, one could just 
-#  rely on classic linear weighting of the two eigenvectors.
+# -Changing lambda and beta allows to navigate in this space. Navigating through lambda and beta (instead of directly weighting V1 and V2) 
+#  ensures optimality: not all linear combinations of V1 and V2 are also optimal predictors.
 # Multiple perturbations could increase the rank of the constraint system to match the PCS constraints but 
 # the effect on the target correlation CCF(h) could be deleterious.
 
