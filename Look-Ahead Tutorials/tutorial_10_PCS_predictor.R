@@ -8,12 +8,12 @@
 # to be "anchored" at the present in difficult forecasting problems, in the
 # sense that its Cross-Correlation Function (CCF) peaks at
 # lag 0. The Peak Correlation Shifting (PCS) approach designs the h-step-ahead
-# predictor so that the CCF peak is shifted, ideally toward lag h, thereby
-# improving timeliness and look-ahead behaviour. While a full shift from lag 0
-# to lag h is not always feasible, even a partial attenuation of the original
-# peak at lag 0 in difficult forecast problems can be effective. This weaker 
-# objective is precisely the strategy of the DFP (Decoupling From Present) 
-# predictor in earlier tutorials.
+# predictor so that the CCF peak is shifted, ideally toward the forecast 
+# horizon h, thereby improving timeliness and look-ahead behaviour. While a 
+# full shift from lag 0 to the forecast horizon h is not always feasible, even 
+# a partial attenuation of the original peak at lag 0 in difficult forecast 
+# problems can be effective. This weaker objective is precisely the strategy 
+# of the DFP (Decoupling From Present) predictor in earlier tutorials.
 #
 # ── DFP Recap ────────────────────────────────────────────────────────
 #
@@ -87,10 +87,9 @@
 #
 # ── Necessary Conditions for a Peak Shift from k = 0 to k = h ────────
 #
-# Three necessary (but not sufficient) conditions must hold for the CCF peak
-# to shift from lag 0 to lag h > 0:
+# Three type of constraints are considered to shift the CCF peak from 0 to h:
 #
-#   TYPE I)  
+#   TYPE I (neither necessary nor sufficient condition) 
 #       Monotonically increasing CCF over {0, …, h} (most restrictive):
 #       The CCF must be strictly increasing across the full interval, i.e.,
 #       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
@@ -98,7 +97,7 @@
 #       (see Exercise ???); The principal PCS optimization function 
 #       PCS_func() enforces it as closely as possible via regularisation.
 #
-#   TYPE II) 
+#   TYPE II (necessary but not sufficient)
 #       Local positive slope at the target lag (weaker than I):
 #       The CCF must be increasing over the final step only, i.e.,
 #       CCF(h-1) < CCF(h). See Wildi (2026), Section 3.2.
@@ -106,32 +105,34 @@
 #       generating process (e.g., from the Yule-Walker equations of an AR(p)),
 #       conditions I) and II) may become equivalent.
 #
-#   TYPE III) 
+#   TYPE III (necessary but not sufficient) 
 #       Positive average slope from lag 0 to lag h (weaker than I):
 #       The CCF must be increasing on average from k = 0 to k = h, i.e.,
-#       CCF(0) < CCF(h).
+#       CCF(0) < CCF(h). In some cases where additional structure is imposed 
+#       by the data-generating process, conditions I) and III) may become 
+#       equivalent.
 #
 #   A link to decoupling:
-#       Even the weaker conditions OF types II) and III) are not always exactly
+#       Even the weaker conditions of types II) and III) are not always exactly
 #       feasible. When they are, however, both can be imposed within the DFP
 #       optimisation framework by using a suitably modified constraint vector
 #       (see Exercise 1 below).
 #
 # Technical note on Type I) condition:
-#   When the full monotonicity constraint is feasible, strong regularisation
-#   enforces a fixed positive CCF slope uniformly across all lags in {0, …, h},
-#   which may be unnecessarily costly in terms of target correlation. In
-#   practice, therefore, mild regularisation is typically preferred: it nudges
-#   the CCF toward monotonicity while retaining enough flexibility to balance
-#   the inherent dilemma between peak shifting and peak height, see 
-#   exercise 4 below.
+#   When the full monotonicity constraint in Type I is feasible, strong 
+#   regularisation enforces a fixed positive CCF slope across all lags in 
+#   {0, …, h},  which may be unnecessarily costly in terms of target 
+#   correlation. In practice, therefore, mild regularisation is typically 
+#   preferred: it nudges the CCF toward monotonicity while retaining enough 
+#   flexibility to balance the inherent dilemma between peak shifting and peak 
+#   height, see exercise 4 below.
 #
 
-# ── Key Identity ─────────────────────────────────────────────────────
+# ── Unit Norm ─────────────────────────────────────────────────────────
 #
 # The CCF at lag k is given by:
 #
-#     CCF(k) = b' * gamma_k
+#     CCF(k) = b' * gamma_k / ||b||
 #
 # where:
 #   b       : filter coefficient vector (the predictor to be designed),
@@ -139,8 +140,7 @@
 #             coefficients), normalised to unit length.
 #
 # CCF and unit-length scaling:
-#   - Strictly speaking, the formula above requires both b and gamma_k to be
-#     of unit length.
+#   - The CCF requires both b and gamma_k to be of unit length.
 #   - In practice, b (the PCS predictor) is generally not of unit length;
 #     imposing this constraint would complicate the geometry and lead to
 #     multiple solutions (cf. the unitary DFP in Tutorial 4).
@@ -151,8 +151,8 @@
 #
 # ── PCS Optimisation Criterion ────────────────────────────────────────
 #
-# Let beta > 0 be the PCS slope parameter. Using the key identity above,
-# Conditions I)–III) translate into linear constraints on b:
+# Let beta > 0 be the PCS slope parameter. Conditions I)–III) translate 
+# into linear constraints on b:
 #
 #   Type I)   requires  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
 #   Type II)  requires  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
@@ -169,12 +169,16 @@
 #   Delta = {h}       corresponds to Condition II) (local slope at lag h), and
 #   Delta = {1, …, h} corresponds to Condition I)  (monotonicity from 0 to h).
 #
-# Type III) is handled by setting Delta = {h} and replacing the
-# differencing vector with (gamma_h - gamma_{h-delta}), with delta = h.
+# Type III) is handled by setting Delta = {h} and replacing the ordinary
+# differencing vector (gamma_h - gamma_{h-1}), i.e., delta = 1, with the
+# lag-delta differencing vector (gamma_h - gamma_0), where delta = h.
 #
-# Note: the objective (maximising target correlation) can alternatively be
-# replaced by minimum MSE (assuming a standard case, see the discussion in 
-# Tutorial 9). The two are equivalent up to simple (MSE-optimal) scaling.
+# Notes: 
+# 1. The objective (maximising target correlation) can alternatively be
+#    replaced by minimum MSE (assuming a standard case, see the discussion in 
+#    Tutorial 9). The two are equivalent up to simple (MSE-optimal) scaling. Our 
+#    function implements this MSE optimal scaling, see exercises below.
+# 2. Interpretation: beta/||b|| can be interpreted as the slope of the CCF.
 #
 # ── Regularised PCS (Implemented in the main function PCS_func) ────────
 #
@@ -196,27 +200,31 @@
 # ── Tutorial Structure ────────────────────────────────────────────────
 #
 #   Exercise 1 — PCS type II) via a modified DFP approach (h = 1, one-step ahead):
-#                Imposes a local slope constraint at lag h by replacing the
-#                standard DFP decoupling vector gamma_0 with the difference
-#                (gamma_{h-1} - gamma_h), directly enforcing a positive CCF
+#                Imposes a single local slope constraint at the forecast horizon 
+#                h by replacing the standard DFP decoupling vector gamma_0 
+#                (see DFP tutorials) with the difference
+#                (gamma_{h} - gamma_{h-1}), directly enforcing a positive CCF
 #                slope at the target horizon. While the MSE predictor remains
 #                stuck at the present irrespective of the forecast horizon,
 #                the PCS predictor successfully moves the CCF peak from k = 0
 #                to k = h = 1, inducing effective look-ahead behaviour.
 #
-#   Exercise 2 — PCS type III) for h = 5 via PCS_func():
-#                Relocates the CCF peak at k=h=5 by enforcing a positive 
-#                average growth of the CCF over lags {0, …, h}, i.e., 
-#                requiring CCF(0) < CCF(h), without constraining intermediate 
-#                lags.
+#   Exercise 2 — PCS type III) for h = 5: 
+#                Imposes a single `on average' positive slope constraint from 
+#                k=0 to k=h, replacing the standard DFP decoupling vector gamma_0 
+#                (see DFP tutorials) with the difference
+#                (gamma_{h} - gamma_0), directly enforcing an average positive 
+#                slope CCF(h) - CCF(0) >=0.
 #
-#   Exercise 3 — PCS type I) for h = 5 with a fixed an very large regularisation 
-#                weight and a range of slope parameters:
-#                Relocates the CCF peak by enforcing a linearly increasing CCF
-#                over the full interval {0, …, h}. This is more constraining
-#                than Exercise 2, as it imposes a uniform positive slope at
-#                every intermediate lag, effectively prescribing a linear path
-#                for the CCF from k = 0 to k = h = 5.
+#   Exercise 3 — PCS type I) for h = 5 with a fixed and very large
+#                regularisation weight and a range of slope parameters:
+#                Relocates the CCF peak by enforcing a linearly increasing
+#                CCF over the full interval {0, ..., h}. This is more
+#                constraining than Exercise 2, as it imposes a uniform
+#                positive slope at every intermediate lag, effectively
+#                prescribing a linear path for the CCF from k = 0 to
+#                k = h = 5. The multi-constraint system is handled by
+#                the novel PCS function PCS_func().
 #
 #   Exercise 4 — PCS type I) for h = 5 with a single (fixed) slope and a range of
 #                regularisation weights:
@@ -231,8 +239,7 @@
 #   Exercise 5 — PCS type I) vs. fully decoupled DFP:
 #                Compares the look-ahead behaviour and CCF profiles produced
 #                by PCS and the fully decoupled DFP predictor, highlighting
-#                differences in peak location, peak height, and target
-#                correlation.
+#                differences in the resulting CCF profiles.
 #
 #   Exercise 6 — Geometry of the PCS predictor:
 #                Visualises the PCS type II) predictor in the plane spanned by
@@ -243,15 +250,6 @@
 #                geometric planes and enforcing different constraints — even
 #                when their resulting predictors may appear similar in some 
 #                applications.
-#
-#
-#   Exercise 7 — Infeasibility:???
-#                Illustrates cases where the monotonicity constraints are
-#                rank-deficient and the exact PCS criterion admits no solution,
-#                demonstrating how regularisation recovers a best-effort
-#                approximation in the presence of structural infeasibility.
-#
-
 #
 # ════════════════════════════════════════════════════════════════════
 # REFERENCE
@@ -647,7 +645,8 @@ ccf(na.exclude(y_out_mat[, 1]),
 # EXERCISE 2: PCS III) Impose an Average Positive Slope of the CCF
 # ════════════════════════════════════════════════════════════════════
 
-# We apply the PCS based on case III), assuming h=5.
+# We apply the PCS based on case III), assuming h=5. The single constraint 
+# is implemented by a modified DFP.
 
 # ─────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises
@@ -929,16 +928,125 @@ ccf(na.exclude(y_out_mat[, 1]),
     main = paste0("CCF: strongest PCS predictor\n",
                   "Peak shifted from k = 0 to k = h = ", h))
 
+# ─────────────────────────────────────────────────────────────────────
+# 2.7 Replicating DFP Solution via PCS
+# ─────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
+# Overview
+# ─────────────────────────────────────────────────────────────────────
+# The forecasting problem at hand is a PCS Type III specification with a
+# single constraint. Two equivalent solution paths exist:
+#
+#   Path 1 – Modified DFP:
+#     The DFP function can solve this problem by supplying a suitably
+#     modified constraint vector, as demonstrated in the sections above.
+#
+#   Path 2 – Direct PCS (used here):
+#     PCS_func() solves the same problem natively. Unlike the DFP
+#     approach, PCS_func() is more general:
+#       • Single constraints : Type II or Type III specifications
+#       • Multiple constraints: Type I specifications
+#
+# In this section we use Path 2 to replicate the "modified DFP" Type III
+# solution obtained earlier, confirming that both paths yield the same
+# filter coefficients.
+
+
+# ── 2.7.1 Full Decoupling ─────────────────────────────────────────────
+# Under full decoupling (alpha0 = 0), the MSE-DFP predictor and the PCS
+# predictor coincide exactly, so no sign or scale adjustment is needed.
+
+# Set the decoupling parameter to zero (full decoupling)
+alpha0 <- 0
+
+# Compute the MSE-DFP filter coefficients using the specified constraint
+# vector (gamma_constraint) and the target cross-covariance (gammah)
+b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+
+# ── PCS hyperparameter settings (see Exercise 3 for a full derivation) ──
+
+# Under full decoupling, beta equals alpha0 directly (no rescaling required)
+beta <- alpha0
+
+# Use strong regularization to enforce the constraint tightly
+lambda <- 100000
+
+# Define the two-point constraint grid: origin and forecast horizon h
+Delta <- c(0, h)
+
+# Use a Type III PCS specification
+Type_III <- TRUE
+
+# Use the true DGP 
+gamma_pcs <- gamma0
+
+# Compute the PCS filter coefficients
+b_pcs <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda, Type_III)$b
+
+# Plot both sets of coefficients to verify they overlap
+par(mfrow=c(1,1))
+ts.plot(cbind(b_dfp, b_pcs), main = "Both Predictors Overlap")
+
+
+# ── 2.7.2 Partial Decoupling ──────────────────────────────────────────
+# When alpha0 ≠ 0 (partial decoupling), the DFP and PCS parameterizations
+# use different sign conventions and scaling for the slope constraint.
+# A manual sign flip and rescaling of beta are therefore required before
+# the two filters will agree.
+
+alpha0 <- 0.5
+
+# Compute the MSE-DFP filter coefficients for the partially decoupled case
+b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+
+# Adjust beta: flip the sign and apply the empirical rescaling factor (0.465)
+# that accounts for the difference in normalization between the two frameworks
+beta <- -0.465 * alpha0
+
+# Retain strong regularization to keep the constraint active
+lambda <- 100000
+
+# Constraint grid: origin and forecast horizon h (unchanged from above)
+Delta <- c(0, h)
+
+# Type III PCS specification (unchanged)
+Type_III <- TRUE
+
+# Extend gamma_pcs with trailing zeros to match the required vector length
+# (PCS_func needs a longer ACF vector for the partial-decoupling case)
+gamma_pcs <- c(gamma0, rep(0, 1000))
+
+# Compute the rescaled PCS filter coefficients
+b_pcs <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda, Type_III)$b
+
+# Plot both sets of coefficients; they should be nearly identical
+ts.plot(cbind(b_dfp, b_pcs), main = "Both Predictors are Nearly Overlapping")
+
+
+
 
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 3: PCS I) — Regularised Criterion with Strong Regularisation
 # ════════════════════════════════════════════════════════════════════
+# 
+# A PCS Type I design is applied with forecast horizon h = 5 and a large
+# regularisation weight lambda.
 #
-# We apply PCS Type I) with h = 5 and a very large regularisation weight
-# lambda. Strong regularisation imposes an unnecessarily restrictive constraint:
-# the CCF of the resulting predictor increases linearly from k = 0 to k = h.
-# We also vary the slope parameter beta to examine its effect on the CCF profile
-# and on the degree of look-ahead behaviour achieved.
+# - In contrast to Exercises 1 and 2, which relied on the DFP framework to
+#   impose a single (simpler) constraint, the more complex five-dimensional
+#   constraint system determined by h = 5 and PCS Type I is handled here
+#   via PCS_func().
+#
+# - The optimisation is based on Equation 46 (Appendix D, Wildi 2026), with
+#   the closed-form solution given in Equation 49.
+#
+# - Strong regularisation imposes an overly restrictive constraint: the CCF
+#   of the resulting predictor increases linearly from lag k = 0 to k = h,
+#   leaving little flexibility in the shape of the CCF profile.
+#
+# - The slope parameter beta is varied to examine its effect on the CCF
+#   profile and on the degree of look-ahead behaviour achieved.
 
 # ─────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises
@@ -946,7 +1054,6 @@ ccf(na.exclude(y_out_mat[, 1]),
 # horizon, and MA coefficient vector) required by all subsequent exercises.
 # ─────────────────────────────────────────────────────────────────────
 
-#
 # ─────────────────────────────────────────────────────────────────────
 # 3.1 MSE-Optimal h-Step-Ahead Predictor
 # ─────────────────────────────────────────────────────────────────────
@@ -975,7 +1082,7 @@ gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 # ─────────────────────────────────────────────────────────────────────
 
 # Grid of target slope values to be imposed on the CCF. A positive beta
-# implies that the CCF increases regularly from k = 0 to k = h, provided:
+# implies that the CCF increases from k = 0 to k = h, provided:
 #   1) The optimisation problem is feasible, and
 #   2) The regularisation weight lambda is sufficiently large to drive the
 #      solution close to exact constraint satisfaction.
@@ -1017,12 +1124,22 @@ for (i in seq_along(beta_vec)) {
   d_delta <- PCS_obj$d_delta
   b_mat   <- cbind(b_mat, b)
   
-  # Constraint check: for a feasible system, the deviation of each slope
-  # constraint from its target beta should shrink to zero as lambda -> Inf.
-  # Each printed value is the residual for one of the h = 5 constraints.
-  # Large lambda means small deviations provided the problem is feasible.
+  # Constraint check: for a feasible system, the residual of each slope
+  # constraint — defined as the deviation from the target value beta —
+  # should converge to zero as lambda -> Inf. Each printed value corresponds
+  # to the residual for one of the h = 5 constraints. Under large lambda,
+  # small residuals confirm feasibility; persistent large residuals would
+  # indicate infeasibility. Note that numerical precision imposes a practical
+  # lower bound on the achievable residuals: deviations cannot be driven
+  # arbitrarily close to zero in finite-precision arithmetic.
   print(abs(d_delta %*% b + beta))
 }
+
+# Note: PCS_func() also computes the MSE-optimal PCS:
+PCS_obj$b_mse
+# The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
+# scaling factor. The ordinary PCS is based on the regularised criterion (46)
+# in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
 
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
@@ -1046,9 +1163,11 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 # can alleviate this potentially undesirable effect.
 apply(b_mat, 2, sum)
 
-# ── Check 3: Positive target covariance ──────────────────────────────
-# Confirms that each PCS predictor has a positive inner product with the
-# h-step-ahead MSE predictor, i.e., a positive target correlation at lag h.
+# ── Check 3: Positive target covariance ──────────────────────────────────────
+# Verifies that each PCS predictor has a positive inner product with the
+# h-step-ahead MSE predictor, confirming a positive target correlation at
+# lag h. A negative inner product would indicate sign inversion, rendering
+# the predictor unusable.
 t(b_mat) %*% gammah
 
 # Assemble all filters (nowcast, MSE references, and PCS variants) into a
@@ -1140,13 +1259,13 @@ box()
 #   As the regularisation weight lambda increases, the CCF slope at each
 #   constrained lag converges to beta / (b' * b), i.e., the target slope
 #   beta divided by the squared norm of the filter vector b. The dependence
-#   on ||b||^2 arises naturally from the unconstrained structure of the
-#   optimisation: removing it would require imposing a unit-norm constraint
-#   on b, which complicates the geometry and typically leads to multiple
-#   solutions (cf. the unitary DFP in Tutorial 4). Crucially, this
-#   normalisation does not affect the look-ahead properties of the predictor,
-#   since the CCF peak location is invariant to a common positive scaling
-#   of b.
+#   on ||b||^2 is undesirable; however, eliminating it would require an
+#   additional unit-length constraint b' * b = 1, which would complicate
+#   the geometry and typically lead to multiple solutions (cf. the unitary
+#   DFT in Tutorial 4). Crucially, this unwanted scaling effect does not
+#   affect the look-ahead properties of the predictor, since the CCF peak
+#   location is invariant to the scaling of b.
+
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1233,7 +1352,8 @@ ccf(na.exclude(y_out_mat[, 1]),
 # moderately small positive value and varying the regularisation weight lambda
 # across a range of values. The goal is to explore how relaxing the structural
 # constraints on the CCF — imposed rigidly in Exercise 3 — affects the
-# balance between peak shifting and target correlation.
+# balance between peak shifting and target correlation, see Wildi (2026), 
+# Appendix D for background. 
 
 # ─────────────────────────────────────────────────────────────────────
 # Note: Exercises 1 & 3 must be run before this exercise, as they initialise
@@ -1281,6 +1401,13 @@ for (i in seq_along(lambda_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
+# Note: PCS_func() also computes the MSE-optimal PCS:
+PCS_obj$b_mse
+# The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
+# scaling factor. The ordinary PCS is based on the regularised criterion (46)
+# in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
+
+
 colnames(b_mat) <- paste0("lambda=", round(lambda_vec, 3), ", beta=", beta)
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1288,15 +1415,13 @@ colnames(b_mat) <- paste0("lambda=", round(lambda_vec, 3), ", beta=", beta)
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS slope constraints ───────────────────────────────────
-# Validated in the loop above: constraint residuals decrease monotonically
-# with increasing lambda, confirming convergence to exact slope enforcement.
+# Validated in the loop above: the magnitude of the constraint residuals is 
+# larger than in example 3 since lambda is smaller (less strong regularization). 
 
 # ── Check 2: Sign / orientation preservation ─────────────────────────
-# A strictly positive coefficient sum confirms that the filter preserves the
-# direction of trends and level shifts in the data. In contrast to Exercise 3,
-# the milder regularisation used here avoids trend inversion across all
-# but the largest lambda values, demonstrating that strong look-ahead behaviour 
-# need not come at the cost of orientation reversal (as in exercise 3).
+# In contrast to exercise 3 all but the last design preserve trend orientation 
+# at frequency zero. It takes a very large lambda to invert trend 
+# orientation. 
 apply(b_mat, 2, sum)
 
 # ── Check 3: Positive target covariance ──────────────────────────────
@@ -1375,11 +1500,12 @@ box()
 #     optimiser more freedom to maximise target correlation at lag h (peak
 #     height) without being forced to maintain a rigid linear CCF path. 
 #     As an example, the designs based on lambda=30 (blue) and lambda=10000 
-#     (violet) both shift the peak CCF to h. But the less stron regularization 
+#     (violet) both shift the peak CCF to h. But the less strong regularization 
 #     lambda=30 (blue) achieves a larger target correlation (a higher peak value).
 #     This illustrates the core accuracy–timeliness trade-off: lighter
 #     regularisation favours correlation height; heavier regularisation
-#     affirms `clearer' peak location through tighter control of the CCF slope.
+#     affirms `clearer' peak location through tighter (linear) control of the 
+#     CCF slope.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1461,7 +1587,9 @@ ccf(na.exclude(y_out_mat[, 1]),
 # ════════════════════════════════════════════════════════════════════
 # Exercise 5 Peak Correlation Shifting AND Complete Decoupling
 # ════════════════════════════════════════════════════════════════════
-# Example: full decoupling and one of the PCS with positive slope and near full decoupling
+# We compare a DFP fully decoupled design (exercise 5.2) with a PCS design 
+# whose slope beta is selected to provide virtual full decoupling, up to 
+# negligible deviation (exercise 5.3).
 
 # ─────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises
@@ -1578,7 +1706,7 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
-
+# Inspect the CCF at lags k=0 and k=h:
 ccf_mat
 
 # Outcome:
@@ -1597,7 +1725,7 @@ ccf_mat
 #   DFP imposes no particular path between k = 0 and k = h — it only requires 
 #   CCF(0) = 0 and maximises CCF(h), leaving the intermediate profile 
 #   unconstrained. In the considered MA(9) example, this amounts to an almost 
-#   linear (slightly flexed) path.
+#   linear (very slightly flexed) path.
 #
 #   When full decoupling is the primary objective, DFP offers a simpler
 #   implementation (setting alpha0 = 0 directly enforces CCF(0) = 0) and
@@ -1858,11 +1986,6 @@ solve_acos_bsin_eq(a, b, c)
 
 
 
-# ════════════════════════════════════════════════════════════════════
-# EXERCISE 7: Infeasibility
-# ════════════════════════════════════════════════════════════════════
-# PCS applied to ARMA(1,1)
-
 
 # ════════════════════════════════════════════════════════════════════
 # MAIN TAKE-AWAYS
@@ -1917,7 +2040,6 @@ solve_acos_bsin_eq(a, b, c)
 #    As illustrated in Exercise 5, however, the practical differences between
 #    the two approaches can be marginal in certain process structures and
 #    forecast settings.
-#
 
 
 

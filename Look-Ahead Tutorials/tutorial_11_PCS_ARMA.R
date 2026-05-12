@@ -162,7 +162,7 @@ cor_vec_mse      <- rbind(cor_vec_mse1, c(cor_vec[1], cor_vec[1 + h]))
 #───────────────────────────────────────────────────────────────────────────────
 
 # Forecast horizon.
-h <- 12
+h <- 4
 
 # Target: the original AR(1) Wold decomposition.
 gamma_pcs <- xi
@@ -314,7 +314,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 #     reflecting the fundamental difficulty of the AR(1) forecasting problem.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
-select_pcs<-2:5
+select_pcs<-2:4
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -384,7 +384,9 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # Regularisation weight (penalty on constraint deviation): strong regularisation.
 lambda <- 0.1
 
-Delta<-c(h-1,h)
+Delta<-c(0,h)
+Type_III<-T
+
 
 
 # Constraint slope parameter (negative here to probe the impossible regime).
@@ -393,7 +395,7 @@ beta <- -0.0001
 b_mat <- NULL
 
 # Compute the Type I PCS predictor.
-PCS_obj <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda)
+PCS_obj <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,Type_III)
 
 b         <- PCS_obj$b
 d_delta   <- PCS_obj$d_delta
@@ -410,10 +412,9 @@ beta_vec<-PCS_obj$beta_vec
 
 
 #───────────────────────────────────────────────────────────────────────────────
-# 1.3 Run PCS
+# 1.7 Run PCS
 #───────────────────────────────────────────────────────────────────────────────
 
-Type_III=T
 b_mat<-NULL
 for (i in 1:length(beta_vec))
 {
@@ -435,7 +436,7 @@ colnames(filter_mat) <- c("MSE",
                                 ", beta*lambda =", round(beta_vec*lambda, 8)))
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.4 Plots
+# 1.8 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 colo <- rainbow(ncol(filter_mat))
@@ -505,7 +506,7 @@ axis(2)
 box()
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.5 Apply and Compare Predictors
+# 1.9 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
 
 # Simulate a long realisation of the AR(1) DGP for filter evaluation.
@@ -529,7 +530,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 #     reflecting the fundamental difficulty of the AR(1) forecasting problem.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
-select_pcs<-2:ncol(filter_mat)
+select_pcs<-2:4
 select_vec<-c(1,select_pcs)
 
 # Longer sub-sample
@@ -539,7 +540,7 @@ enf<-500
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
 
-coli<-c("black",colo[select_pcs])
+coli<-c("black",rainbow(length(select_pcs)))
 
 par(mfrow = c(1, 1))
 
@@ -566,8 +567,6 @@ enf<-400
 
 mplot<-scale(y_out_mat[anf:enf,select_vec])
 colnames(mplot)<-colnames(y_out_mat)[select_vec]
-
-coli<-c("black",colo[select_pcs])
 
 par(mfrow = c(1, 1))
 

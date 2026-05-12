@@ -32,6 +32,11 @@
 PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F)
 {
   # MSE h-step predictor  
+  if (length(gamma_pcs)<h+L)
+  {
+    print("gamma_pcs is lengthened with zeroes")
+    gamma_pcs<-c(gamma_pcs,rep(0,L+h))
+  }
   gammah<-gamma_pcs[h+1:L]
   
   # Flip the sign of beta to align the internal convention with the paper's
@@ -70,9 +75,10 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
       }
       if (Delta[i] + L>length(gamma_all))
       {
-        print("Delta[i] + L>length(gamma_all)")
+        print("Delta[i] + L>length(gamma_pcs)")
         print("The index is outside gamma_pcs")
-        return()
+        print("gamma_pcs is lengthened, padding with zeroes")
+        gamma_all<-c(gamma_all,rep(0,max(Delta)+L))
       }
       
       gammah_mat <- rbind(gammah_mat,
