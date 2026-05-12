@@ -120,12 +120,12 @@ b1 <- arima.obj$coef[ar_order + 1:ma_order]
 # coefficients have decayed sufficiently close to zero by lag L.
 if (ma_order > 0) {
   xi <- c(1, ARMAtoMA(
-    ar      = arima.obj$coef[1:ar_order],
-    ma      = arima.obj$coef[ar_order + 1:ma_order],
+    ar      = a1,
+    ma      = b1,
     lag.max = length(x)))
 } else {
   xi <- c(1, ARMAtoMA(
-    ar      = arima.obj$coef[1:ar_order],
+    ar      = a1,
     ma      = 0,
     lag.max = length(x)))
 }
@@ -201,6 +201,7 @@ gamma_target <- rep(1/12, 12)
 # Express trend in MA-equivalent form:
 gamma <- conv_two_filt_func(xi, gamma_target)$conv
 
+
 # Visualize the Wold coefficients for both representations.
 par(mfrow = c(2, 1))
 ts.plot(xi,    main = "Wold Decomposition: Monthly Growth (Post-1990)")
@@ -209,6 +210,7 @@ ts.plot(gamma, main = "Wold Decomposition: Yearly Growth (Post-1990)")
 # Set MSE nowcast and h=12-step ahead predictors:
 gamma0<-gamma[1:L]
 gammah<-gamma[h+1:L]
+
 # Note: The h=12-step ahead MSE predictor is AR(1) with a1 determined by the ARMA(1,1).
 
 # ─────────────────────────────────────────────────────────────────────
@@ -292,7 +294,6 @@ high_resolution<-T
 PCS_obj<-PCS_func(h, Delta, gamma, L, beta, lambda,Type_III,scaled_constraints,high_resolution)
 
 beta_vec<-PCS_obj$beta_vec
-
 
 
 
@@ -416,6 +417,10 @@ box()
 # beta becomes so small that the negative slope error slips through the finite-sized regularization.
 # Whatever the size of lambda, beta will be correspondingly down-sized to slip through. 
 # This suggests that the only solution with non-negative slope throughout is zero...
+
+# For very large lambda the slope is nearly constant.
+
+# If Delta=1:11 the slope is fixed/poritive from 0 to 11.
 
 
 ccf_mat[13,]-ccf_mat[12,]
