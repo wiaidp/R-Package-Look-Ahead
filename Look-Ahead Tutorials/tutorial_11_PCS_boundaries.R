@@ -929,4 +929,27 @@ for (i in select_vec)
 
 
 
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 4: IMPOSSIBILITY
+# ════════════════════════════════════════════════════════════════════
+
+
+
+
+# Forecasting the ARMA(1,1) poses an impossible look ahead problem: the CCF peak 
+# cannot be shifted at h>1.
+
+# Applying an equally-weighted trend specification (yearly growth) allowed to expand 
+# the rank 2 to a rank 12 constraint system. The peak of the CCF could be shifted towards 
+# k > 2 but it is still impossible to shift further away than h=12.
+
+
+# For business-cycle analysis one would typically on an alternative HP trend instead of the equally-weighted trend, 
+# see tutorial 12.
+
+# Impossibility and infeasibility will be discussed in Tutorial 13. 
+
+
+# Finally, while a problem might be effectively impossible (no peak shift at k=h), we contend that it is still 
+# possible to generate look ahead beviour out of such problems, see Tutorial 14.
 

@@ -29,7 +29,7 @@
 
 
 ########################################################################################
-PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F)
+PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F,high_resolution=F)
 {
   # MSE h-step predictor  
   if (length(gamma_pcs)<h+L)
@@ -240,7 +240,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   # the derivative is fixed.
   derivative_beta     <- lambda * solve(M) %*% apply(d_delta, 2, sum)
   
-  # Alternative derivation of tipping points (verification: the below should vanish)
+  # Alternative derivation of tipping points (verification: the below should vanish, provided sufficient numerical precision)
   max(abs(tipping_points_beta+solve(M) %*% gammah / derivative_beta))
   
   # 2. Sensitivity of the Profile of b at the Tipping Point
@@ -278,7 +278,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   # scale-invariant.
   
   # Construct the beta grid centred on the tipping point
-  k_lags <- 3  # number of lags used to define the grid centre and step width
+  k_lags <- ifelse(high_resolution,10,3)  # number of lags used to define the grid centre and step width
   
   # Grid centre: mean of tipping_points_beta over the first k_lags lags (these are generally important lags of a predictor)
   tipping_point <- mean(tipping_points_beta[1:k_lags])
@@ -287,7 +287,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   # down by a factor of 1/10. The unscaled beta_delta corresponds to a unit
   # change in the coefficients; scaling by 1/10 yields steps of 0.1 in
   # coefficient space, providing finer resolution around the tipping point.
-  scale <- 1/10
+  scale <- ifelse(high_resolution,1/250,1/10)
   delta <- abs(mean(beta_delta[1:k_lags]) * scale)
   
   # Symmetric beta grid: 11 points spanning +/- 5 steps around the tipping point

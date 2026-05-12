@@ -233,7 +233,7 @@
 # The perturbation framework developed above for PCS extends naturally to the DFP
 # approach. Like PCS, DFP operates by manipulating the CCF of the predictor, but
 # its constraints are generally less restrictive — particularly when compared to
-# Type III PCS at longer horizons (h > 1).
+# Type I PCS at longer horizons (h > 1).
 #
 # Consequently, the rank-expanding perturbation strategy in this tutorial can be 
 # applied to DFP in exactly the same way: by introducing a small perturbation 

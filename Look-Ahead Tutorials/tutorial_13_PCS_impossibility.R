@@ -1966,7 +1966,7 @@ box()
 # ─────────────────────────────────────────────────────────────────────
 
 # Exercises 4 and 5 imposed misspecified infeasible constraints through 
-# Type III) PCS. Here we adopt the simpler PCS Type II) which renders 
+# Type I PCS. Here we adopt the simpler PCS Type II which renders 
 # the single constraint feasible and not misspecified.
 
 # ─────────────────────────────────────────────────────────────────────
