@@ -216,6 +216,7 @@ ts.plot(gamma, main = "Wold Decomposition: Yearly Growth (Post-1990)")
 # Set MSE nowcast and h=12-step ahead predictors:
 gamma0<-gamma[1:L]
 gammah<-gamma[h+1:L]
+gamma_pcs<-gamma
 
 # Note: The h=12-step ahead MSE predictor is AR(1) with a1 determined by the ARMA(1,1).
 
