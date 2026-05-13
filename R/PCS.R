@@ -31,6 +31,11 @@
 ########################################################################################
 PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F,high_resolution=F)
 {
+  if (Type_III & (length(Delta)<2 | length(Delta)>2))
+  {
+    print("When Type_III=T, Delta must have 2 lags: the CCF is then contrained to increase between the two lags")
+    return()
+  }
   # MSE h-step predictor  
   if (length(gamma_pcs)<h+L)
   {
@@ -84,6 +89,11 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
       gammah_mat <- rbind(gammah_mat,
                           gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
     }
+  } else
+  {
+    print("length(Delta) must be positive: no constraint is imposed")
+    print("Use the MSE predictor when no constraints are imposed")
+    return()
   }
   
   
@@ -303,6 +313,149 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 
 
 
+# When the PCS constraint system is full rank, this function computes the closed-form
+# solution in which all constraints are exactly satisfied. This solution is equivalent
+# to the limiting case of the regularized solution as lambda → ∞, although the
+# regularized approach may suffer from numerical instability as the system approaches
+# singularity.
+PCS_closed_form_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F)
+{
+  if (Type_III & (length(Delta)<2 | length(Delta)>2))
+  {
+    print("When Type_III=T, Delta must have 2 lags: the CCF is then contrained to increase between the two lags")
+    return()
+  }
+  # MSE h-step predictor  
+  if (length(gamma_pcs)<h+L)
+  {
+    print("gamma_pcs is lengthened with zeroes")
+    gamma_pcs<-c(gamma_pcs,rep(0,L+h))
+  }
+  gammah<-gamma_pcs[h+1:L]
+  
+  # Flip the sign of beta to align the internal convention with the paper's
+  # definition: a positive beta in the function interface corresponds to a
+  # rightward peak shift (toward higher leads), which requires a negative
+  # internal slope.
+  slope <- -beta
+  
+  gamma_all <- gamma_pcs
+  # --- Build the shifted covariance matrix 'gammah_mat' ---
+  # Each row contains the MSE predictor coefficients (gamma_all) shifted by
+  # a specific lead value drawn from 'Delta'. 
+  # We start with Delta[1] - 1 because we compute differences: gamma_h-gamma_{h-1}
+  # and therefore we need gamma_{Delta[1] - 1} to define the first difference.
+  if (Type_III)
+  {
+    gammah_mat<-NULL
+  } else
+  {
+    if (Delta[1]<1)
+    {
+      print("Delta[1] must be larger or equal 1")
+      return()
+    }
+    gammah_mat <- gamma_all[Delta[1] - 1 + 1:L]/sqrt(sum(gamma_all^2) ) 
+  }
+  if (length(Delta) > 0)
+  {
+    for (i in 1:length(Delta))
+    {
+      if (Delta[i] + 1<1)
+      {
+        print("Delta[i] + 1<1")
+        print("The index is outside gamma_pcs")
+        return()
+      }
+      if (Delta[i] + L>length(gamma_all))
+      {
+        print("Delta[i] + L>length(gamma_pcs)")
+        print("The index is outside gamma_pcs")
+        print("gamma_pcs is lengthened, padding with zeroes")
+        gamma_all<-c(gamma_all,rep(0,max(Delta)+L))
+      }
+      
+      gammah_mat <- rbind(gammah_mat,
+                          gamma_all[Delta[i] + 1:L]/sqrt(sum(gamma_all^2) ) )
+    }
+  } else
+  {
+    print("length(Delta) must be positive: no constraint is imposed")
+    print("Use the MSE predictor when no constraints are imposed")
+    return()
+  }
+  
+  
+  
+  # --- Compute consecutive difference vectors ('d_delta') ---
+  # Each row of d_delta is the difference between two consecutive rows of
+  # gammah_mat:
+  #
+  #   d_delta[i, ] = gammah_mat[i, ] - gammah_mat[i + 1, ]
+  #
+  # These differences encode the pairwise monotonicity constraints: requiring
+  #
+  #   b' * d_delta[i, ] = beta > 0
+  #
+  # forces the CCF to increase by beta from lead Delta[i] to lead Delta[i+1].
+  #
+  # When scaled_constraints==T then we use unit-scaled d_delta[i, ]
+  # This implies that b' * d_delta[i, ]  =  beta does not depend on changing scales of gamma_h-gamma_{h-1) in delta (and the scale of b is fixed).
+  #  -In an AR(1) case the system is then still feasible (whereas if scaled_constraints==F, the system is not feasible anymore)  
+  
+  if (scaled_constraints)
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])/sqrt(sum((gammah_mat[1, ] - gammah_mat[2, ])^2))
+  } else
+  {
+    d_delta <- (gammah_mat[1, ] - gammah_mat[2, ])
+  } 
+  
+  if (length(Delta) > 1&!Type_III)
+  {
+    for (i in 2:length(Delta))
+    {
+      if (scaled_constraints)
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ])/sqrt(sum((gammah_mat[i, ] - gammah_mat[i + 1, ])^2)))
+      } else
+      {
+        d_delta <- rbind(d_delta, (gammah_mat[i, ] - gammah_mat[i + 1, ]))
+      } 
+    }
+  }
+  d_delta<-matrix(d_delta,nrow=length(Delta)-ifelse(Type_III,1,0) )
+  
+  # For a full-rank PCS system, the `squared' constraint matrix should be strictly positive definite  
+  min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
+  max_eigen<-max(eigen(d_delta%*%t(d_delta))$values)
+  if (min_eigen/max_eigen<10^{-12})
+  {
+    print("PCS constraints not of full rank: closed-form expression does not exist")
+    return()
+  }
+  lambda_multiplier<-as.vector(solve(d_delta%*%t(d_delta))%*%(slope-d_delta%*%gammah))
+  
+  b<-gammah
+  for (i in 1:length(lambda_multiplier))
+    b<-b+lambda_multiplier[i]*d_delta[i,1:L]
+  
+  return(list(b=b,lambda_multiplier=lambda_multiplier,d_delta=d_delta))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # The following function applies perturbations in problems that are too difficult or impossible to solve.
@@ -312,7 +465,12 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_perturbated, Type_III=F,scaled_constraints=F)
 {
   
-
+  if (Type_III & (length(Delta)<2 | length(Delta)>2))
+  {
+    print("When Type_III=T, Delta must have 2 lags: the CCF is then contrained to increase between the two lags")
+    return()
+  }
+  
   # MSE h-step predictor  
   gammah<-gamma_pcs[h+1:L]
   

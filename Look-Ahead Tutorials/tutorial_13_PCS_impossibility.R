@@ -580,18 +580,21 @@ tsdiag(arima.obj)
 a1 <- arima.obj$coef[1:ar_order]
 b1 <- arima.obj$coef[ar_order + 1:ma_order]
 
+# Fix the parameters for replicability of results
+a1<-0.95
+b1<--0.53
 # --- Wold Decomposition (MA-infinity representation) ---
 # Compute the infinite-order MA coefficients (impulse response weights)
 # of the fitted ARMA model. The filter length L ensures that the
 # coefficients have decayed sufficiently close to zero by lag L.
 if (ma_order > 0) {
   xi <- c(1, ARMAtoMA(
-    ar      = arima.obj$coef[1:ar_order],
-    ma      = arima.obj$coef[ar_order + 1:ma_order],
+    ar      = a1,
+    ma      = b1,
     lag.max = length(x)))
 } else {
   xi <- c(1, ARMAtoMA(
-    ar      = arima.obj$coef[1:ar_order],
+    ar      = a1,
     ma      = 0,
     lag.max = length(x)))
 }
@@ -1035,7 +1038,7 @@ for (i in 1:ncol(filter_mat_ar))
 
 # Target slope values for the single Type III constraint:
 #   b' * (gamma_h - gamma_{h-1}) = beta
-beta_vec <- c(-0.8, -0.4,  0, 0.4, 0.8)
+beta_vec <- c(-0.8, -0.4,  0,0.05, 0.4, 0.8)
 
 # Single constraint imposed between k = 0 and k = h: CCF(h)-CC(F)>0.
 Delta <- c(0,h)
@@ -1154,10 +1157,11 @@ ccf_mat["CCF at lead: 12",] - ccf_mat["CCF at lead: 0", ]
 # the CCF itself becomes negative, indicating a loss of meaningful correlation
 # with the target.
 #
-# Notably, the moderate PCS design (cyan) shifts the CCF peak to lag k = 1
-# while maintaining a positive CCF throughout, confirming that the originally
-# impossible problem — shifting the CCF peak to h=12 under the AR(1) DGP — is
-# feasible under the type III PCS.
+# Notably, the moderate PCS designs (green,cyan) shift the CCF peak to lag k = 1
+# while maintaining a positive CCF throughout. The original problem — shifting 
+# the CCF peak to h=12 under the AR(1) DGP — is impossible. But the Type III 
+# constraint is feasible: CCF(12) > CCF(0) and the target correlation remains 
+# positive, provided beta > 0 is not too large.
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -1223,7 +1227,7 @@ h <- 12
 # to increase linearly from k = 0 to k = h (provided the problem is feasible
 # and lambda is sufficiently large). Negative and zero values are included as
 # reference cases to illustrate how the CCF profile responds to the slope target.
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+beta_vec <- c(-0.2, -0.1, 0,0.01, 0.1, 0.2, 0.3)
 
 # scaled_constraints = FALSE selects the unscaled constraint system (case aa):
 # the slope is fixed at beta for all lags, regardless of the magnitude of the
@@ -1355,20 +1359,22 @@ box()
 # Outcome:
 #
 # Filter coefficients:
-#   - Imposing a linearly increasing CCF over k = 0, ..., h inverts the sign
-#     of the predictor coefficients, rendering the predictor unusable.
+#   - Imposing a linearly increasing CCF over k = 0, ..., h (beta > 0) inverts 
+#     the sign of the predictor coefficients, rendering the predictor unusable.
 #
 # Population CCFs:
-#   - With an inverted predictor, the CCFs do increase from k = 0 to k = h,
+#   - With an inverted predictor, the CCFs do increase from k = 0 to k = h 
 #     but remain entirely negative and do not peak at k = h.
+#   - Monotonicity is compliant with the constraints, but the linear shape 
+#     imposed by the constraints is impossible to achieve),
 #
-# Note: for h = 1, PCS Types I and II are feasible because gamma_0 and
-# gamma_1 are not collinear, so the constraint system has a solution.
-#
-# Note: when the problem is feasible and lambda is large, the CCF increases
-# linearly from k = 0 to k = h with a constant slope. Here, because the
-# problem is both infeasible and impossible, no constant-slope solution exists
-# and the constraint residuals do not vanish as lambda -> Inf.
+# Notes: 
+# 1. For h = 1, PCS Types I and II are feasible because gamma_0 and
+#    gamma_1 are not collinear, so the constraint system would have a solution.
+# 2. when the problem is feasible and lambda is large, the CCF increases
+#    linearly from k = 0 to k = h with a constant slope. Here, because the
+#    problem is both infeasible and impossible, no constant-slope solution exists
+#    and the constraint residuals do not vanish as lambda -> Inf.
 
 
 
@@ -1427,7 +1433,7 @@ h <- 12
 # ARMA(1,1) structure, so all constraints can be satisfied exactly.
 # Note: beta is still a scalar input; the scaling is controlled by setting
 # scaled_constraints = TRUE below (cf. Exercise 2, where it was FALSE).
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
+beta_vec <- c(-0.2, -0.1, 0,0.01, 0.1, 0.2, 0.3)
 
 # scaled_constraints = TRUE selects the scaled constraint system (case ab):
 # the slope at each lag k is beta * ||gamma_k - gamma_{k-1}|| rather than
@@ -1602,6 +1608,10 @@ tsdiag(arima.obj)
 # conjugate roots), producing a damped-cycle impulse response.
 a1 <- arima.obj$coef[1]
 a2 <- arima.obj$coef[2]
+
+# Fix the parameters for replicability of results:
+a1<-1.81
+a2<--0.83
   
 # Compute the Wold (MA-infinity) representation from the AR(2) component only.
 # The MA(2) part of the fitted ARMA(2,2) model is deliberately discarded:
@@ -1635,7 +1645,7 @@ eigenvalues <- eigen(gamma_mat)$values
 
 # Count the number of numerically non-zero eigenvalues: rank of the 
 # constraint system.
-which(abs(eigenvalues) > 10^{-10})
+length(which(abs(eigenvalues) > 10^{-10}))
 
 # The effective rank is 2. More generally, for an AR(p) the rank of the
 # constraint system equals p (a consequence of the Yule-Walker structure).
@@ -1648,11 +1658,6 @@ which(abs(eigenvalues) > 10^{-10})
 # ─────────────────────────────────────────────────────────────────────
 # 4.3 PCS Type I: Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
-# Grid of target slope values for the CCF. A positive beta requires the
-# CCF to increase linearly from k = 0 to k = h (case aa). Negative and zero 
-# values are included as reference cases to illustrate the effect of the slope
-# target on the CCF profile and peak location.
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)
 
 # scaled_constraints = FALSE selects the unscaled constraint system (case aa):
 # the slope is fixed by beta (proportional to beta) for all lags.
@@ -1667,6 +1672,12 @@ Delta <- 1:h
 # constraint satisfaction. However, because the system is infeasible (Case A),
 # the constraint residuals remain sizeable regardless of lambda.
 lambda <- 10^10
+
+# Grid of target slope values for the CCF. A positive beta requires the
+# CCF to increase linearly from k = 0 to k = h (case aa). Negative and zero 
+# values are included as reference cases to illustrate the effect of the slope
+# target on the CCF profile and peak location.
+beta_vec <- c(-0.2, -0.1, 0,0.0000001, 0.1, 0.2, 0.3)
 
 # Provide the Wold decomposition as input to the optimiser.
 gamma_pcs <- xi
@@ -1787,7 +1798,7 @@ box()
 # Population CCFs:
 #   - The positive beta CCFS overlap; the negative beta CCFs overlap too.
 #   - With positive beta (positive slope), the CCFs do increase from k = 0 
-#     to k = h, but remain largely negative and do not peak at k = h. 
+#     to k = h, but remain negative at k=h and do not peak at k = h. 
 #     The look-ahead objective is therefore not achieved in any meaningful sense.
 #
 # Note: for h = 1, PCS Types I and II are both feasible for this AR(2) DGP,
@@ -1823,8 +1834,9 @@ box()
 # retains the correct sign and exhibits meaningful look-ahead behaviour.
 lambda <- 1
 
-# Retain the same beta grid as in Exercise 4.
-beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)*100
+# Betas: 
+# Need to be larger to push the peak rightwards when lambda is medium-sized
+beta_vec <- c(-0.2, -0.1, 0, 0.1, 0.2, 0.3)*10
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2142,9 +2154,9 @@ ccf_mat["CCF at lead: 12",]-ccf_mat["CCF at lead: 11",]
 #
 # The two constraint types differ in how they address the CCF profile:
 #
-#   - Type II controls CCF(h) - CCF(h-1): setting beta = 0 is sufficient
-#     to produce a flat CCF at k = h, which is enough to locate the peak
-#     at the target horizon.
+#   - Type II (see exercise 6) controls CCF(h) - CCF(h-1): setting beta = 0 is 
+#     sufficient to produce a flat CCF at k = h, which is enough to locate 
+#     the peak at the target horizon.
 #
 #   - Type III controls CCF(h) - CCF(0): setting beta = 0 is not sufficient
 #     to shift the peak to k = h, because the constraint only anchors the
