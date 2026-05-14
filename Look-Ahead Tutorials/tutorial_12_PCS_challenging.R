@@ -1161,7 +1161,7 @@ box()
 #     assigned to the lag-0 observation as the target peak moves closer to
 #     the forecast horizon h = 12.
 
-@@@??? filter the data
+#@@@??? filter the data; try b1>0 to see if feasible with full Delta.
 
 
 # ══════════════════════════════════════════════════════════════════════════════
