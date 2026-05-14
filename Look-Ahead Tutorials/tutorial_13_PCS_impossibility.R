@@ -39,19 +39,20 @@
 #     a strictly positive CCF peak at lag k = h. This is an intrinsic property
 #     of the DGP, independent of the method used. See below for details.
 #
-#   - Infeasibility: No valid PCS solution exists within the proposed framework
-#     (Types I, II, and III; see below), but this does not imply that the
-#     problem is impossible. A solution may exist outside the proposed PCS
-#     framework.
+#   - Infeasibility: No valid PCS solution exists (case A or B applies) within 
+#     the proposed framework (Types I, II, and III; see below), but this does 
+#     not imply that the problem is impossible. A solution may exist outside 
+#     the proposed PCS framework(s).
 #
-#   - Feasibility: A valid PCS solution exists. However, feasibility does not
-#     guarantee that the resulting predictor achieves a CCF peak at k = h
+#   - Feasibility: A valid PCS solution exists; the constraints are satisfied 
+#     and the target correlation is positive: CCF(h) > 0. However, feasibility 
+#     does not guarantee that the resulting predictor achieves a CCF peak at k = h
 #     (in the sense of a global or local maximum), nor that the peak height
 #     is maximized at that lag. Notably, even an impossible problem may admit
 #     a feasible PCS solution — see, e.g., Exercise 1.
 #
 # This tutorial analyzes a simple impossible example within the framework of
-# Tutorial 9, based on an ARMA(1,1) process fitted to the monthly PAYEMS
+# Tutorials 9 and 12, based on an ARMA(1,1) process fitted to the monthly PAYEMS
 # employment (and business cycle) indicator (see Examples 1 and 2 below).
 #
 # We begin with a brief summary of the main PCS predictor typology, organized
@@ -64,7 +65,7 @@
 #   TYPE I — Monotonically Increasing CCF over {0, …, h}  [Most Restrictive]
 #
 #       The CCF must be strictly increasing across the full lag interval:
-#           CCF(k-1) < CCF(k)  for all k = 1, …, h.
+#           CCF(k) - CCF(k-1) = beta_k > 0  for all k = 1, …, h.
 #       See Wildi (2026), Section 3.2 and Appendix E.
 #       This condition is generally not exactly achievable (see Exercise 1).
 #       The principal PCS optimization function PCS_func() enforces it as
@@ -75,7 +76,7 @@
 #   TYPE II — Positive Local Slope at the Target Lag  [Weaker than Type I]
 #
 #       The CCF must be increasing over the final step only:
-#           CCF(h-1) < CCF(h).
+#           CCF(h) - CCF(h-1) = beta > 0.
 #       See Wildi (2026), Section 3.2.
 #       In cases where the DGP imposes additional structure (e.g., via the
 #       Yule-Walker equations of an AR(p) process), Types I and II may become
@@ -84,7 +85,7 @@
 #   TYPE III — Positive Average Slope from Lag 0 to Lag h  [Weaker than Type I]
 #
 #       The CCF must be increasing on average from k = 0 to k = h:
-#           CCF(0) < CCF(h).
+#           CCF(h) - CCF(0) = beta > 0.
 #       See Wildi (2026), Section 3.2.
 
 
