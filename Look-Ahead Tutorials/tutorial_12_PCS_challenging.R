@@ -2148,7 +2148,7 @@ length(which(abs(eigenvalues) > 1e-10))
 # profile responds to the slope target under this impossibility.
 
 Delta    <- 1:12
-lambda   <- 100000000
+lambda   <- 10^6
 
 # Automatic beta grid
 beta           <- 0
@@ -2281,54 +2281,99 @@ box()
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 7.6 Compare Forecasts
+# 7.6 Zoom Into The Regularized Criterion
 # ─────────────────────────────────────────────────────────────────────
-# All predictors are forced to misspecification and unusable.
+# Although the problem is infeasible, the regularized problem remains invertible and smooth. 
+# We here zoom in in a region where the solution smoothly changes from positive to negative solutions.
+
+
+# Improve the resolution for the above fixed lambda
+beta_vec           <- beta_vec_automatic /10
 
 
 
-#----------------------------------------------------------------------
-# 7.6.1 Apply Predictors to data
-#----------------------------------------------------------------------
-# All filters are defined in MA form (as applied to the einnovations eps_t 
-# in the Wold decomposition). Therefore we apply the filters to model residuals.
-x_filt   <- arima.obj$residuals
+b_mat <- NULL    # filter coefficients, one column per beta value
+
+for (i in seq_along(beta_vec)) {
+  
+  beta <- beta_vec[i]
+  
+  # Compute the Type I PCS predictor
+  PCS_obj <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda)
+  
+  b       <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat   <- cbind(b_mat, b)
+  
+  # Impossibility check: the deviations can be made very small. How is that possible?
+  # The answer is: beta is very small, and therefore the constraints can be tightened 
+  # by shrkinking the scale of be towards zero: the deviations are small because everything is zero-shrinked. 
+  print(abs(d_delta %*% b + beta))
+}
+
+# Let us rescale to unit-length:
+b_len<-sqrt(sum(b^2))
+# Now we see that the deviations are sizeable and cannot be reduced by increasing lambda.
+abs(d_delta %*% b + beta)/b_len
+
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 8))
 
 
-y_out_mat<-NULL
+# Assemble all filters (nowcast, MSE references, and PCS variants) into a
+# single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah, gammahtilde, b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("MSE(", htilde, ")"),
+                          paste0("PCS lambda=", lambda,
+                                 ", beta=", round(beta_vec, 2)))
+
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
+lwd_vec = c(2,2,2,rep(1,ncol(b_mat)))
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- scale(filter_mat,center=F,scale=T)
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],
+     lty = lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
 for (i in 1:ncol(filter_mat))
-  y_out_mat<-cbind(y_out_mat,filter(x_filt,filter_mat[, i], side = 1))
-colnames(y_out_mat) <- colnames(filter_mat)
-
-#----------------------------------------------------------------------
-# 7.6.2 Plot
-#----------------------------------------------------------------------
-
-par(mfrow = c(1, 1))
-mplot<-scale(y_out_mat,center=F,scale=T)
-# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
-ts.plot(mplot,
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
-        lty=c(2,2,rep(1,ncol(mplot)-2)),lwd=c(1,2,rep(1,ncol(mplot)-2)))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
 abline(h = 0)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],col=colo[i],line=-i)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
 
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], gamma_pcs)$cor_vec)
+mplot <- ccf_mat
 
-anf<-200
-enf<-250
-mplot<-scale(y_out_mat,center=F,scale=T)[anf:enf,]
-# Plot a representative excerpt (obs. 300–350) to compare predictor outputs visually
-ts.plot(mplot,
-        main = "Predictor Outputs", col = colo, xlab = "", ylab = "",
-        lty=c(2,2,rep(1,ncol(mplot)-2)),lwd=c(1,2,rep(1,ncol(mplot)-2)))
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],lty=lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
 abline(h = 0)
-for (i in 1:ncol(mplot))
-  mtext(colnames(mplot)[i],col=colo[i],line=-i)
-
-
-
-
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
 
 
 
