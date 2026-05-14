@@ -841,6 +841,9 @@ for (i in select_vec) {
 # Yearly Growth, i.e. convolution of ARMA(1,1) with equally-weighted MA(12).
 gamma_pcs <- gamma
 
+Delta  <- 1:h
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.1 Closed-Form PCS Based on PCS_closed_form_func()
@@ -1017,6 +1020,149 @@ box()
 #   constraint system is incompatible with achieving CCF(h) > 0 alongside
 #   an increasing slope, confirming the findings of Exercise 1.
 
+# However, out of curiosity, we could try to reduce the number of constraints.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.5 Reducing the Constraint Space
+# ─────────────────────────────────────────────────────────────────────────────
+
+# In comparison to 2.1 we here reduce the number of constraints from 12 to 11: 
+
+Delta  <- 1:(h-1)
+
+beta               <- 0
+Type_III           <- FALSE
+scaled_constraints <- FALSE
+high_resolution    <- TRUE
+
+PCS_obj  <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,
+                     Type_III, scaled_constraints, high_resolution)
+
+# We can sweep over either the manually constructed grid or the automatically
+# generated one. Here we use the automatic grid as the base, and augment it
+# with additional slope values at which the predictor changes
+# profile sharply (identified from prior inspection of the solution path).
+beta_vec_automatic <- PCS_obj$beta_vec
+beta_vec <- beta_vec_automatic
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.6 Reducing the Constraint Space
+# ─────────────────────────────────────────────────────────────────────────────
+
+b_closed_mat <- NULL   # filter coefficients, one column per beta value
+
+for (i in seq_along(beta_vec)) {
+  
+  beta <- beta_vec[i]
+  
+  # Compute the exact closed-form Type I PCS predictor.
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, lambda)
+  
+  b             <- PCS_obj$b
+  d_delta       <- PCS_obj$d_delta
+  b_closed_mat  <- cbind(b_closed_mat, b)
+  
+  # Constraint check: for a full-rank system the closed-form solution satisfies
+  # all constraints exactly, so residuals should be zero (up to machine
+  # precision).
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_closed_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.7 Routine Checks
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS Slope Constraints ───────────────────────────────────────────
+# Validated in the loop above: residuals are zero by construction for the
+# closed-form solution.
+
+# ── Check 2: Sign / Orientation Preservation ─────────────────────────────────
+# The PCS solutions are more robust against trend inversion: large beta are required to change sign: 
+apply(b_closed_mat, 2, sum)
+
+# ── Check 3: Positive Target Covariance ──────────────────────────────────────
+# The PCS solutions are also more robust against negative target correlation:
+t(b_closed_mat) %*% gammah
+
+# Assemble all filters (nowcast, MSE references, and closed-form PCS variants)
+# into a single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah, gammahtilde, b_closed_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("MSE(", htilde, ")"),
+                          paste0("Closed-form PCS, beta=",
+                                 round(beta_vec, 2)))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.8 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
+lwd_vec = c(2,2,2,rep(1,ncol(b_mat)))
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- scale(filter_mat,center=F,scale=T)
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],
+     lty = lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_closed_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_closed_mat <- cbind(ccf_closed_mat,
+                          compute_acf_at_lags_zero_delta_func(
+                            max_lag, h, filter_mat[, i], gamma_pcs)$cor_vec)
+mplot <- ccf_closed_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],lty=lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# CCFs (right panel):
+#   - The Type I PCS problem with 11 constraints (Delta = 1:11) is feasible:
+#     the CCF peak reaches k = h - 1 = 11 while maintaining CCF(h) > 0,
+#     confirming that a partial but genuine rightward shift is achievable
+#     within the yearly-growth GDP structure.
+
+# Filter weights (left panel):
+#   - The filter profiles corresponding to a CCF peak at k = 11 (blue tones)
+#     exhibit clear look-ahead behavior: progressively more weight is
+#     assigned to the lag-0 observation as the target peak moves closer to
+#     the forecast horizon h = 12.
+
+@@@??? filter the data
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN OUTCOME — Exercises 1 and 2
@@ -1025,7 +1171,8 @@ box()
 # In both exercises the predictors are flawed and unusable. Imposing a rigid,
 # high-dimensional Type I constraint system severely impairs forecast
 # performance at horizon h. The resulting predictors are unsuitable for any
-# practical look-ahead application.
+# practical look-ahead application. Removing a constraint made the problem 
+# feasible but with mitigated look ahead sucess. 
 #
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2220,7 +2367,7 @@ colnames(filter_mat) <- c("Nowcast",
                           paste0("MSE(", h, ")"),
                           paste0("MSE(", htilde, ")"),
                           paste0("PCS lambda=", lambda,
-                                 ", beta=", round(beta_vec, 2)))
+                                 ", beta=", round(beta_vec, 8)))
 
 # ─────────────────────────────────────────────────────────────────────
 # 7.5 Plots and Performance Summary
@@ -2284,12 +2431,15 @@ box()
 # 7.6 Zoom Into The Regularized Criterion
 # ─────────────────────────────────────────────────────────────────────
 # Although the problem is infeasible, the regularized problem remains invertible and smooth. 
-# We here zoom in in a region where the solution smoothly changes from positive to negative solutions.
+# We here zoom in in a region where the solution smoothly changes from sign preverting 
+# to sign reverting solutions.
 
 
 # Improve the resolution for the above fixed lambda
-beta_vec           <- beta_vec_automatic /10
+beta_vec_original           <- beta_vec_automatic /10
 
+# Increase the resolution at the passage from + to -
+beta_vec<-c(beta_vec_original[1:11],1.8e-06,1.9e-06,2e-06,2.1e-06,2.2e-06,2.3e-06,beta_vec_original[12:length(beta_vec_original)])
 
 
 b_mat <- NULL    # filter coefficients, one column per beta value
@@ -2376,6 +2526,24 @@ axis(2)
 box()
 
 
+# Filter weights (left panel):
+#   - None of the above designs yields a usable look-ahead predictor; none 
+#     leads the MSE predictor.
+#   - The regularised criterion always provides a smooth solution of
+#     continuity between the two extreme designs (see Tutorials 13 and 14
+#     for additional background). However, very large lambda render the design 
+#     nearly singular and numerical computations more difficult (than strictly 
+#     necessary).
+
+# CCFs (right panel):
+#   - Although the Type I problem is infeasible for this ARMA(1,1) DGP,
+#     the CCF peak shifts from k = 0 (red to green tones)
+#     toward k = 1 (cyan to violet tones) as beta increases. This unit
+#     shift is the maximum rightward displacement achievable under the
+#     rank-2 ARMA(1,1) structure (assuming b1 < 0), confirming the
+#     structural impossibility of genuine look-ahead beyond lag 1. Low-rank  
+#     problems will be discussed in Tutorial 13 and solutions are presented in 
+#     Tutorial 14.
 
 
 
@@ -2395,14 +2563,15 @@ box()
 
 
 
+# Main take aways:
 
 
-
-# Forecasting the ARMA(1,1) poses an impossible look ahead problem: the CCF peak 
+# -Forecasting the ARMA(1,1) poses an impossible look ahead problem: the CCF peak 
 # cannot be shifted at h>1.
 
-# Applying an equally-weighted trend specification (yearly growth) allowed to expand 
-# the rank 2 to a rank 12 constraint system. The peak of the CCF could be shifted towards 
+# -Applying an equally-weighted trend specification (yearly growth) allowed to expand 
+# the rank 2 to a rank 13 constraint system. The peak of the CCF could still not be shifted to 
+#  k=h=12 (but be shifted towards 
 # k > 2 but it is still impossible to shift further away than h=12.
 
 
