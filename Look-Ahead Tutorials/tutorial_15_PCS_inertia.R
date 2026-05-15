@@ -2,137 +2,188 @@
 # TUTORIAL 15 — EXPLOITING CCF INERTIA
 # ═══════════════════════════════════════════════════════════════════
 
-# This tutorial reexamines the forecasting problem in Tutorial 12 and provides 
-# a novel approach towards resolving the look ahead problem. The forecast 
-# problem is challenging 
-# 1. The MSE-optimal predictor is "stuck" at a horizon h̃ < h: the cross-correlation
-# function (CCF) of the predictor cannot be pushed further toward the target
-# horizon h beyond h̃ 
-# 2. Attempts of displacing the peak of the CCF further to the right of the MSE predictor 
-#   partly failed because the PCS (Type I) constraints conflicted with the internal structure
-#   of the DGP.
-# We here briefly replicate exercises 1 and 2 of Tutorial 12, analyze the look ahead problem 
-# and identify a feature of the DGP, that we call "inertia of the CCF". This inertia 
-# renders the original PCS Type I problem infeasible. 
-# In this Tutorial we then exploit CCF inertia to recover look ahead behaviour of the predictor.
+# This tutorial reexamines the forecasting problem introduced in Tutorial 12
+# and presents a novel approach to resolving the look-ahead problem.
 
-# We here assume knowledge of Tutorial 12 but briefly summarize PCS Type I) approach:
+# ── Challenging Forecast Problem ──────────────────────────────────────────────
+#
+# The forecasting problem is challenging for three interconnected reasons:
+#
+#   1. The MSE-optimal predictor is "stuck" at horizon h = 12: selecting
+#      h_tilde > 12 does not affect the predictor up to scaling, so extending
+#      the forecast horizon yields no additional predictive information.
+#
+#   2. The CCF of the MSE predictor peaks at lag k = 4, which lies significantly
+#      to the left of the intended forecast horizon h = 12. This misalignment
+#      indicates that the predictor draws most of its explanatory power from
+#      short lags rather than from the target horizon, leaving substantial room
+#      for look-ahead improvement. A predictor whose CCF peak is shifted
+#      rightward toward h = 12 would more directly target the intended forecast
+#      horizon and is therefore a potentially meaningful — though not necessarily
+#      realisable — objective.
+#
+#   3. Attempts to displace the CCF peak further to the right via a PCS Type I
+#      constraint partly fail, because the linear-growth assumption underlying
+#      Type I conflicts with the internal structure of the DGP, leading to
+#      heavily misspecified and ultimately unusable predictors (see Tutorial 12).
+#
+# The formal background — including the DGP specification, the PCS framework,
+# and the constraint types — is not repeated here. The reader is referred to
+# Tutorial 12 and the comprehensive introduction for full details.
 
+# ── CCF Inertia ───────────────────────────────────────────────────────────────
+#
+# We briefly replicate Exercise 2 of Tutorial 12 — which derives the closed-form
+# solution to the PCS Type I problem — and use it as a diagnostic tool to analyse
+# the look-ahead problem in depth. Building on this analysis, we identify specific
+# structural features of the DGP that, rather than hindering look-ahead behaviour,
+# can be exploited to achieve it more effectively than the original Type I
+# formulation allows.
+#
+# Key observations:
+#
+#   - Imposing a linear-growth Type I PCS constraint at k = 1, …, 12 encodes a
+#     strong misspecification and biases the PCS toward unusable predictors
+#     (see Exercises 1 and 2 in Tutorial 12).
+#
+#   - In contrast, imposing the single constraint CCF(1) - CCF(0) = beta is
+#     feasible. For h = 1 this constraint coincides with Type I, II, and III
+#     simultaneously, making it a natural and parsimonious starting point.
+#
+#   - Imposing a single constraint avoids the linear-growth assumption of Type I,
+#     which is a strong misspecification in the considered forecasting problem.
+#     Moreover, retaining 12 of the 13 available degrees of freedom for
+#     optimisation allows the solver to maximise the target correlation CCF(h)
+#     at h = 12 as effectively as possible. The resulting predictor is therefore
+#     efficient in a well-defined sense: the minimum number of constraints
+#     necessary to induce the desired look-ahead behaviour is imposed, and all
+#     remaining degrees of freedom are invested in maximising predictive accuracy
+#     at the target horizon.
+#
+#   - Two structural features of the DGP are of particular interest:
+#       1. For k > 12, the CCF slope CCF(k+1) - CCF(k) decays exponentially
+#          (see Tutorial 12), so the CCF is guaranteed to turn downward beyond
+#          the forecast horizon h = 12.
+#       2. Consecutive CCF slopes CCF(k) - CCF(k-1) and CCF(k+1) - CCF(k)
+#          cannot differ arbitrarily — a property referred to as CCF inertia —
+#          meaning the slope function changes smoothly across lags.
+#
+#   - Exploiting CCF inertia proceeds in four steps:
+#       i)   Setting beta > 0 imposes CCF(1) - CCF(0) = beta > 0, introducing
+#            an upward kick in the CCF slope at the shortest lags.
+#       ii)  For k > 12, the DGP structure forces CCF(k+1) = a1 * CCF(k) < CCF(k)
+#            (assuming positivity), so the CCF must eventually decay exponentially
+#            regardless of the constraint imposed at lag k = 1.
+#       iii) Given (i) and (ii), CCF inertia implies that CCF(k) for k = 2, …, 12
+#            must trace a smooth, continuous path between the initial upward kick
+#            at lags 0–1 and the exponentially decaying profile at lags k > 12,
+#            thereby inducing a genuine rightward shift of the CCF peak.
+#       iv)  This mechanism can be understood via the mean-value theorem: the
+#            slope function CCF(k) - CCF(k-1) is continuous in k (by inertia),
+#            starts positive at k = 1, and must turn negative for k > 12.
+#            It must therefore cross zero somewhere in the interval k = 1, …, 13,
+#            and this zero-crossing marks the peak of the CCF. Crucially, the
+#            larger the initial slope at k = 1 (controlled by beta > 0), the
+#            further to the right the zero-crossing — and hence the CCF peak —
+#            will be located.
 
+# ── Summary ───────────────────────────────────────────────────────────────────
+#
+#   - Larger admissible values of beta push the CCF peak progressively further
+#     to the right, generating look-ahead behaviour that extends beyond the MSE
+#     benchmark, whose CCF peak is structurally bounded at lag k = 4.
+#
+#   - At the same time, the single constraint imposed at k = 1 is minimally
+#     invasive: by leaving 12 of the 13 available degrees of freedom free for
+#     optimisation, it allows the solver to maximise the target correlation CCF(h)
+#     at h = 12 as effectively as possible, ensuring that look-ahead improvement
+#     is not achieved at the cost of a large reduction in predictive accuracy.
+#
+#   - While the rigid DGP structure renders a classic Type I constraint
+#     ineffective, this very structure can be exploited to turn an apparent
+#     disadvantage into an advantage: by imposing a single well-chosen constraint
+#     and leveraging CCF inertia, genuine and effective look-ahead behaviour can
+#     still be achieved.
 
+# ── Tutorial Structure ────────────────────────────────────────────────────────
+#
+# This tutorial exploits CCF inertia to recover look-ahead behaviour. Knowledge
+# of Tutorial 12 is assumed; the PCS Type I approach is briefly summarised
+# below for convenience.
 
+# ── PCS Type I Constraint ─────────────────────────────────────────────────────
+#
 #   TYPE I — Monotonically Increasing CCF over {0, …, h}  [Most Restrictive]
 #
-#       The CCF must be strictly increasing across the full lag interval:
-#           CCF(k) - CCF(k-1) = beta_k > 0  for all k = 1, …, h.
-#       See Wildi (2026), Section 3.2 and Appendix E.
-#       This condition is generally not exactly achievable (see Exercise 1).
+#     The CCF must be strictly increasing across the full lag interval:
+#       CCF(k) - CCF(k-1) = beta_k > 0   for all k = 1, …, h.
+#     See Wildi (2026), Section 3.2 and Appendix E.
+#     This condition is generally not exactly achievable (see Exercise 1).
+#
+#   Type I:   CCF(k) > CCF(k-1)   for k = 1, …, h   (h constraints)
+
+# ── Exercise Overview ─────────────────────────────────────────────────────────
+#
+#   Exercise 1 — Replicates Tutorial 12 (Exercise 2): derives the closed-form
+#     solution when imposing all 12 Type I constraints simultaneously. The
+#     constraint system has rank 13 (i.e. 13 independent constraints can be
+#     enforced), leaving only one degree of freedom for optimisation — which is
+#     insufficient to produce usable predictors, because the linear CCF-growth
+#     assumption conflicts strongly with the DGP.
+#
+#   Exercise 2 — Exploits CCF inertia: a single initial constraint
+#     CCF(1) - CCF(0) = beta > 0 is imposed, and the CCF peak is allowed to
+#     shift rightward as beta increases. Retaining only one constraint leaves
+#     12 degrees of freedom available for target-correlation maximisation.
+#
+#   Exercise 3 — Analyses the boundary case in which all 13 independent
+#     constraints of the rank-13 system are imposed simultaneously (i.e. the
+#     constraint system is fully exhausted), leaving no room for optimisation
+#     beyond the choice of sign.
 #
 
-
-# ── CONSTRAINT SUMMARY ────────────────────────────────────────────────────────
+# ── Main Take-Aways ───────────────────────────────────────────────────────────
 #
-#   Type I:   CCF(k) > CCF(k-1)  for k = 1, …, h  (h constraints)
+# The findings extend and complement those of Tutorial 12. The main points are
+# summarised below.
 #
-
-
-
-# ── EXERCISES AND PCS TYPES ───────────────────────────────────────────────────
+#   1. The principal novelty of this tutorial is the recognition and exploitation
+#      of two salient structural features of the DGP: CCF smoothness (inertia)
+#      and the exponential decay profile for k > 12. Together, these properties
+#      can be leveraged to shift the CCF peak rightward beyond lag k = 4 — the
+#      maximum achievable under the MSE predictor — without resorting to the
+#      heavily misspecified Type I constraint system.
 #
-# The exercises below progressively explore the impact of PCS type and
-# regularization strength on look-ahead behavior in this challenging setting.
+#   2. The proposed strategy is generic: it can be applied to any DGP whose
+#      tight structural constraints admit a similar combination of smoothness
+#      and eventual decay in the CCF slope beyond a certain lag.
 #
-# Exercise 1 — Type I PCS with Strong Regularization:
-#   Placing a large regularization weight on the full set of 12 Type I
-#   constraints assigns excessive importance to potentially misspecified
-#   restrictions, at the direct expense of the target correlation. The
-#   resulting predictors are either unusable (e.g., negative target
-#   correlation) or exhibit no usable look-ahead behavior.
+# The following take-aways from Tutorial 12 remain fully applicable here and
+# provide the broader methodological context:
 #
-# Exercise 2 — Exact Closed-Form Type I PCS:
-#   Replacing regularized Type I PCS with its exact closed-form counterpart
-#   enforces the constraints without any relaxation, further suppressing the
-#   target correlation and worsening results relative to Exercise 1.
-#
-# Exercise 3 — Type I PCS with Relaxed Regularization:
-#   Reducing the regularization weight lambda on the high-dimensional (12-)
-#   constraint system restores degrees of freedom for maximizing the target
-#   correlation, yielding predictors with usable look-ahead behavior, despite 
-#   the problem being infeasible.
-#
-# Exercise 4 — Type III PCS with Strong Regularization:
-#   Replacing the 12 Type I constraints with the single Type III constraint
-#   CCF(h) - CCF(0) = beta concentrates the available degrees of freedom on
-#   the target correlation. The problem is feasible and even under strong 
-#   regularization, the resulting predictors exhibit usable look-ahead behavior.
-#
-# Exercise 5 — Type II PCS with Strong Regularization:
-#   The single Type II constraint CCF(h) - CCF(h-1) = beta reduces the
-#   constraint space to a single equation, making the problem formally feasible.
-#   However, Type II proves less effective than Type III at inducing genuine
-#   look-ahead behavior in this challenging setting.
-#
-#   Specifically, designs for which CCF(h) - CCF(h-1) is positive — which would
-#   nominally suggest look-ahead — turn out to fall into one of two problematic
-#   categories:
-#     (a) Sign-inverted predictors: CCF(h) > CCF(h-1) is achieved by flipping
-#         the sign of the output, rendering the predictor directionally unusable.
-#     (b) Effectively lagging predictors: the CCF peak lies to the left of
-#         k = h rather than at or near it, so the predictor lags behind the
-#         target rather than anticipating it.
-#   In both cases the outcome is difficult to interpret and provides no practical
-#   look-ahead benefit, in contrast to the Type III results of Exercise 4.
-#
-# Exercise 6 — Type II PCS: Exact Closed-Form Solution:
-#   The exact closed-form solution corroborates the findings of Exercise 5,
-#   confirming that the problem is feasible and that the strongly regularized 
-#   solution (large regularization weight lambda) converges to the closed-form 
-#   expression in which the Type II constraint is satisfied exactly rather than 
-#   approximately.
-#
-# Exercise 7 — Impossible Problem: Monthly DGP:
-#   Switching to monthly data reduces the DGP to the raw ARMA(1,1), whose
-#   rigid autocorrelation structure imposes severe constraints on any
-#   look-ahead design. In this setting the CCF peak cannot be displaced
-#   beyond k = 1, regardless of the PCS type or hyperparameter configuration,
-#   rendering a one-year-ahead look-ahead forecast structurally impossible. 
-#   This problem is emphasized in Tutorial 13 and solutions are proposed in 
-#   Tutorial 14.
-
-
-# ── MAIN TAKE-AWAYS ───────────────────────────────────────────────────────────
-#
-# These exercises illustrate the complexity of the look-ahead problem within
-# the PCS framework, whose rich structure can produce surprising or
-# counter-intuitive results. The principal lessons are:
-#
-#   1. Over-emphasizing high-dimensional, potentially misspecified constraints
-#      — whether through strong regularization or exact closed-form solutions —
+#   1. Over-emphasising high-dimensional, potentially misspecified constraints
+#      — whether through strong regularisation or exact closed-form solutions —
 #      comes at the direct expense of the target correlation, yielding unusable
-#      predictors or predictors with no look-ahead behavior.
+#      predictors or predictors with no look-ahead behaviour.
 #
-#   2. Relaxing the constraint space frees degrees of freedom for maximizing
+#   2. Relaxing the constraint space frees degrees of freedom for maximising
 #      the target correlation, and is generally necessary to obtain effective
-#      look-ahead behavior in difficult forecasting problems.
+#      look-ahead behaviour in difficult forecasting problems.
 #
-#   3. Relaxation can be achieved in two complementary ways:
-#        (a) Reducing the number of constraints, e.g., using Type II or
-#            Type III instead of Type I.
-#        (b) Reducing the regularization weight placed on the constraints,
-#            allowing the optimizer greater freedom to pursue the target
+#   3. Relaxation can be achieved in at least two complementary ways:
+#        (a) Reducing the number of constraints, e.g., using a single slope
+#            constraint rather than the full Type I system, or switching to
+#            the less restrictive Type II or Type III formulations.
+#        (b) Reducing the regularisation weight placed on the constraints,
+#            allowing the optimiser greater freedom to pursue the target
 #            correlation.
 #
-#   4. Reducing the number of constraints is not universally effective: the
-#      choice of which single constraint to impose matters considerably.
-#      In Tutorials 10 and 11, Type II PCS performed best — precisely shifting the 
-#      CCF peak to the forecast horizon h with minimal obstruction to the target
-#      correlation. In the present, more challenging setting, Type II PCS is
-#      less effective and produces partially unexpected, difficult-to-interpret
-#      outcomes (see exercises 5 and 6 below). Type III, which is equally 
-#      parsimonious, provides more effective control over the CCF peak location 
-#      in this example and avoids an undue negative impact on the target 
-#      correlation.
-
+#   4. A third, structurally motivated route to effective relaxation is
+#      proposed in this tutorial: rather than weakening the constraint system
+#      directly, one exploits inherent properties of the DGP — CCF inertia
+#      and exponential slope decay — to guide a single, well-chosen constraint
+#      toward genuine and efficient look-ahead behaviour.
+#
 
 # ════════════════════════════════════════════════════════════════════════════════
 # ── BACKGROUND / REFERENCES ──────────────────────────────────────────────────
@@ -143,9 +194,6 @@
 #     https://doi.org/10.48550/arXiv.2602.23087
 #
 # ════════════════════════════════════════════════════════════════════════════════
-
-
-
 
 
 
@@ -175,13 +223,14 @@ library(alfred)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # EXERCISE 1 — Monthly US Employment:
-# Equally Weighted Trend, PCS Type I with Strong Regularization
+# Equally Weighted Trend, PCS Type I Closed-Form Solution
 # ════════════════════════════════════════════════════════════════════════════════
-# We adopt the framework from Tutorials 12: an ARMA(1,1) model fitted to
+
+# We adopt the framework from Tutorial 12: an ARMA(1,1) model fitted to
 # the monthly PAYEMS employment indicator. We then consider forecasting of yearly 
-# growth one year ahead.
-
-
+# growth one year ahead. We rely on PCS Type I, imposing a linear slope to 
+# CCF(k), k=1,...,12 and derive the exact closed-form PCS solution, see equations 
+# 47 and 48, Wildi (2026). 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.1 Load the Data
@@ -283,7 +332,7 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
 # One-year-ahead forecast horizon.
 h      <- 12
 # Larger horizon retained for benchmarking purposes: htilde > h does not shift 
-# the CCF peak further to the right.
+# the CCF peak further to the right: the MSE predictor is "stuck at horizon 12".
 htilde <- 24
 
 
@@ -349,57 +398,68 @@ eigenvalues <- eigen(gamma_mat)$values
 length(which(abs(eigenvalues) > 10^{-10}))
 
 # Implications PCS type I with h = 12:
-#     Strong regularization causes the 12-dimensional constraint system to
-#     absorb all but one degree of freedom. Only one degree of freedom remains
-#     to maximize the target correlation, severely limiting look-ahead potential.
-
-
-
+#     The closed-form solution absorbs all but one degree of freedom. Only one 
+#     degree of freedom remains to maximize the target correlation, severely 
+#     limiting look-ahead potential: the predictors are unusable.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1.6 Hyperparameters
+# 1.6 Set-Up PCS: Hyperparameters
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Twelve constraints at lags 1,...,12
 Delta  <- 1:h
 
+# Determine a grid of potentially interesting beta (slope) values. 
+# Selecting informative beta values manually can be difficult. PCS_func()
+# addresses this by automatically constructing a candidate grid concentrated
+# around the tipping point of the PCS optimization — the region where the
+# predictor reacts most sensitively to small changes in beta. Screening
+# solutions in this neighbourhood often provides the sharpest insight into the
+# structure of the optimization problem.
 
 beta               <- 0
 Type_III           <- FALSE
 scaled_constraints <- FALSE
 high_resolution    <- T
+lambda<-10^6
 
 PCS_obj  <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,
                      Type_III, scaled_constraints, high_resolution)
 
-# We can sweep over either the manually constructed grid or the automatically
-# generated one. Here we use the automatic grid as the base, and augment it
+# We use the automatic grid as the base, and augment it
 # with additional slope values at which the predictor changes
 # profile sharply (identified from prior inspection of the solution path).
 beta_vec_automatic <- PCS_obj$beta_vec
 beta_vec_automatic <- PCS_obj$beta_vec
 
-# Refine locally grid resolution
+# Refine locally grid resolution: beta_vec collects all relevant beta values 
 beta_vec <- c(beta_vec_automatic[1],
               -8e-05, -4e-05, -3e-05, -2e-05,
               beta_vec_automatic[2:length(beta_vec_automatic)])
+
+# Note: no regularisation parameter lambda needs to be specified here, since the
+# closed-form solution provided by PCS_closed_form_func() is used directly
+# (see loop below). The closed-form approach bypasses the need for weighting the 
+# constraints and renders lambda caduc in this instance.
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.7 Run Closed-Form PCS
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-b_closed_mat <- NULL   # filter coefficients, one column per beta value
+b_mat <- NULL   # filter coefficients, one column per beta value
 
 for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
   
   # Compute the exact closed-form Type I PCS predictor.
-  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, lambda)
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
   
   b             <- PCS_obj$b
   d_delta       <- PCS_obj$d_delta
-  b_closed_mat  <- cbind(b_closed_mat, b)
+  b_mat  <- cbind(b_mat, b)
   
   # Constraint check: for a full-rank system the closed-form solution satisfies
   # all constraints exactly, so residuals should be zero (up to machine
@@ -407,11 +467,11 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-colnames(b_closed_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
+colnames(b_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
 
 # Assemble all filters (nowcast, MSE references, and closed-form PCS variants)
 # into a single matrix for joint plotting and comparison.
-filter_mat <- cbind(gamma0, gammah, gammahtilde, b_closed_mat)
+filter_mat <- cbind(gamma0, gammah, gammahtilde, b_mat)
 colnames(filter_mat) <- c("Nowcast",
                           paste0("MSE(", h, ")"),
                           paste0("MSE(", htilde, ")"),
@@ -449,12 +509,12 @@ box()
 # ── Right panel: population CCFs ─────────────────────────────────────
 # Vertical lines mark lag 0 (solid) and lag h (dashed).
 max_lag<-0
-ccf_closed_mat <- NULL
+ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
-  ccf_closed_mat <- cbind(ccf_closed_mat,
+  ccf_mat <- cbind(ccf_mat,
                           compute_acf_at_lags_zero_delta_func(
                             max_lag, h, filter_mat[, i], gamma_pcs)$cor_vec)
-mplot <- ccf_closed_mat
+mplot <- ccf_mat
 
 plot(mplot[, 1],
      main = "Population CCFs: MSE and PCS variants",
@@ -470,17 +530,18 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
+
 # Filter weights (left panel):
 #   - The rank of the constraint system is 13, in principle allowing up to 13
-#     linearly independent constraints to be imposed simultaneously. However,
-#     the constant-slope Type I constraints strongly conflict with the DGP
-#     structure and are therefore misspecified. As a result, the filter
-#     profiles are irregular and difficult to interpret.
+#     linearly independent constraints to be imposed simultaneously (see 
+#     exercise 3 below). However, the constant-slope Type I constraints strongly 
+#     conflict with the DGP structure and are therefore misspecified. As a 
+#     result, the filter profiles are irregular and difficult to interpret.
 #
 # CCFs (right panel):
-#   - A monotonically increasing CCF (positive beta) is only achievable
-#     through sign inversion of the filter, causing the target correlation
-#     CCF(h) to turn negative and rendering the predictor unusable.
+#   - A monotonically increasing CCF (positive beta) from k=0 to k=12 is only 
+#     achievable through sign inversion of the filter, causing the target 
+#     correlation CCF(h) to turn negative and rendering the predictor unusable.
 #   - The DGP structure fundamentally conflicts with a linearly increasing
 #     CCF constraint: the Type I problem is therefore misspecified for this
 #     ARMA(1,1) DGP.
@@ -494,9 +555,8 @@ box()
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# EXERCISE 2 —  CCF Inertia
+# EXERCISE 2 —  Exploiting CCF Inertia
 # ════════════════════════════════════════════════════════════════════════════════
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises the
@@ -524,8 +584,9 @@ box()
 #          lags k > 12, thereby inducing a genuine rightward shift of the
 #          CCF peak.
 # - Larger admissible beta values push the peak progressively further to the
-#   right, generating look-ahead behavior beyond the MSE benchmark, whose
-#   peak is structurally bounded at MSE(12).
+#   right (though no further than k=12), generating look-ahead behavior beyond 
+#   the MSE benchmark, whose peak is structurally bounded by k = 4 (achieved 
+#   by MSE(12)).
 
 # While the rigid DGP structure renders a classic Type I constraint
 # ineffective, this very structure can be exploited to turn an apparent
@@ -536,7 +597,6 @@ box()
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.1 PCS Set-Up: Hyperparameter Setting
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 # DGP specification as in exercise 1: yearly growth, i.e., the convolution of the ARMA(1,1)
 # Wold decomposition with the equally-weighted MA(12) target filter.
@@ -561,6 +621,7 @@ PCS_obj <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,
 
 # Use the automatically generated grid as the base for subsequent optimisation.
 beta_vec_automatic <- PCS_obj$beta_vec
+# Focus on a finer grid (divide the original grid-values by 2)
 beta_vec           <- beta_vec_automatic/2
 
 
@@ -570,18 +631,18 @@ beta_vec           <- beta_vec_automatic/2
 # 2.2 Closed-Form PCS Based on PCS_closed_form_func()
 # ─────────────────────────────────────────────────────────────────────────────
 
-b_closed_mat <- NULL   # filter coefficients, one column per beta value
+b_mat <- NULL   # filter coefficients, one column per beta value
 
 for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
   
   # Compute the exact closed-form Type I PCS predictor.
-  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, lambda)
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
   
   b             <- PCS_obj$b
   d_delta       <- PCS_obj$d_delta
-  b_closed_mat  <- cbind(b_closed_mat, b)
+  b_mat  <- cbind(b_mat, b)
   
   # Constraint check: for a full-rank system the closed-form solution satisfies
   # all constraints exactly, so residuals should be zero (up to machine
@@ -589,7 +650,7 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-colnames(b_closed_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
+colnames(b_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -602,17 +663,18 @@ colnames(b_closed_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
 
 # ── Check 2: Sign / Orientation Preservation ─────────────────────────────────
 # The Predictor is much more robust to trend inversion: much larger beta values 
-# are required to eventually drive the predictor into trend/level inversion:
-apply(b_closed_mat, 2, sum)
+# are required to eventually drive the predictor into trend (or fixed level) 
+# inversion:
+apply(b_mat, 2, sum)
 
 # ── Check 3: Positive Target Covariance ──────────────────────────────────────
 # In contrast to exercise 1, the target correlations remain positive for all 
 # selected beta >  0 (no misspecification).
-t(b_closed_mat) %*% gammah
+t(b_mat) %*% gammah
 
 # Assemble all filters (nowcast, MSE references, and closed-form PCS variants)
 # into a single matrix for joint plotting and comparison.
-filter_mat <- cbind(gamma0, gammah, gammahtilde, b_closed_mat)
+filter_mat <- cbind(gamma0, gammah, gammahtilde, b_mat)
 colnames(filter_mat) <- c("Nowcast",
                           paste0("MSE(", h, ")"),
                           paste0("MSE(", htilde, ")"),
@@ -649,12 +711,12 @@ box()
 # ── Right panel: population CCFs ─────────────────────────────────────
 # Vertical lines mark lag 0 (solid) and lag h (dashed).
 max_lag<-0
-ccf_closed_mat <- NULL
+ccf_mat <- NULL
 for (i in 1:ncol(filter_mat))
-  ccf_closed_mat <- cbind(ccf_closed_mat,
+  ccf_mat <- cbind(ccf_mat,
                           compute_acf_at_lags_zero_delta_func(
                             max_lag, h, filter_mat[, i], gamma_pcs)$cor_vec)
-mplot <- ccf_closed_mat
+mplot <- ccf_mat
 
 plot(mplot[, 1],
      main = "Population CCFs: MSE and PCS variants",
@@ -670,25 +732,28 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
+
 # Filter weights (left panel):
-#   - Negative beta values induce a misspecification at lags k = 0 and k = 1.
+#   - Negative beta values induce a misspecification at early lags k = 0 and k = 1.
 #     The corresponding predictors have irregular, uninterpretable profiles
-#     and are unusable in practice (red to green tones).
+#     and are unusable in practice (red to cyan tones).
 #   - Positive beta values produce an interpretable and structured predictor
 #     profile: an initial AR(1)-like decay is followed by a discontinuity
-#     that progressively removes weight from higher lags (cyan to violet tones).
+#     that progressively removes weight from higher lags (blue to violet tones).
 #   - As beta increases further, the weights assigned to higher lags
-#     eventually turn negative (blue to violet tones), reflecting the growing
-#     tension between the imposed beta kick to the CCF at the shortest lags
+#     eventually turn negative (violet tones), reflecting the growing
+#     tension between the imposed `beta kick' to the CCF at the shortest lags
 #     and the structural exponential decay enforced by the DGP at lags k > 12.
 #
 # CCFs (right panel):
-#   - Negative initial beta kicks (red to orange tones) are misspecified,
+#   - Negative initial `beta kicks' (red to cyan tones) are misspecified,
 #     pushing the target correlation CCF(h) toward zero and eventually below
 #     it, rendering the corresponding predictors unusable.
 #   - Increasing positive beta values shift the CCF peak progressively to
 #     the right of the MSE benchmark, generating genuine look-ahead behavior
 #     in the PCS designs.
+#   - Imposing a single constraint leaves more room for maximizing the target 
+#     correlation CCF(h), which is positive for all selected positive beta.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.5 Compare Forecasts
@@ -776,7 +841,7 @@ for (i in 1:ncol(mplot))
 # horizon h) as beta increases, confirming that the single Type III PCS
 # constraint successfully advances the predictor. 
 par(mfrow = c(2, 2))
-select_vec<-c(2,15,17,19)
+select_vec<-c(2,16,18,20)
 for (i in select_vec) {
   ccf(na.exclude(y_out_mat[, 1]),
       na.exclude(y_out_mat[, i]),
@@ -784,12 +849,180 @@ for (i in select_vec) {
       main = paste0("Nowcast vs. ", colnames(y_out_mat)[i]))
 }
 
-
-
-
+# Out of curiosity, we now examine the exact closed-form solution when ALL
+# degrees of freedom of the constraint system (rank 13) are fully exhausted.
+# To this end, we impose a Type I PCS with 13 constraints, leaving no room
+# for optimisation (beyond eventually the sign of the solution in this example).
 
 
 
 # ════════════════════════════════════════════════════════════════════════════════
 # EXERCISE 3 — Exhausting the Constraint System: Impose 13 Constraints
 # ════════════════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.1 PCS Set-Up: Hyperparameter Setting
+# ─────────────────────────────────────────────────────────────────────────────
+
+# DGP specification as in Exercise 1: yearly growth, i.e., the convolution of
+# the ARMA(1,1) Wold decomposition with the equally-weighted MA(12) target filter.
+gamma_pcs <- gamma
+
+# Novelty: impose 13 constraints, fully exhausting the rank-13 constraint
+# system. With no degrees of freedom left for optimisation, the solution is
+# uniquely determined (up to sign) by the constraints alone.
+Delta <- 1:(h+1)
+
+# Automatically generate a grid of interesting beta values via PCS_func().
+beta               <- 0
+Type_III           <- FALSE
+scaled_constraints <- FALSE
+high_resolution    <- FALSE
+
+PCS_obj <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,
+                    Type_III, scaled_constraints, high_resolution)
+
+# Use the automatically generated grid, scaled down to focus on central points.
+beta_vec_automatic <- PCS_obj$beta_vec
+beta_vec           <- beta_vec_automatic / 2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.2 Closed-Form PCS Based on PCS_closed_form_func()
+# ─────────────────────────────────────────────────────────────────────────────
+
+b_mat <- NULL   # filter coefficients, one column per beta value
+
+for (i in seq_along(beta_vec)) {
+  
+  beta <- beta_vec[i]
+  
+  # Compute the exact closed-form Type I PCS predictor.
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
+  
+  b      <- PCS_obj$b
+  d_delta <- PCS_obj$d_delta
+  b_mat  <- cbind(b_mat, b)
+  
+  # Constraint check: for a full-rank system the closed-form solution satisfies
+  # all constraints exactly; residuals should be zero up to machine precision.
+  # Note: the problem is challenging and the magnitude of the deviations are 
+  # fairly larger than in exercise 1.
+  print(abs(d_delta %*% b + beta))
+}
+
+colnames(b_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
+
+# Assemble all filters (nowcast, MSE references, and closed-form PCS variants)
+# into a single matrix for joint plotting and comparison.
+filter_mat <- cbind(gamma0, gammah, gammahtilde, b_mat)
+colnames(filter_mat) <- c("Nowcast",
+                          paste0("MSE(", h, ")"),
+                          paste0("MSE(", htilde, ")"),
+                          paste0("Closed-form PCS, beta=",
+                                 round(beta_vec, 7)))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.3 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
+lwd_vec = c(2,2,2,rep(1,ncol(b_mat)))
+# ── Left panel: filter coefficients ──────────────────────────────────
+mplot <- scale(filter_mat,center=F,scale=T)
+plot(mplot[, 1],
+     main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],
+     lty = lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], line = -i, col = colo[i])
+abline(h = 0)
+abline(v = 1,     lty = 1)   # lag 0
+abline(v = h+1 + 1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-0
+ccf_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat <- cbind(ccf_mat,
+                   compute_acf_at_lags_zero_delta_func(
+                     max_lag, h, filter_mat[, i], gamma_pcs)$cor_vec)
+colnames(ccf_mat)<-colnames(filter_mat)
+rownames(ccf_mat)<-paste("CCF at lag: ",-max_lag-1+1:nrow(ccf_mat),sep="")
+
+mplot <- ccf_mat
+
+plot(mplot[, 1],
+     main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],lty=lwd_vec[1],
+     ylim = c(min(0, min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h + 1,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# Filter weights (left panel):
+#   - All designs are unusable: imposing a linearly increasing CCF forces
+#     the filter to assign increasing weight to increasingly distant past
+#     observations (time reversion), yielding uninterpretable
+#     coefficient profiles.
+
+# CCFs (right panel):
+#   - The CCFs are nearly vanishing. To understand this, recall that
+#       CCF(k) = b' * gamma_k / (||b|| * ||gamma||),
+#     where ||gamma|| * ||b|| is the product of the standard deviations of
+#     the process and the predictor. Rearranging the constraint gives
+#       beta = b' * (gamma_k - gamma_{k-1}) = (CCF(k) - CCF(k-1)) * ||b|| * ||gamma||.
+#     When beta/||b|| is small, CCF(k) is small too. Inspect the ratios 
+#     beta / ||b|| explicitly:
+beta_vec / sqrt(apply(filter_mat[, 4:ncol(filter_mat)]^2, 2, sum))
+
+# The ratios are fixed (all degrees of freedom are exhausted by the 13 
+# constraints) and small. Only the sign of the solution can vary, not its 
+# magnitude.
+
+# Rescale the CCF plot to the actual range to make the near-vanishing CCFs
+# visible and confirm their structure.
+par(mfrow = c(1, 1))
+par(mfrow=c(1,1))
+mplot <- ccf_mat
+plot(mplot[, 1],
+     main = "Population CCFs: PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = lwd_vec[1],lty=lwd_vec[1],
+     ylim = c(min(ccf_mat[,ncol(ccf_mat)]), -min(ccf_mat[,ncol(ccf_mat)])))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i],lty=lwd_vec[i],lwd=lwd_vec[i])
+abline(h = 0)
+abline(v = max_lag + 1,       lty = 1)   # lag 0
+abline(v = max_lag + 1 + h + 1,   lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# The rescaled plot confirms that a linearly increasing or decreasing CCF
+# slope is technically feasible up to k = 13. However, the scale of the CCF is entirely
+# fixed by the constraints, and only the sign can be `optimised', leaving
+# no genuine degree of freedom for improving look-ahead performance.
+
+# Confirm the fixed linear increase (or decrease) of the CCF for all PCS designs:
+ccf_diff<-ccf_mat[2:(h+1),]-ccf_mat[1:h,]
+rownames(ccf_diff)<-paste("CCF(",1:12,")-CCF(",0:11,")",sep="")
+ccf_diff
+
+

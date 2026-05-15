@@ -3,9 +3,19 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # This tutorial examines a challenging forecasting problem in which the
-# MSE-optimal predictor is "stuck" at a horizon h̃ < h: the cross-correlation
-# function (CCF) of the predictor cannot be pushed further toward the target
-# horizon h beyond h̃.
+# MSE-optimal predictor exhibits two structural limitations:
+#
+#   1. The MSE-optimal predictor is "stuck" at horizon h = 12: selecting
+#      h_tilde > 12 does not affect the predictor up to scaling.
+#      Consequently, increasing the forecast horizon beyond h = 12 yields
+#      no additional information and leaves the predictor unchanged.
+#
+#   2. The CCF of the MSE predictor peaks at lag k = 4, which lies
+#      significantly to the left of the intended forecast horizon h = 12.
+#      This misalignment indicates that the predictor draws most of its
+#      explanatory power from short lags rather than from the target horizon,
+#      and the peak cannot be pushed further rightward toward h by simply
+#      adjusting the MSE objective.
 
 
 # ── PCS PREDICTOR ─────────────────────────────────────────────────────────────
@@ -292,7 +302,12 @@
 #            allowing the optimizer greater freedom to pursue the target
 #            correlation.
 #
-#   4. Reducing the number of constraints is not universally effective: the
+#   4. A third, structurally motivated route to effective relaxation is
+#      proposed in tutorial 15: rather than weakening the constraint system
+#      directly, one exploits inherent properties of the DGP to guide a single, 
+#      well-chosen constraint toward genuine and efficient look-ahead behaviour.
+#
+#   5. Reducing the number of constraints is not universally effective: the
 #      choice of which single constraint to impose matters considerably.
 #      In Tutorials 10 and 11, Type II PCS performed best — precisely shifting the 
 #      CCF peak to the forecast horizon h with minimal obstruction to the target
@@ -856,7 +871,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute the exact closed-form Type I PCS predictor.
-  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, lambda)
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
   
   b             <- PCS_obj$b
   d_delta       <- PCS_obj$d_delta
@@ -1058,7 +1073,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute the exact closed-form Type I PCS predictor.
-  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, lambda)
+  PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
   
   b             <- PCS_obj$b
   d_delta       <- PCS_obj$d_delta
@@ -2100,7 +2115,7 @@ for (i in seq_along(beta_vec)) {
   beta <- beta_vec[i]
   
   # Compute PCS Type I) predictor.
-  PCS_obj <- PCS_closed_form_func(h,Delta, gamma_pcs, L, beta, lambda)
+  PCS_obj <- PCS_closed_form_func(h,Delta, gamma_pcs, L, beta)
   
   b       <- PCS_obj$b
   d_delta <- PCS_obj$d_delta

@@ -318,7 +318,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
 # to the limiting case of the regularized solution as lambda → ∞, although the
 # regularized approach may suffer from numerical instability as the system approaches
 # singularity.
-PCS_closed_form_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_constraints=F)
+PCS_closed_form_func <- function(h,Delta, gamma_pcs, L, beta, Type_III=F,scaled_constraints=F)
 {
   if (Type_III & (length(Delta)<2 | length(Delta)>2))
   {
