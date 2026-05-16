@@ -1,9 +1,9 @@
 # ═══════════════════════════════════════════════════════════════════
-# TUTORIAL 15 — EXPLOITING CCF INERTIA
+# TUTORIAL 15 — PCS TYPE IV: EXPLOITING CCF INERTIA
 # ═══════════════════════════════════════════════════════════════════
 
 # This tutorial reexamines the forecasting problem introduced in Tutorial 12
-# and presents a novel approach to resolving the look-ahead problem.
+# and presents a novel approach, PCS type IV, to resolving the look-ahead problem.
 
 # ── Challenging Forecast Problem ──────────────────────────────────────────────
 #
@@ -44,11 +44,12 @@
 #
 #   - Imposing a linear-growth Type I PCS constraint at k = 1, …, 12 encodes a
 #     strong misspecification and biases the PCS toward unusable predictors
-#     (see Exercises 1 and 2 in Tutorial 12).
+#     (see Exercises 1 and 2 in Tutorial 12 and exercises 1 and 3 below).
 #
-#   - In contrast, imposing the single constraint CCF(1) - CCF(0) = beta is
-#     feasible. For h = 1 this constraint coincides with Type I, II, and III
-#     simultaneously, making it a natural and parsimonious starting point.
+#   - In contrast, TYPE IV PCS imposes the single constraint 
+#           CCF(1) - CCF(0) = beta 
+#     which is feasible. For h = 1 this constraint coincides with Type I, II, 
+#     and III simultaneously, making it a natural look ahead candidate.
 #
 #   - Imposing a single constraint avoids the linear-growth assumption of Type I,
 #     which is a strong misspecification in the considered forecasting problem.
@@ -66,11 +67,11 @@
 #          the forecast horizon h = 12.
 #       2. Consecutive CCF slopes CCF(k) - CCF(k-1) and CCF(k+1) - CCF(k)
 #          cannot differ arbitrarily — a property referred to as CCF inertia —
-#          meaning the slope function changes smoothly across lags.
+#          meaning the CCF-slope changes smoothly across lags.
 #
 #   - Exploiting CCF inertia proceeds in four steps:
 #       i)   Setting beta > 0 imposes CCF(1) - CCF(0) = beta > 0, introducing
-#            an upward kick in the CCF slope at the shortest lags.
+#            an upward kick in the CCF slope at the initial lags.
 #       ii)  For k > 12, the DGP structure forces CCF(k+1) = a1 * CCF(k) < CCF(k)
 #            (assuming positivity), so the CCF must eventually decay exponentially
 #            regardless of the constraint imposed at lag k = 1.
@@ -79,19 +80,19 @@
 #            at lags 0–1 and the exponentially decaying profile at lags k > 12,
 #            thereby inducing a genuine rightward shift of the CCF peak.
 #       iv)  This mechanism can be understood via the mean-value theorem: the
-#            slope function CCF(k) - CCF(k-1) is continuous in k (by inertia),
+#            slope function CCF(k) - CCF(k-1) is `continuous' in k (by inertia),
 #            starts positive at k = 1, and must turn negative for k > 12.
 #            It must therefore cross zero somewhere in the interval k = 1, …, 13,
 #            and this zero-crossing marks the peak of the CCF. Crucially, the
 #            larger the initial slope at k = 1 (controlled by beta > 0), the
-#            further to the right the zero-crossing — and hence the CCF peak —
-#            will be located.
+#            further to the right the zero-crossing of the CCF-slope  — and 
+#            hence the CCF peak — will be located.
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 #
 #   - Larger admissible values of beta push the CCF peak progressively further
 #     to the right, generating look-ahead behaviour that extends beyond the MSE
-#     benchmark, whose CCF peak is structurally bounded at lag k = 4.
+#     benchmark, whose CCF peak is structurally bounded at lag k <= 4.
 #
 #   - At the same time, the single constraint imposed at k = 1 is minimally
 #     invasive: by leaving 12 of the 13 available degrees of freedom free for
@@ -99,28 +100,15 @@
 #     at h = 12 as effectively as possible, ensuring that look-ahead improvement
 #     is not achieved at the cost of a large reduction in predictive accuracy.
 #
-#   - While the rigid DGP structure renders a classic Type I constraint
-#     ineffective, this very structure can be exploited to turn an apparent
-#     disadvantage into an advantage: by imposing a single well-chosen constraint
-#     and leveraging CCF inertia, genuine and effective look-ahead behaviour can
-#     still be achieved.
 
-# ── Tutorial Structure ────────────────────────────────────────────────────────
+# ── PCS Type IV ───────────────────────────────────────────────────────────────
 #
 # This tutorial exploits CCF inertia to recover look-ahead behaviour. Knowledge
-# of Tutorial 12 is assumed; the PCS Type I approach is briefly summarised
-# below for convenience.
-
-# ── PCS Type I Constraint ─────────────────────────────────────────────────────
+# of Tutorial 12 is assumed; the novel PCS Type IV approach is defined by:
 #
-#   TYPE I — Monotonically Increasing CCF over {0, …, h}  [Most Restrictive]
+#   TYPE IV — Initial beta kick at k=1:
 #
-#     The CCF must be strictly increasing across the full lag interval:
-#       CCF(k) - CCF(k-1) = beta_k > 0   for all k = 1, …, h.
-#     See Wildi (2026), Section 3.2 and Appendix E.
-#     This condition is generally not exactly achievable (see Exercise 1).
-#
-#   Type I:   CCF(k) > CCF(k-1)   for k = 1, …, h   (h constraints)
+#        CCF(1) - CCF(0) = beta > 0.
 
 # ── Exercise Overview ─────────────────────────────────────────────────────────
 #
@@ -131,7 +119,7 @@
 #     insufficient to produce usable predictors, because the linear CCF-growth
 #     assumption conflicts strongly with the DGP.
 #
-#   Exercise 2 — Exploits CCF inertia: a single initial constraint
+#   Exercise 2 — Exploits CCF inertia: a single Type IV constraint
 #     CCF(1) - CCF(0) = beta > 0 is imposed, and the CCF peak is allowed to
 #     shift rightward as beta increases. Retaining only one constraint leaves
 #     12 degrees of freedom available for target-correlation maximisation.
@@ -147,7 +135,8 @@
 # The findings extend and complement those of Tutorial 12. The main points are
 # summarised below.
 #
-#   1. The principal novelty of this tutorial is the recognition and exploitation
+#   1. The principal novelty of this tutorial is the introduction of the PCS 
+#      Type IV constraint. It is based on the recognition and exploitation
 #      of two salient structural features of the DGP: CCF smoothness (inertia)
 #      and the exponential decay profile for k > 12. Together, these properties
 #      can be leveraged to shift the CCF peak rightward beyond lag k = 4 — the
@@ -156,7 +145,7 @@
 #
 #   2. The proposed strategy is generic: it can be applied to any DGP whose
 #      tight structural constraints admit a similar combination of smoothness
-#      and eventual decay in the CCF slope beyond a certain lag.
+#      and rigid decay in the CCF beyond a fixed lag.
 #
 # The following take-aways from Tutorial 12 remain fully applicable here and
 # provide the broader methodological context:
@@ -173,16 +162,10 @@
 #   3. Relaxation can be achieved in at least two complementary ways:
 #        (a) Reducing the number of constraints, e.g., using a single slope
 #            constraint rather than the full Type I system, or switching to
-#            the less restrictive Type II or Type III formulations.
+#            the less restrictive Type II, Type III or Type IV formulations.
 #        (b) Reducing the regularisation weight placed on the constraints,
 #            allowing the optimiser greater freedom to pursue the target
 #            correlation.
-#
-#   4. A third, structurally motivated route to effective relaxation is
-#      proposed in this tutorial: rather than weakening the constraint system
-#      directly, one exploits inherent properties of the DGP — CCF inertia
-#      and exponential slope decay — to guide a single, well-chosen constraint
-#      toward genuine and efficient look-ahead behaviour.
 #
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -454,7 +437,7 @@ for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
   
-  # Compute the exact closed-form Type I PCS predictor.
+  # Compute the exact closed-form Type I PCS predictor (no regularization weight lambda needed).
   PCS_obj <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)
   
   b             <- PCS_obj$b
@@ -536,12 +519,14 @@ box()
 #     linearly independent constraints to be imposed simultaneously (see 
 #     exercise 3 below). However, the constant-slope Type I constraints strongly 
 #     conflict with the DGP structure and are therefore misspecified. As a 
-#     result, the filter profiles are irregular and difficult to interpret.
+#     result, the filter profiles are irregular and difficult to interpret. 
+#   - Most weight is assigned to lagged data. 
 #
 # CCFs (right panel):
-#   - A monotonically increasing CCF (positive beta) from k=0 to k=12 is only 
+#   - A linearly increasing CCF (positive beta) from k=0 to k=12 is only 
 #     achievable through sign inversion of the filter, causing the target 
-#     correlation CCF(h) to turn negative and rendering the predictor unusable.
+#     correlation CCF(h) to turn negative and rendering the predictor unusable 
+#     (cyan to violet color tones).
 #   - The DGP structure fundamentally conflicts with a linearly increasing
 #     CCF constraint: the Type I problem is therefore misspecified for this
 #     ARMA(1,1) DGP.
@@ -587,12 +572,6 @@ box()
 #   right (though no further than k=12), generating look-ahead behavior beyond 
 #   the MSE benchmark, whose peak is structurally bounded by k = 4 (achieved 
 #   by MSE(12)).
-
-# While the rigid DGP structure renders a classic Type I constraint
-# ineffective, this very structure can be exploited to turn an apparent
-# disadvantage into an advantage: by imposing a single well-chosen constraint
-# and leveraging CCF inertia, genuine and effective look-ahead behavior can
-# still be achieved.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.1 PCS Set-Up: Hyperparameter Setting
@@ -751,9 +730,14 @@ box()
 #     it, rendering the corresponding predictors unusable.
 #   - Increasing positive beta values shift the CCF peak progressively to
 #     the right of the MSE benchmark, generating genuine look-ahead behavior
-#     in the PCS designs.
+#     in the PCS designs (blue to violet tones).
 #   - Imposing a single constraint leaves more room for maximizing the target 
-#     correlation CCF(h), which is positive for all selected positive beta.
+#     correlation CCF(h), which is positive for all selected positive beta. 
+#   - The loss relative to the MSE benchmark (which maximises CCF at k = 12)
+#     is small to moderate, depending on the extent of the peak shift.
+#     In other words, as we shift the CCF peak rightwards, the degradation in
+#     performance relative to the MSE-based predictor remains modest—this reflects
+#     a favourable trade-off between look-ahead gains and predictive accuracy.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.5 Compare Forecasts
@@ -838,7 +822,7 @@ for (i in 1:ncol(mplot))
 
 # The empirical CCF between the nowcast and each PCS predictor output is used
 # to verify that the peak shifts rightward (ideally toward the forecast
-# horizon h) as beta increases, confirming that the single Type III PCS
+# horizon h) as beta increases, confirming that the single Type IV PCS
 # constraint successfully advances the predictor. 
 par(mfrow = c(2, 2))
 select_vec<-c(2,16,18,20)
@@ -1021,8 +1005,8 @@ box()
 # no genuine degree of freedom for improving look-ahead performance.
 
 # Confirm the fixed linear increase (or decrease) of the CCF for all PCS designs:
-ccf_diff<-ccf_mat[2:(h+1),]-ccf_mat[1:h,]
-rownames(ccf_diff)<-paste("CCF(",1:12,")-CCF(",0:11,")",sep="")
+ccf_diff<-ccf_mat[2:(h+2),]-ccf_mat[1:(h+1),]
+rownames(ccf_diff)<-paste("CCF(",1:13,")-CCF(",0:12,")",sep="")
 ccf_diff
 
 
