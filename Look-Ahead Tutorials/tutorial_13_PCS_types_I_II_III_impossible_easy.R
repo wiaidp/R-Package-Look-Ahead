@@ -6,7 +6,7 @@
 # The DFP and PCS look-ahead approaches impose constraints on the cross-
 # correlation function (CCF) of the resulting predictor with lagged (k < 0),
 # coincident (k = 0), or leading targets x_{t+k} (k > 0), while maximizing
-# the CCF at the forecast horizon k = h, i.e., CCF(h) = Cor(x-hat_t, x_{t+h}).
+# the CCF at the forecast horizon k = h, i.e., CCF(h) = Cor(\hat{x}_t, x_{t+h}).
 #
 # Specifically:
 #   - The DFP controls CCF(0) while maximizing CCF(h).
@@ -106,11 +106,12 @@
 #
 # Among the three types, Type I is the most stringent: it imposes the largest
 # number of constraints (one per lag from k = 1 to k = h). While this
-# increases the likelihood of attaining a CCF peak at k = h, it simultaneously
-# reduces the degrees of freedom available for optimizing the target correlation
-# at horizon h, and locks the CCF into a rigid monotonic profile. Consequently,
-# Type I carries the highest risk of infeasibility, with that risk growing with
-# h and depending strongly on the structure of the data-generating process (DGP).
+# increases the likelihood of attaining a CCF peak at k = h, when feasible, it 
+# simultaneously reduces the degrees of freedom available for optimizing the 
+# target correlation at horizon h, and locks the CCF into a rigid monotonic 
+# profile. Consequently, Type I carries the highest risk of infeasibility, with 
+# that risk growing with h and depending strongly on the structure of the 
+# data-generating process (DGP).
 #
 # Note, however, that infeasibility under Type I can often be mitigated by
 # choosing a moderate regularization weight. This provides sufficient control
@@ -125,7 +126,7 @@
 #   b = gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})
 #
 # where:
-#   - b          is the filter coefficient vector that maximizes the target
+#   - b          is the PCS preditor that maximizes the target
 #                correlation at forecast horizon h,
 #   - gamma_h    is the MSE h-step-ahead predictor coefficient vector,
 #   - gamma_k    is the MSE k-step-ahead predictor coefficient vector,
@@ -143,18 +144,18 @@
 #   (ab)  b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||
 #
 # The two cases are selected by setting scaled_constraints = FALSE (case aa)
-# or scaled_constraints = TRUE (case ab).
+# or scaled_constraints = TRUE (case ab) in the call to PCS_func().
 #
 # In both cases, beta is a prescribed common CCF increment that enforces
 # the monotonically increasing profile if  beta > 0:
-#   - Case (aa) assumes a fixed, uniform slope across all lags.
+#   - Case (aa) assumes a fixed, uniform slope across all lags (linear profile).
 #   - Case (ab) scales the increment by ||gamma_i - gamma_{i-1}||, making the
 #     effective increment beta_i := beta * ||gamma_i - gamma_{i-1}|| lag-dependent,
 #     thereby accounting for the varying magnitude of successive predictor differences.
 #
 # Note on the implied CCF slope:
 #   - In case (aa): CCF(i) - CCF(i-1) = beta / (||b|| * ||xi||), a constant
-#     slope, provided the problem is feasible.
+#     slope (linear profile), provided the problem is feasible.
 #   - In case (ab): the slope also depends on ||gamma_i - gamma_{i-1}|| and
 #     therefore varies across lags.
 #
@@ -264,11 +265,12 @@
 #
 #   Case 1 — Fewer than p + q independent constraints:
 #     Residual degrees of freedom remain available to the optimizer. The
-#     target correlation CCF(h) is ALWAYS POSITIVE and increases as fewer
-#     constraints are imposed, giving the optimizer greater flexibility to
-#     track the target. However, this comes at the potential cost of reduced
-#     look-ahead effectiveness: there is no guarantee that the CCF peaks at
-#     k = h, nor that the peak magnitude is maximized at that lag.
+#     target correlation CCF(h) is generally (though not always) positive 
+#     (a counter example is discussed in Tutorial 12, exercises 1 and 2) and 
+#     increases as fewer constraints are imposed, giving the optimizer greater 
+#     flexibility to track the target. However, this comes at the potential cost 
+#     of reduced look-ahead effectiveness: there is generally less guarantee 
+#     that the CCF peaks at k = h.
 #
 #   Case 2 — Exactly p + q independent constraints:
 #     All available degrees of freedom are consumed by the constraints. The
@@ -312,8 +314,8 @@
 # For example, a Type I formulation with a moderate regularization weight may
 # successfully recover a PCS solution whose CCF peaks at k = h with a positive
 # target correlation, precisely because the relaxation from a rigid (strictly 
-# monotonic prespecified path: cases aa or ab above) CCF profile allows the 
-# optimizer to explore a richer solution space, see exercise 5.
+# linear or monotonic prespecified path: cases aa or ab above) CCF profile 
+# allows the optimizer to explore a richer solution space, see exercise 5.
 
 # ── POSSIBLE YET INFEASIBLE ──────────────────────────────────────────────────
 
@@ -354,7 +356,8 @@
 # leave more degrees of freedom available for optimization, making the target
 # correlation CCF(h) more amenable to effective maximization and reducing the
 # risk of misspecification-induced distortions.
-
+#
+# Tutorial 15 also proposes a PCS Type IV design that we do not discuss here.
 
 
 # ── EXAMPLES OVERVIEW ─────────────────────────────────────────────────────────
