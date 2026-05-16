@@ -75,6 +75,8 @@
 #       The CCF must be increasing on average from k = 0 to k = h:
 #           CCF(h) - CCF(0) = beta > 0.
 #       See Wildi (2026), Section 3.2.
+#
+#   Type IV will be introduced and discussed in Tutorial 15.
 
 
 # ── CONSTRAINT SUMMARY ────────────────────────────────────────────────────────

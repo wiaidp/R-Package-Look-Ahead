@@ -18,6 +18,7 @@
 #   Type I   PCS: CCF(k) - CCF(k-1) = beta_k >= 0,  for k = 1, ..., h
 #   Type II  PCS: CCF(h) - CCF(h-1) = beta    >= 0
 #   Type III PCS: CCF(h) - CCF(0)   = beta    >= 0
+#   Type IV will be introduced and discussed in Tutorial 15.
 #
 # For further details, see Tutorial 13.
 #
