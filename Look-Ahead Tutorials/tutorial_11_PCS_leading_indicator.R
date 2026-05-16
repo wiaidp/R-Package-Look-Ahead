@@ -1,16 +1,113 @@
 # ════════════════════════════════════════════════════════════════════
-# TUTORIAL 12 — BUSINESS CYCLE ANALYSIS AND LEADING INDICATOR DESIGN 
+# TUTORIAL 11 — BUSINESS CYCLE ANALYSIS AND LEADING INDICATOR DESIGN
 # ════════════════════════════════════════════════════════════════════
 
+# ── MACRO INDICATOR DESIGN ───────────────────────────────────────────
+#
+# This section follows the Leading Indicator Design (LID) framework
+# introduced in Wildi (2026), Section 3.5.
+#
+# Let x_t be a stationary indicator of interest — for example, the first
+# difference of a non-stationary macro series such as industrial production,
+# employment, income, or GDP. The target signal is defined as:
+#
+#   Phi' * x_t  (AR form)   ≡   gamma' * epsilon_t  (MA form)
+#
+# Typical targets include trend-growth signals, cycle-growth signals, or
+# seasonally adjusted growth rates. Throughout this tutorial we work in the
+# MA form. Here, gamma is the convolution of the Wold decomposition xi of
+# x_t with the filter Phi:
+#
+#   gamma = Phi ∘ xi,   where ∘ denotes convolution.
+#
+# Let gamma_k denote the minimum mean-squared-error (MSE) predictor of the
+# signal at horizon k.
+
+# ── LEADING INDICATOR DESIGN (LID) ─────────────────────────────────────────
+#
+# We employ a Type II PCS leading indicator design; see Tutorial 12 for 
+# details on the PCS typology. The optimization problem is:
+#
+#   Minimize  (b - gamma)' (b - gamma)          [MSE objective]
+#   subject to  b' * (gamma_h - gamma_{h-1}) = beta   [lead constraint]
+#
+# The objective minimizes the distance from the causal (nowcast) filter
+# gamma; no explicit forecasting step is involved. The hyperparameters
+# h > 0 and beta >= 0 in the constraint jointly govern the profile of the 
+# cross-correlation function (CCF) at the specified lead:
+#
+#   - beta > 0 : the CCF peak cannot be located in h-1.
+#   - beta = 0 : the CCF is constrained to be flat between lags h-1 and h.
+# 
+# Under some circumstances, these constraints can determine an effective shift 
+# of the CCF at k >= h, see examples below.
+#
+# ── HP TREND: BUSINESS-CYCLE ANALYSIS ─────────────────────────
+#
+# When the HP trend is applied to the first differences of the data, 
+# the resulting indicator estimates current growth (drift):
+#
+#   Positive values → economic expansion
+#   Negative values → economic contraction / recession
+#
+# This constitutes a straightforward form of business-cycle analysis.
+# Cyclical movements are not endogenous to the filter (problem of spurious cycle) but
+# remain consistent with the observed data. See the M-SSA Tutorial 2 for 
+# theoretical background on the HP filter.
+
+# ── SIMPLE VS. CHALLENGING FORECAST PROBLEMS ─────────────────────────
+#
+# In general, imposing a flat CCF at lag h (beta = 0) does not guarantee
+# that the global CCF peak occurs exactly at lag h. However, for the
+# present business-cycle application — which combines the HP filter with
+# the Type II PCS design — the problem is relatively well-conditioned:
+# the CCF peak is naturally shifted to h = 0 as a direct consequence of
+# the DGP-implied filter gamma (HP convolved with xi).
+#
+# In more demanding forecasting settings (covered in Tutorials 12–15),
+# such a peak shift may not arise automatically and may require more
+# elaborate constraint specifications or alternative PCS designs.
+
+# ═════════════════════════════════════════════════════════════════════
+# ── REFERENCES ───────────────────────────────────────────────────────
+#
+#   Wildi, M. (2026)
+#     Forecasting on the Accuracy–Timeliness Frontier:
+#     Two Novel "Look-Ahead" Predictors.
+#     arXiv preprint. https://doi.org/10.48550/arXiv.2602.23087
+#
+# ═════════════════════════════════════════════════════════════════════
+
+
+
+# ── INITIALISATION ─────────────────────────────────────────────────────
+rm(list = ls())
+
+# Load the DFP optimisation routines.
+# Provides DFP_compute_lambda_alpha0_func() and related solvers.
+source(paste(getwd(), "/R/DFP.r", sep = ""))
+
+# Load the PCS optimisation routines.
+source(paste(getwd(), "/R/PCS.r", sep = ""))
+
+# Load the tau-statistic utility: measures lead/lag at zero crossings.
+source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
+
+# Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
+source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+
+library(xts)
+
+library(mFilter)
+
+# Load data from FRED via the alfred package (no API key required).
+install.packages("alfred")
+library(alfred)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Example 2. PCS Leading Indicator Design
+# Data
 # ─────────────────────────────────────────────────────────────────────
-
-# Application of DFP to quarterly GDP data
-
-# Source data directly from FRED
 reload_data <- FALSE
 
 if (reload_data) {
@@ -25,10 +122,9 @@ tail(GDPC1)
 
 is.xts(GDPC1)
 
-# Make double: xts objects are subject to lots of automatic/hidden assumptions which make an application of SSA 
-#     more cumbersome, counter-intuitive, unpredictable and hazardous (try applying a filter to a xts-object...).
-# We here skip the pandemic: outliers affect HF-regression.
-# Effects of the pandemic are analyzed in our last example. 
+# Make double: xts objects are subject to lots of automatic/hidden assumptions which make an application 
+# more challenging (as an example, applying a filter to a xts-object reverts time).
+# We here skip the pandemic: outliers affect the design 
 
 end_year<-2024
 start_year<-1992
@@ -47,10 +143,28 @@ plot(diff(y_xts),main="Diff-log")
 acf(na.exclude(diff(y_xts)),main="ACF of log-diff")
 
 
+# The LID design relies on a single constraint and can be operationalized either 
+# in DFP form or in PCS form. Exercise 1 presents the DFP implementation and exercise 2 
+# presents the PCS implementation.
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Example 1. PCS Leading Indicator Design: Rely on DFP Optimization
+# ─────────────────────────────────────────────────────────────────────
+# Application of DFP to quarterly GDP data
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 HP Set-Up
+# ─────────────────────────────────────────────────────────────────────
+
+
+# HP setting for quarterly data: lambda = 1600
 lambda_hp<-1600
 # L is an odd integer such that the symmetric filter is centered at (L-1)/2+1  
 L<-51
+# One year ahead forecast horizon
 h<-delta<-4
+# Setting for computing the CCF: has no effect on predictor.
 max_lag<-0
 
 
@@ -77,6 +191,11 @@ y_gaph<-filter(log(GDPC1),hp_gap,side=1)
 y_gap<-y_gaph[-1]
 y_gap_modified<-filter(eps,modified_hp_gap,side=1)
 
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 DFP Set-Up
+# ─────────────────────────────────────────────────────────────────────
+
 beta_vec<-c(0.8,0.6,0.4,0.2,0)
 
 
@@ -95,6 +214,11 @@ sqrt(t(hp_trend_long)%*%hp_trend_long)
 # 2. Want flat CCF at h
 gamma_constraint<-hp_trend_long[delta-1+1:L]-hp_trend_long[delta+1:L]
 ts.plot(gamma_constraint)
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.3 Run DFP
+# ─────────────────────────────────────────────────────────────────────
+
 cor_vec_mse_la_mat<-NULL
 b0_mat<-matrix(ncol=length(beta_vec),nrow=L)
 lambda1_vec<-lambda2_vec<-NULL
@@ -149,6 +273,11 @@ colnames(b0_mat)<-colnames(cor_vec_mse_la_mat)<-beta_vec
 # Check unit length:
 apply(b0_mat^2,2,sum)
 
+# ─────────────────────────────────────────────────────────────────────
+# 1.4 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+
 ts.plot(b0_mat,col=rainbow(ncol(cor_vec_mse_la_mat)))
 ts.plot(cor_vec_mse_la_mat,col=rainbow(ncol(cor_vec_mse_la_mat)))
 # Check 1: should be one on diagonal (unit length)
@@ -165,6 +294,11 @@ ts.plot(cor_vec_t_hp_trend)
 abline(v=max_lag)
 abline(v=max_lag+h)
 
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.5 Plots
+# ─────────────────────────────────────────────────────────────────────
 
 # Plots: filter coefficients and CCF
 
@@ -212,6 +346,11 @@ abline(h=0)
 axis(1,at=1:nrow(mplot),labels=-max_lag-1+1:(nrow(mplot)))
 axis(2)
 box()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 1.6 Generate Leading Indicators
+# ─────────────────────────────────────────────────────────────────────
 
 
 

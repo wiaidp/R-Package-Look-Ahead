@@ -1,7 +1,7 @@
-
-# ════════════════════════════════════════════════════════════════════
-# TUTORIAL 13 — PCS: IMPOSSIBILITY AND INFEASIBILITY
-# ════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# TUTORIAL 13 — PCS TYPES I) II) AND III): IMPOSSIBILITY AND INFEASIBILTY
+#   APPLICATIONS TO AN IMPOSSIBLE AND TO AN EASY FORECAST PROBLEM
+# ═══════════════════════════════════════════════════════════════════
 
 # The DFP and PCS look-ahead approaches impose constraints on the cross-
 # correlation function (CCF) of the resulting predictor with lagged (k < 0),

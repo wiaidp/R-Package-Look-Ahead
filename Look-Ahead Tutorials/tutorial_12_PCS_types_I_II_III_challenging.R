@@ -1,5 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════
-# TUTORIAL 12 — CHALLENGING FORECAST PROBLEM
+# TUTORIAL 12 — PCS TYPES I) II) AND III): 
+#   APPLICATION TO CHALLENGING FORECAST PROBLEM
 # ═══════════════════════════════════════════════════════════════════
 
 # This tutorial examines a challenging forecasting problem in which the
