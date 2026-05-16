@@ -807,8 +807,8 @@ axis(2)
 box()
 
 # Outcome:
-# For the negative constraint parameter alpha = -0.1, the resulting PCS
-# predictor satisfies the look-ahead condition CCF(h) - CCF(0) > 0:
+# For the negative constraint parameter alpha = -0.1 (violet line), the resulting 
+# PCS predictor satisfies the look-ahead condition CCF(h) - CCF(0) > 0:
 ccf_mat["CCF at lead: 12", ncol(ccf_mat)] - ccf_mat["CCF at lead: 0", ncol(ccf_mat)]
 # Since all target correlations are strictly positive, the problem is
 # feasible across all designs. However, it remains impossible: the CCF
@@ -1169,6 +1169,11 @@ ccf_mat["CCF at lead: 12",] - ccf_mat["CCF at lead: 0", ]
 # constraint is feasible: CCF(12) > CCF(0) and the target correlation remains 
 # positive, provided beta > 0 is not too large.
 
+# Note: beta = b' * (gamma_h - gamma_0) differs from CCF(h) - CCF(0) since 
+# the correlation is scaled by 1/(||b||*||xi||): this scaling factor explains 
+# the difference between the `slope' parameter beta and the effective (average) 
+# slope CCF(h) - CCF(0).
+
 
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 2: Impossible and Infeasible, Case A (PCS Type I)
@@ -1208,7 +1213,7 @@ eigenvalues <- eigen(gamma_mat)$values
 
 # Effective rank of the constraint system:
 # count the number of eigenvalues that exceed a numerical-zero threshold.
-which(abs(eigenvalues) > 10^{-10})
+length(which(abs(eigenvalues) > 10^{-10}))
 
 # The effective rank two is smaller than the number of constraints (h = 12).
 # Consequently, the h-dimensional right-hand-side vector (beta, ..., beta)'
@@ -1237,7 +1242,7 @@ beta_vec <- c(-0.2, -0.1, 0,0.01, 0.1, 0.2, 0.3)
 
 # scaled_constraints = FALSE selects the unscaled constraint system (case aa):
 # the slope is fixed at beta for all lags, regardless of the magnitude of the
-# constraint vectors.
+# constraint vectors. 
 scaled_constraints <- FALSE
 
 # Type I imposes a positive slope at every lag in Delta (here 1 to h),
@@ -1798,8 +1803,8 @@ box()
 # Filter coefficients:
 #   - Increasing beta renders the predictors increasingly negative and unusable at 
 #     horizon h=12 — an instance of the sign-reversal pathology discussed in the
-#     overview (the constraint system is misspecified and a large lambda imposes 
-#     this misspecification).
+#     overview (the linear-slope constraint system is misspecified and a large 
+#     lambda imposes this misspecification).
 #
 # Population CCFs:
 #   - The positive beta CCFS overlap; the negative beta CCFs overlap too.
@@ -2003,7 +2008,7 @@ lambda <- 10^10
 
 # A fine grid of small beta values is used to trace the effect of the
 # slope constraint on the CCF peak location.
-beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.01, 0.02, 0.03)
+beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.01, 0.02, 0.03,0.1)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2012,7 +2017,7 @@ beta_vec <- c(-0.3, -0.2, -0.1, 0, 0.01, 0.02, 0.03)
 # For each beta in beta_vec, compute the regularised PCS predictor using
 # criterion (46) from Appendix D of Wildi (2026).
 
-b_mat                <- NULL    # filter coefficients, one column per beta value
+b_mat <- NULL    # filter coefficients, one column per beta value
 Type_III <- FALSE
 
 for (i in seq_along(beta_vec)) {
@@ -2049,9 +2054,8 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # --- Check 2: Positive target covariance ---
 # All target covariances are positive, confirming feasibility. Note that
-# for the largest beta values (strongest look-ahead), the target covariance
-# approaches zero, indicating that the predictor is approaching full
-# decoupling from x_{t+h}.
+# for the largest beta value, the target covariance approaches zero, indicating 
+# that the predictor is near full decoupling from x_{t+h}.
 t(b_mat) %*% gammah
 
 # Assemble all filters (nowcast, MSE benchmark, and PCS variants) into a
@@ -2376,7 +2380,8 @@ box()
 #
 #   - Type III: more effective than Type II in difficult forecast settings where
 #     a single constraint on CCF(h) - CCF(h-1) is insufficient to force a peak
-#     shift. In such cases, increasing the number of constraints and exploring
+#     shift (see Tutorial 12, exercises 5 and 6 for a corresponding example). 
+#     In such cases, increasing the number of constraints and exploring
 #     a range of regularisation weights is recommended.
 #
 # ── PRACTICAL RECOMMENDATION ──────────────────────────────────────────────────
@@ -2409,10 +2414,10 @@ box()
 #    lambda. The precise nature of this interaction is given in equation (49)
 #    of Wildi (2026): the product beta * lambda operates on the numerator (so
 #    the two parameters partially offset each other), while lambda alone enters
-#    the denominator through the matrix M, which depends on lambda. Note that
-#    Wildi (2026) uses the notation nu in place of lambda. In practice, some
-#    experimentation may be required to identify a good — if not optimal —
-#    pairing of beta and lambda.
+#    the denominator through the matrix M, which depends on lambda (note that 
+#    lambda does not cancel). Wildi (2026) uses the notation nu in place of 
+#    lambda. In practice, some experimentation may be required to identify a 
+#    good — if not optimal — pairing of beta and lambda.
 #
 # 2. Infeasibility and Misspecification:
 #
