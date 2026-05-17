@@ -101,16 +101,14 @@
 #
 # ═════════════════════════════════════════════════════════════════════
 
-
-
-# ── INITIALISATION ─────────────────────────────────────────────────────
+# ── INITIALISATION ────────────────────────────────────────────────────────────
 rm(list = ls())
 
-# Load the DFP optimisation routines.
+# Load DFP optimisation routines.
 # Provides DFP_compute_lambda_alpha0_func() and related solvers.
 source(paste(getwd(), "/R/DFP.r", sep = ""))
 
-# Load the PCS optimisation routines.
+# Load PCS optimisation routines.
 source(paste(getwd(), "/R/PCS.r", sep = ""))
 
 # Load the tau-statistic utility: measures lead/lag at zero crossings.
@@ -120,17 +118,16 @@ source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
 library(xts)
-
 library(mFilter)
 
-# Load data from FRED via the alfred package (no API key required).
+# Install and load the alfred package for direct FRED data access (no API key required).
 install.packages("alfred")
 library(alfred)
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Data
-# ─────────────────────────────────────────────────────────────────────
+# ── DATA ──────────────────────────────────────────────────────────────────────
+# Toggle reload_data to TRUE to fetch fresh data from FRED and overwrite the
+# locally saved file; set to FALSE to load the previously saved copy.
 reload_data <- FALSE
 
 if (reload_data) {
@@ -140,234 +137,220 @@ if (reload_data) {
 } else {
   load(file = file.path(getwd(), "Data", "GDP"))
 }
+
 head(GDPC1)
 tail(GDPC1)
-
 is.xts(GDPC1)
 
-# Make double: xts objects are subject to lots of automatic/hidden assumptions which make an application 
-# more challenging (as an example, applying a filter to a xts-object reverts time).
-# We here skip the pandemic: outliers affect the design 
+# Convert to a plain numeric vector.
+# xts objects carry implicit index-handling conventions that can interfere with
+# downstream computations (e.g., applying a filter to an xts object may silently
+# reverse the time axis). Working with plain doubles avoids these pitfalls.
+start_year <- 1992
+end_year   <- 2024
 
-end_year<-2024
-start_year<-1992
-y<-as.double(log(GDPC1[paste(start_year,"/",end_year,sep="")]))
-y_xts<-log(GDPC1[paste(start_year,"/",end_year,sep="")])
-len<-length(y)
-use_adjusted_hamilton<-F
-use_new_i2_adjustment<-F
-
-
-# Plot
-par(mfrow=c(2,2))
-plot(GDPC1,main="US GDP")
-plot(y_xts,main="Log-GDP")
-plot(diff(y_xts),main="Diff-log")
-acf(na.exclude(diff(y_xts)),main="ACF of log-diff")
-
-x<-na.exclude(as.double(diff(y_xts)))
-names(x)<-index(na.exclude(diff(y_xts)))
-
-# The ACF suggests that log_differences of GDP are (close to) white noise.
-# We assume that xi = 1.
-# Note: applying a trend filter to white noise would generate spurious cycles. 
-# However, log-differences of GDP are not white noise (in contradiction to empirical ACF).
-#  - The mean level (long term growth) is different from zero
-#  - Protracted down-turns (recessions) dominate the noisy dynamics.
-#  - The trend filter removes the noise and emphasizes the relevant features: non-zero mean level and downturns.
-# While the data is not white noise, for the purpose of filtering, at least, we may assume xi = 1.
-
-
-# ─────────────────────────────────────────────────────────────────────
-# HP Set-Up
-# ─────────────────────────────────────────────────────────────────────
-
-
-# HP setting for quarterly data: lambda = 1600
-lambda_hp<-1600
-# L is an odd integer such that the symmetric filter is centered at (L-1)/2+1  
-L<-31
-# One year ahead forecast horizon
-h<-4
-# Setting for computing the CCF: has no effect on predictor.
-max_lag<-0
-
-
-# Here we compute only the two-sided filter for double length 2*(L-1)+1
-# This is used when comparing one-sided to right tail of two-sided
-HP_obj<-HP_target_mse_modified_gap(2*(L-1)+1,lambda_hp)
-HP_two=HP_obj$target
-hp_gap=HP_obj$hp_gap[1:L]
-modified_hp_gap=HP_obj$modified_hp_gap[1:L]
-# Concurrent HP assuming I(2)-process
-hp_trend_long=HP_obj$hp_trend
-hp_trend=hp_trend_long[1:L]
-# MSE estimate of bi-infinite HP assuming white noise
-hp_mse_long=HP_obj$hp_mse
-hp_mse<-hp_mse_long[1:L]
+y     <- as.double(log(GDPC1[paste(start_year, "/", end_year, sep = "")]))
+y_xts <-           log(GDPC1[paste(start_year, "/", end_year, sep = "")])
+len   <- length(y)
 
 
 
-# The LID design relies on a single constraint and can be operationalized either 
-# in DFP form or in PCS form. Exercise 1 presents the DFP implementation. The PCS implementation 
-# is covered in exercise 2.
+# ── EXPLORATORY PLOTS ─────────────────────────────────────────────────────────
+par(mfrow = c(2, 2))
+plot(GDPC1,                          main = "US Real GDP (levels)")
+plot(y_xts,                          main = "Log GDP")
+plot(diff(y_xts),                    main = "Log-differences of GDP")
+acf(na.exclude(diff(y_xts)),         main = "ACF of log-differences")
 
 
-# ════════════════════════════════════════════════════════════════════
-# Exercise 1: DFP-Based LID 
-# ════════════════════════════════════════════════════════════════════
+# ── WHITENESS ASSUMPTION (xi = 1) ─────────────────────────────────────────────
+# Construct a named numeric vector of log-differences for subsequent analysis.
+x        <- na.exclude(as.double(diff(y_xts)))
+names(x) <- index(na.exclude(diff(y_xts)))
 
-# The LID constraint requires 
+# The sample ACF of log-GDP-differences is broadly consistent with white noise,
+# motivating the assumption xi = 1 (i.e., the Wold decomposition is the identity).
 #
-#  b' * (gamma_h - gamma_{h-1}) = beta 
+# In practice, log-differences of GDP are not strictly white noise:
+#   - The sample mean is positive, reflecting long-run trend growth.
+#   - Protracted contractions (recessions) introduce low-frequency persistence
+#     that a simple white-noise model does not capture.
 #
+# Nevertheless, for the purpose of trend filtering, xi = 1 is a reasonable
+# working assumption: the filter attenuates the high-frequency noise and
+# preserves the economically relevant features (trend growth and downturns).
+
+
+# ── HP FILTER SET-UP ──────────────────────────────────────────────────────────
+
+# Standard HP smoothing parameter for quarterly data.
+lambda_hp <- 1600
+
+# Filter half-length: L must be odd so that the symmetric filter is centred
+# at position (L - 1)/2 + 1 (not in the middle between two consecutive lags).
+L <- 31
+
+# Compute the concurrent (causal, one-sided) HP trend filter.
+HP_obj   <- HP_target_mse_modified_gap(2 * (L - 1) + 1, lambda_hp)
+hp_trend <- HP_obj$hp_trend
+
+ts.plot(hp_trend,main=paste("Concurrent HP(",lambda_hp,")",sep=""))
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Exercise 1: DFP-Based LID
+# ════════════════════════════════════════════════════════════════════════════════
+# The LID (Lead-Indicator Design) imposes a single linear constraint on the
+# filter coefficients b:
 #
-# This maps exactly onto a standard DFP decoupling problem: minimise MSE
-# subject to b' * gamma_constraint = alpha0
-# where gamma_constraint = (gamma_h - gamma_{h-1}) and alpha_0=beta. Note that 
-# in the original DFP gamma_constraint = gamma_0 (decoupling from the nowcast), 
-# whereas here gamma_constraint = (gamma_h - gamma_{h-1}) \neq gamma_0. The 
-# LID problem is not a classical DFP problem but it can solved by the DFP 
-# optimization.
-
-# Remark on interpretation:
-#   Unlike the classic DFP constraint (which decouples b from the observable
-#   present via gamma_0), the constraint vector 
-
-#       gamma_constraint = gamma_{h-1} - gamma_h
-
-#   is a difference of two forecast vectors and has no direct physical interpretation
-#   as a "present-value" filter. Its role is purely algebraic: zeroing out
-#   b' * gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
-#   enforces CCF(h-1) < CCF(h). 
-
-
-# ─────────────────────────────────────────────────────────────────────
-# 1.1 DFP Set-Up
-# ─────────────────────────────────────────────────────────────────────
-
-
-# Specify gamma at forecast horizon sup_vec_target=h and at lead/lag sup_vec_constraint
-# Classic h-step ahead predictor
-gamma<-hp_trend_long
-gamma0<-hp_trend_long[1:L]
-gammah<-hp_trend_long[h+1:L]
-gammahm1<-hp_trend_long[h-1+1:L]
-# Plot
-colo<-c("black","blue","cyan")
-ts.plot(cbind(gamma0, gammahm1,gammah),main="Nowcast, h and h-1 MSE predictors",col=colo)
-
-if (F)
-{
-# Some Checks and diagnostics:
-# The sum of filter coefficients of the trend should add to one
-  sum(hp_trend_long)
-# Standard error when applied to standardized white noise
-  sqrt(t(hp_trend_long)%*%hp_trend_long)
-} 
+#   b' * (gamma_{h-1} - gamma_h) = beta
+#
+# This maps onto the standard DFP (Decoupling Filter Problem) framework:
+# minimise MSE subject to
+#
+#   b' * gamma_constraint = alpha0,
+#
+# where  gamma_constraint = gamma_{h-1} - gamma_h  and  alpha0 = beta.
+#
+# In the classical DFP, the constraint vector is gamma_0 (decoupling from the
+# nowcast). Here it is the difference of two consecutive forecast vectors, so
+# the LID problem is not a classical DFP problem, but it can be solved by the
+# same DFP optimisation routine.
+#
+# Interpretation of the constraint vector:
+#   gamma_constraint = gamma_{h-1} - gamma_h is a purely algebraic construct,
+#   unlike the classical DFP vector gamma_0, which admits a direct physical
+#   interpretation as a present-value filter (Decoupling From Present).
+#
+#   It encodes the CCF slope condition at lag h:
+#
+#     b' * gamma_constraint = 0   ⟺   CCF(h-1) = CCF(h)   [CCF flat at lag h]
+#
+#   A flat CCF at lag h implies (in this example at least) that the peak is 
+#   shifted rightward from lag 0 toward lag h, indicating look-ahead behaviour 
+#   (x as a leading indicator).
+# ════════════════════════════════════════════════════════════════════════════════
 
 
+# ── 1.1 DFP Set-Up ───────────────────────────────────────────────────────────
 
-# LID constraint vector: difference between consecutive MSE predictors at lags h-1 and h
+# Leading horizon: one year ahead for quarterly data.
+h <- 4
+
+# Extract the target (MSE-optimal) filter coefficients at the relevant lags.
+gamma    <- hp_trend            # Full filter (reference)
+gamma0   <- hp_trend[1:L]       # Length L Nowcast filter (lag 0)
+gammah   <- hp_trend[h   + 1:L] # Length L h-step-ahead MSE predictor
+gammahm1 <- hp_trend[h-1 + 1:L] # Length L (h-1)-step-ahead MSE predictor
+
+# Plot the three target filters for visual comparison.
+colo <- c("black", "blue", "cyan")
+ts.plot(cbind(gamma0, gammahm1, gammah),
+        main = "Nowcast, h-step and (h-1)-step MSE predictors",
+        col  = colo)
+
+if (FALSE) {
+  # Diagnostic checks on the target filter:
+  #   (i)  Coefficients of a trend filter should sum to one.
+  #   (ii) Root-MSE when applied to standardised white noise.
+  sum(hp_trend)
+  sqrt(t(hp_trend) %*% hp_trend)
+}
+
+# ── LID constraint vector ─────────────────────────────────────────────────────
+# Defined as the difference between consecutive MSE predictors.
+# The sign convention is arbitrary; reversing it requires reversing the sign
+# of alpha0 accordingly.
 gamma_constraint <- gammahm1 - gammah
-# Note: the sign in gamma_constraint is arbitrary and could be reversed, 
-# together with alpha0 in the constraint.
 
-par(mfrow=c(1,1))
+par(mfrow = c(1, 1))
 ts.plot(gamma_constraint,
         main = expression(gamma[constraint] == gamma[h-1] - gamma[h]),
         xlab = "Lag", ylab = "",
-        sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
+        sub  = "Algebraic constraint vector encoding the CCF slope condition at lag h")
 abline(h = 0)
 
-# Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor. 
-# Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
-# DFP should enforce a coupling strictly below this.
+# ── Baseline coupling and constraint levels ───────────────────────────────────
+# Compute the inner product of the h-step MSE predictor with the constraint
+# vector. This serves as a natural upper bound for alpha0: if the DFP constraint
+# enforces a coupling below this value, the leading indicator will look further 
+# ahead (left-shift/advancement).
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
-# Sequence of decoupling levels alpha0, strictly smaller than the above mse_coup. 
-# Smaller (more negative) values enforce progressively stronger CCF slope at 
-# lag h (a right-shift of the peak towards h=1).
+# Construct a sequence of decoupling levels alpha0, all strictly below mse_coup.
+# Progressively smaller (more negative) values enforce a stronger rightward
+# shift of the CCF peak towards lag h.
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0)
 
-# The DFP constraint enforces stronger decoupling form gamma_constraint than 
-# the MSE predictor gammah: the last negative value suggests that the peak CCF
-# should be shifted to the right: from k=0 to k=h=1.
 alpha0_vec
 
 
+# ── 1.2 Run DFP ──────────────────────────────────────────────────────────────
+# For each alpha0 in alpha0_vec, compute the MSE-optimal filter via the
+# closed-form DFP solution (Proposition 1, Wildi 2026):
 
+b_mat       <- NULL   # Filter coefficient matrix  (L × |alpha0_vec|)
+cor_vec_mat <- NULL   # Full CCF matrices, one column per alpha0
 
-
-# ─────────────────────────────────────────────────────────────────────
-# 1.2 Run DFP
-# ─────────────────────────────────────────────────────────────────────
-
-# For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
-# Proposition 1 (Wildi 2026):
-#
-#   b = gammah + lambda * gamma_constraint,
-#   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
-#
-# This closed-form solution minimises the MSE subject to the modified
-# decoupling constraint b' * gamma_constraint = alpha0.
-
-b_mat       <- NULL    # filter coefficients, one column per alpha0
-lambda_vec1 <- NULL    # corresponding Lagrange multipliers
-cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
-
-# CCF values at lags 0 and h for each alpha0 (for tabular summary)
+# CCF values at lags (h-1) and h for tabular summary.
 cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
 
-# Number of leads on either side of lag 0 to include in the CCF
+# Number of negative lags to include in the CCF (does not affect DFP calculation).
 max_lag <- 1
 
 for (i in seq_along(alpha0_vec)) {
   
   alpha0 <- alpha0_vec[i]
   
-  # Compute MSE-PCS predictor with modified constraint vector
-  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  # Closed-form DFP solution with the LID constraint vector.
+  b     <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
   b_mat <- cbind(b_mat, b)
   
-  # Compute the population CCF of b against the process over lags [-max_lag, h]
+  # Population CCF of b against the process over lags [-max_lag, h].
   cor_vec <- compute_acf_at_lags_zero_delta_func(
     max_lag, h, as.vector(b), gamma)$cor_vec
-  cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
-  cor_vec_1[i, 1] <- cor_vec[1 + h-1]         # CCF at lag 0 (coupling with present)
-  cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
+  
+  cor_vec_mat      <- cbind(cor_vec_mat, cor_vec)
+  cor_vec_1[i, 1]  <- cor_vec[1 + h - 1]   # CCF at lag h-1
+  cor_vec_1[i, 2]  <- cor_vec[1 + h]        # CCF at lag h
 }
 
-colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
-colnames(cor_vec_1) <- paste("Lag ", (h-1):h,sep="")
-rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
+# Attach descriptive names to columns and rows.
+colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 5))
+colnames(cor_vec_1) <- paste("Lag", (h - 1):h)
+rownames(cor_vec_1) <- paste0("alpha0=", round(alpha0_vec, 3))
 
 
-# ─────────────────────────────────────────────────────────────────────
-# 1.3 Routine Checks
-# ─────────────────────────────────────────────────────────────────────
+# ── 1.3 Routine Checks ───────────────────────────────────────────────────────
 
-# ── Check 1: PCS constraint ──────
-
-# Verification: the constraint b' * gamma_constraint = alpha0 should hold
-# exactly for every column of b_mat (residuals should be numerically zero).
+# Check 1 — Constraint satisfaction:
+# The residual  b' * gamma_constraint - alpha0  should be numerically zero
+# for every column of b_mat.
 t(b_mat) %*% gamma_constraint - alpha0_vec
 
-# ── Check 2: sign / orientation preservation ──────────────────────────────
-# A strictly positive sum of filter coefficients confirms that none of the
-# PCS filters inverts the direction of a trend or level shift in the data.
+# Check 2 — Filter orientation:
+# A strictly positive sum of filter coefficients ensures that the filter preserves
+# the direction of any trend or level shift present in the input data (i.e., an
+# upward movement in the input produces an upward movement in the output, and vice
+# versa). A negative sum would indicate that the filter inverts such directional
+# patterns — effectively flipping the sign of trends or shifts. Here we observe
+# that sufficiently small values of alpha0 can cause this inversion, which has
+# direct implications for forecast behaviour (see Exercise 1.5).
 apply(b_mat, 2, sum)
 
-# CHECK 3 — Positive Target Covariance
-t(b_mat)%*%gammah
+# Check 3 — Positive target covariance:
+# The inner product  b' * gammah  should be positive for all filters,
+# confirming alignment with the h-step lead target.
+t(b_mat) %*% gammah
 
-
-# Collect all filters (nowcast, MSE, and PCS variants) into a single matrix
+# ── Collect all filters for downstream comparison ─────────────────────────────
+# Columns: nowcast, unconstrained MSE predictor, and LID-constrained variants.
 filter_mat <- cbind(gamma0, gammah, b_mat)
-colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),
-                          paste0("LID ", round(alpha0_vec, 8)))
-
+colnames(filter_mat) <- c(
+  "Nowcast",
+  paste0("MSE(", h, ")"),
+  paste0("LID ", round(alpha0_vec, 8))
+)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -861,8 +844,8 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 # Which argument is correct? The following piece shows that MSE-PCS as in paper is correct
 #???????????????????????????????????????????????????????
-# Note: select either gamma_target<-hp_trend_long[h+1:L]
-# or gamma_target<-hp_trend_long[1:L] as targets above.
+# Note: select either gamma_target<-hp_trend[h+1:L]
+# or gamma_target<-hp_trend[1:L] as targets above.
 
 if (F)
 {
