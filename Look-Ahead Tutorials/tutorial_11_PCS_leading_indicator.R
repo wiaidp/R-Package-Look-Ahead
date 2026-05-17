@@ -11,12 +11,20 @@
 # difference of a non-stationary macro series such as industrial production,
 # employment, income, or GDP. The target signal is defined as:
 #
-#   Phi' * x_t  (AR form)   ≡   gamma' * epsilon_t  (MA form)
+#   Phi' * X_t  (AR form)   ≡   gamma' * Epsilon_t  (MA form)
 #
-# Typical targets include trend-growth signals, cycle-growth signals, or
-# seasonally adjusted growth rates. Throughout this tutorial we work in the
-# MA form. Here, gamma is the convolution of the Wold decomposition xi of
-# x_t with the filter Phi:
+# Where Phi and gamma are vectors of length L and X_t=(x_t,...,X-{t-L+1}), 
+# Epsilon_t=(epsilon_t,...,epsilon_{t-L+1}).
+
+# Typical targets Phi (or gamma) include trend-, cycle-, or
+# seasonal adjustment filters and  Phi' * X_t represents signal-growth: trend-, 
+# cycle-, or seasonally adjusted growth. 
+
+# Stationary signal-growth is often more relevant to analysts and decision 
+# makers than non-stationary signal-level.
+
+# Throughout this tutorial we work in the MA form. Here, gamma is the 
+# convolution of the Wold decomposition xi of x_t with the filter Phi:
 #
 #   gamma = Phi ∘ xi,   where ∘ denotes convolution.
 #
@@ -25,12 +33,14 @@
 
 # ── LEADING INDICATOR DESIGN (LID) ─────────────────────────────────────────
 #
-# We employ a Type II PCS leading indicator design; see Tutorial 12 for 
-# details on the PCS typology. The optimization problem is:
+# The optimization problem is:
 #
 #   Minimize  (b - gamma)' (b - gamma)          [MSE objective]
 #   subject to  b' * (gamma_h - gamma_{h-1}) = beta   [lead constraint]
 #
+# See section 3.3, Wildi (2026). This problem is related (though not identical) 
+# to the Type II PCS approach introduced in Tutorial 12. 
+
 # The objective minimizes the distance from the causal (nowcast) filter
 # gamma; no explicit forecasting step is involved. The hyperparameters
 # h > 0 and beta >= 0 in the constraint jointly govern the profile of the 
@@ -44,16 +54,24 @@
 #
 # ── HP TREND: BUSINESS-CYCLE ANALYSIS ─────────────────────────
 #
-# When the HP trend is applied to the first differences of the data, 
+# When the HP trend (Phi) is applied to the first differences (X_t) of the data, 
 # the resulting indicator estimates current growth (drift):
 #
 #   Positive values → economic expansion
 #   Negative values → economic contraction / recession
 #
-# This constitutes a straightforward form of business-cycle analysis.
-# Cyclical movements are not endogenous to the filter (problem of spurious cycle) but
-# remain consistent with the observed data. See the M-SSA Tutorial 2 for 
-# theoretical background on the HP filter.
+# This constitutes a straightforward form of business-cycle analysis. 
+#
+# - HP-trend tracks the level of the first differences (trend-growth), 
+#   and `cyclical' up- and down-turns are triggered by changes in the 
+#   underlying data growth-rate due to transitions between economic phases 
+#   of expansion and contraction.  
+# - These dynamics are endogenous to the data, not the filter.
+# - Applying a trend filter to first differences tracks effective growth, 
+#   thereby mitigating the problem of spurious cycle of conventional 
+#   business-cycle designs, see Wildi (2014).
+
+# Background is provided in the M-SSA Tutorial Series (Tutorial 2 of M-SSA).  
 
 # ── SIMPLE VS. CHALLENGING FORECAST PROBLEMS ─────────────────────────
 #
@@ -70,6 +88,11 @@
 
 # ═════════════════════════════════════════════════════════════════════
 # ── REFERENCES ───────────────────────────────────────────────────────
+#
+#   Wildi, M. (2024)
+#     Business Cycle Analysis and Zero-Crossings of Time Series:
+#     a Generalized Forecast Approach.
+#     https://doi.org/10.1007/s41549-024-00097-5
 #
 #   Wildi, M. (2026)
 #     Forecasting on the Accuracy–Timeliness Frontier:
