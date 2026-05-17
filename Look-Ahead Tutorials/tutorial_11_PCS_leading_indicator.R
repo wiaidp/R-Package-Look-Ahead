@@ -214,26 +214,22 @@ hp_mse<-hp_mse_long[1:L]
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 1: LID Based on DFP Optimization
+# Exercise 1: DFP-Based LID 
 # ════════════════════════════════════════════════════════════════════
 
-# Type II) requires CCF(h) > CCF(h-1), i.e., the CCF must increase
-# over the final step to the forecast horizon h. Using CCF(k) = b' * gamma_k, 
-# this becomes:
+# The LID constraint requires 
 #
-#   b' * gamma_{h-1} < b' * gamma_h
-#   <=>  b' * (gamma_{h-1} - gamma_h) < 0
+#  b' * (gamma_h - gamma_{h-1}) = beta 
 #
-# Equivalently, setting alpha0 = b' * gamma_constraint with
-#   gamma_constraint = gamma_{h-1} - gamma_h,
-# Type II) requires alpha0 < 0.
 #
 # This maps exactly onto a standard DFP decoupling problem: minimise MSE
-# subject to b' * gamma_constraint = alpha0, with gamma_constraint playing
-# the role of gamma_0. We therefore apply compute_mse_dfp() with
-# gamma_constraint in place of gamma_0, and decrease alpha0 below the MSE
-# baseline to progressively enforce the slope condition.
-#
+# subject to b' * gamma_constraint = alpha0
+# where gamma_constraint = (gamma_h - gamma_{h-1}) and alpha_0=beta. Note that 
+# in the original DFP gamma_constraint = gamma_0 (decoupling from the nowcast), 
+# whereas here gamma_constraint = (gamma_h - gamma_{h-1}) \neq gamma_0. The 
+# LID problem is not a classical DFP problem but it can solved by the DFP 
+# optimization.
+
 # Remark on interpretation:
 #   Unlike the classic DFP constraint (which decouples b from the observable
 #   present via gamma_0), the constraint vector 
@@ -243,16 +239,12 @@ hp_mse<-hp_mse_long[1:L]
 #   is a difference of two forecast vectors and has no direct physical interpretation
 #   as a "present-value" filter. Its role is purely algebraic: zeroing out
 #   b' * gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
-#   enforces CCF(h-1) < CCF(h). The resulting filter may therefore look
-#   unusual (e.g., non-monotone weights), which is expected and not a cause
-#   for concern: the constraint is meaningful even if gamma_constraint itself
-#   is not intuitively interpretable.
+#   enforces CCF(h-1) < CCF(h). 
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.1 DFP Set-Up
 # ─────────────────────────────────────────────────────────────────────
-
 
 
 # Specify gamma at forecast horizon sup_vec_target=h and at lead/lag sup_vec_constraint
@@ -504,8 +496,8 @@ ccf(na.exclude(y_out_mat[, 1]),
 
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: LID Based on PCS Optimization
-# ════════════════════════════════════════════════════════════════════
+# Exercise 2: PCS-Based LID
+# ═══════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
 # Overview
