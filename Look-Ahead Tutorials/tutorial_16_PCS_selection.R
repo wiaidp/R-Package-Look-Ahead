@@ -37,8 +37,12 @@
 
 # 0 > CCF(1) - CCF(0) = b' * (gamma_1 - gamma_0).
 
-# Note: ||gamma_1|| < ||gamma_0|| if L is sufficiently long (||gamma_0||^2 = gamma_{00}^2 + ||gamma_1||^2 if L=\infty, and gamma_{00}=1 per definition).
+# Look ahead effect: 
+# a. Note: ||gamma_1|| < ||gamma_0|| if L is sufficiently long (||gamma_0||^2 = gamma_{00}^2 + ||gamma_1||^2 if L=\infty, and gamma_{00}=1 per definition).
 
-# Therefore b' * (gamma_1 - gamma_0) > 0 together with ||gamma_1|| < ||gamma_0|| implies that 
-# b must lie at a favorable angle to gamma_1 in the plane spanned by gamma_0 and gamma_h (b lies in the plane of gamma_0 and gamma_h).
+# b. Therefore b' * (gamma_1 - gamma_0) > 0 together with ||gamma_1|| < ||gamma_0|| implies that 
+#    b must lie at angles theta_1 to gamma_1 and theta_0 to gamma_0 such that 
+#     ||b|| * ||gamma_0|| * cos(theta_0) < ||b|| * ||gamma_1|| * cos(theta_1), i.e.
+#     ||gamma_0|| * cos(theta_0) < ||gamma_1|| * cos(theta_1)
 
+# Furthermore, cos(theta_h) \to min.
