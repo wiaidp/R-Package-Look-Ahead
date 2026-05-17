@@ -450,7 +450,7 @@ round(cor_vec_1, 2)
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 1.5 Compute LID (Leading Indicators)
+# 1.5 Compute DFP-Based LID (Leading Indicators)
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -682,7 +682,7 @@ PCS_obj$b_mse
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.4 Routine Checks
+# 2.5 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: PCS slope constraints ───────────────────────────────────
@@ -717,7 +717,7 @@ colnames(filter_mat) <- c("Nowcast",
                                  ", beta=", round(beta_vec, 2)))
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.5 Plots and Performance Summary
+# 2.6 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
@@ -764,6 +764,60 @@ abline(v = max_lag + 1 + h, lty = 2)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.7 Compute PCS-Based LID (Leading Indicators)
+# ─────────────────────────────────────────────────────────────────────
+
+
+
+# Apply each filter to eps via causal (one-sided) convolution.
+# filter(..., sides = 1) computes the linear filter sum_{k=0}^{L-1} b_k * eps_{t-k}.
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat,
+                     filter(x, filter_mat[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+rownames(y_out_mat) <- names(x)
+
+
+# Plot a short excerpt to visually compare the temporal alignment of each predictor
+anf <- 1
+enf <- nrow(y_out_mat)
+mplot<-scale(y_out_mat[anf:enf, ])
+par(mfrow = c(1, 1))
+ts.plot(mplot,
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+
+# Outcome:
+#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
+#   output shifts progressively to the left (looks further ahead) relative to
+#   the MSE predictor. This visual lead is confirmed quantitatively by the
+#   empirical CCFs below.
+
+
+# Compute empirical CCFs between the nowcast (x_t) and each predictor to
+# confirm that the population peak shift observed in Section 1.5 is
+# reproduced in finite-sample data.
+
+par(mfrow = c(1, 2))
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, 2]),
+    lag.max = 10, plot = TRUE,
+    main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
+
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: strongest PCS predictor\n",
+                  "Peak shifted from k = 0 to k = h = ", h))
 
 
 
