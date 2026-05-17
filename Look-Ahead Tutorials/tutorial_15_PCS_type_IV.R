@@ -413,7 +413,6 @@ PCS_obj  <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda,
 # with additional slope values at which the predictor changes
 # profile sharply (identified from prior inspection of the solution path).
 beta_vec_automatic <- PCS_obj$beta_vec
-beta_vec_automatic <- PCS_obj$beta_vec
 
 # Refine locally grid resolution: beta_vec collects all relevant beta values 
 beta_vec <- c(beta_vec_automatic[1],
