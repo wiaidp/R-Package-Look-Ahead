@@ -490,6 +490,11 @@ rownames(y_out_mat) <- names(x)
 anf <- 1
 enf <- nrow(y_out_mat)
 mplot<-scale(y_out_mat[anf:enf, ])
+# Note: LID designs that approach full decoupling invert the level
+# or the trend direction of the signal (see exercise 1.3 above). In such cases, 
+# mean centering (or standardization as above) is recommended, as non-zero baseline 
+# levels (due to positive long-term GDP growth) would otherwise undergo 
+# sign inversion.
 par(mfrow = c(1, 1))
 ts.plot(mplot,
         main = "Predictor outputs (standardised): excerpt",
@@ -516,24 +521,16 @@ for (i in 1:ncol(mplot))
 #   predictor progressively leftwards (looks further ahead) relative to
 #   MSE(4) or HP-C. 
 
-# Note: LID designs that approach full decoupling invert the level
-# or the trend direction of the signal (see exercise 1.3 above). In such cases, 
-# mean centering (i.e., standardization) is recommended, as non-zero baseline 
-# levels (due to positive long-term GDP growth) would otherwise undergo 
-# sign inversion.
 
-
-
-# Compute empirical CCFs between the nowcast (x_t) and each predictor to
-# confirm that the population peak shift observed in Section 1.5 is
-# reproduced in finite-sample data.
+# Compute empirical CCFs between the (HP-) nowcast and each predictor to
+# confirm that the population peak-shift is reproduced in finite-sample data.
 
 par(mfrow = c(2, 2))
 
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, 2]),
     lag.max = 10, plot = TRUE,
-    main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
+    main = paste("CCF: MSE(",h,"): Peak at lag k = 0",sep=""))
 
 
 k<-7
