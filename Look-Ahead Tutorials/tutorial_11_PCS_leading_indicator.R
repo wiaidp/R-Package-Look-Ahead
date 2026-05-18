@@ -192,9 +192,34 @@ L <- 31
 
 # Compute the concurrent (causal, one-sided) HP trend filter.
 HP_obj   <- HP_target_mse_modified_gap(2 * (L - 1) + 1, lambda_hp)
-hp_trend <- HP_obj$hp_trend
+# Classic one-sided HP
+hp_c <- HP_obj$hp_trend
+# Right tail of symmetric HP trend filter
+hp_trend <- HP_obj$hp_mse
 
-ts.plot(hp_trend,main=paste("Concurrent HP(",lambda_hp,")",sep=""))
+ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",lambda_hp,")",sep=""))
+
+# Background
+# - The LID should target the two-sided (acausal) HP trend, while ideally
+#   being slightly faster (left-shifted, advanced, leading) than its MSE-optimal 
+#   one-sided (causal) nowcast.
+# - The classic concurrent HP filter, hp_c above, is not an MSE-optimal nowcast 
+#   when the data are (close to) white noise.
+# - Under white noise, the MSE-optimal HP nowcast is given by the right-tail
+#   output of the acausal two-sided HP filter applied to the full sample,
+#   i.e., hp_trend.
+# - The optimisation is invariant to the choice of target: substituting the
+#   two-sided HP filter for its MSE-optimal nowcast hp_trend in the objective
+#   function yields the same LID solution.
+# - Accordingly, the target adopted here is hp_trend: the MSE-optimal
+#   one-sided predictor of the two-sided HP trend.
+# - When the data are autocorrelated (xi ≠ 1), the MSE-optimal nowcast is
+#   constructed as follows:
+#     1. Compute the convolution HP_two ∘ xi, yielding the MA representation
+#        of the two-sided HP filter adapted for the autocorrelation structure.
+#     2. Replace all MA coefficients assigned to future (not-yet-observed)
+#        innovations with zero — their MSE-optimal forecast under linearity.
+# - When xi = 1 (white noise), steps 1 and 2 reduce to hp_trend directly.
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -338,33 +363,41 @@ t(b_mat) %*% gamma_constraint - alpha0_vec
 # direct implications for forecast behaviour (see Exercise 1.5).
 apply(b_mat, 2, sum)
 
-# Check 3 — Positive target covariance:
-# The inner product  b' * gammah  should be positive for all filters,
-# confirming alignment with the h-step lead target.
-t(b_mat) %*% gammah
+# Check 3 — Positive target covariance.
+# A key distinction of the LID formulation here is that we do not verify that 
+# b' * gammah > 0 but b' * gamma0 > 0. Indeed, the target is not the
+# h-step-ahead MSE predictor, gammah (as used in DFP and PCS
+# applications), but rather the nowcast hp_trend of the two-sided HP trend. 
+# Consequently, the LID filter should closely approximate hp_trend (the
+# finite-length gamma0) while being left-shifted (i.e., time-advanced) relative
+# to it. This anchors the LID to the contemporaneous indicator itself, rather
+# than to an h-step-ahead forecast of it (as gammah would imply).
+# A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
+# of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+t(b_mat) %*% gamma0
 
 # ── Collect all filters for downstream comparison ─────────────────────────────
-# Columns: nowcast, unconstrained MSE predictor, and LID-constrained variants.
-filter_mat <- cbind(gamma0, gammah, b_mat)
-colnames(filter_mat) <- c(
-  "Nowcast",
-  paste0("MSE(", h, ")"),
-  paste0("LID ", round(alpha0_vec, 8))
-)
+# Columns: nowcast, h-step ahead MSE predictor, classic concurrent HP-C, 
+# and LID-constrained variants.
+filter_mat <- cbind(gamma0, gammah, hp_c[1:L],b_mat)
+colnames(filter_mat) <- c("Nowcast",  paste0("MSE(", h, ")"),
+                          "HP-C",paste0("LID ", round(alpha0_vec, 8)))
 
-
+#@@@ ??? Ideas: gammah can left-shift arbitrarily but is not anchored at nowcast: 
+#  phase can change, sign invert. HP-C has bad MSE performances. LID should have 
+# better MSE than HP-C and not loose tracking of nowcast (phase reverting).
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
-colo  <- c("black","green", rainbow(ncol(b_mat)))
+colo  <- c("black","green","violet", rainbow(ncol(b_mat)))
 
-lwd_vec<-c(2,2,rep(1,ncol(b_mat)))
+lwd_vec<-c(2,2,2,rep(1,ncol(b_mat)))
 
 # ── Left panel: filter coefficients ──────────────────────────────────
-# Truncate to the first q+1 lags where the MA process has support.
-mplot <- scale(filter_mat)
+# Scale to unit length for better visual inspection.
+mplot <- scale(filter_mat,center=F,scale=T)
 plot(mplot[, 1], main = "Filter coefficients: MSE and PCS variants",
      axes = FALSE, type = "l", xlab = "Lag", ylab = "",
      col = colo[1], lwd = lwd_vec,lty=lwd_vec,
@@ -440,7 +473,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 rownames(y_out_mat) <- names(x)
 
 
-# Plot a short excerpt to visually compare the temporal alignment of each predictor
+# Plot the entire history
 anf <- 1
 enf <- nrow(y_out_mat)
 mplot<-scale(y_out_mat[anf:enf, ])
@@ -451,6 +484,20 @@ ts.plot(mplot,
 abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
+
+# Finacial crisis:
+anf <- 50
+enf <- 80
+mplot<-scale(y_out_mat[anf:enf, ])
+par(mfrow = c(1, 1))
+ts.plot(mplot,
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(mplot))
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+
+
 
 # Outcome:
 #   As the PCS decoupling weight increases (alpha0 decreases), the predictor
