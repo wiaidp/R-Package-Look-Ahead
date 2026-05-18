@@ -625,9 +625,9 @@ alpha0 <- 0.5
 # Compute the MSE-DFP filter coefficients for the partially decoupled case
 b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 
-# Adjust beta: flip the sign and apply the empirical rescaling factor (2.54 in this example)
+# Adjust beta: flip the sign and apply the empirical rescaling factor (~6.7 in this example)
 # that accounts for the difference in normalization between the two frameworks
-beta <- -2.54* alpha0
+beta <- -6.65* alpha0
 
 # Compute the rescaled PCS filter coefficients
 # Compute the PCS filter coefficients: equation 49 in Wildi (2026)
