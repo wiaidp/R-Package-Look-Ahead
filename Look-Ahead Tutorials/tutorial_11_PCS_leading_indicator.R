@@ -305,9 +305,8 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Construct a sequence of decoupling levels alpha0, all strictly below mse_coup.
 # Progressively smaller (more negative) values enforce a stronger rightward
 # shift of the CCF peak towards lag h.
-alpha0_vec <- c(mse_coup / 1.5^(1:5), 0)
+alpha0_vec <- c(0.00123,0.001, 0.00086,mse_coup / 1.5^(1:5), 0)
 
-alpha0_vec
 
 
 # ── 1.2 Run DFP ──────────────────────────────────────────────────────────────
@@ -318,7 +317,7 @@ b_mat       <- NULL   # Filter coefficient matrix  (L × |alpha0_vec|)
 cor_vec_mat <- NULL   # Full CCF matrices, one column per alpha0
 
 # CCF values at lags (h-1) and h for tabular summary.
-cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
+cor_vec_1 <- matrix(ncol = 3, nrow = length(alpha0_vec))
 
 # Number of negative lags to include in the CCF (does not affect DFP calculation).
 max_lag <- 1
@@ -336,14 +335,15 @@ for (i in seq_along(alpha0_vec)) {
     max_lag, h, as.vector(b), gamma)$cor_vec
   
   cor_vec_mat      <- cbind(cor_vec_mat, cor_vec)
-  cor_vec_1[i, 1]  <- cor_vec[1 + h - 1]   # CCF at lag h-1
-  cor_vec_1[i, 2]  <- cor_vec[1 + h]        # CCF at lag h
+  cor_vec_1[i, 1]  <- cor_vec[1 +max_lag ]   # CCF at lag h-1
+  cor_vec_1[i, 2]  <- cor_vec[1 +max_lag + h - 1]   # CCF at lag h-1
+  cor_vec_1[i, 3]  <- cor_vec[1 + max_lag+h]        # CCF at lag h
 }
 
 # Attach descriptive names to columns and rows.
 colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 5))
-colnames(cor_vec_1) <- paste("Lag", (h - 1):h)
-rownames(cor_vec_1) <- paste0("alpha0=", round(alpha0_vec, 3))
+colnames(cor_vec_1) <- c("Lag 0",paste("Lag", (h - 1):h))
+rownames(cor_vec_1) <- paste0("alpha0=", round(alpha0_vec, 8))
 
 
 # ── 1.3 Routine Checks ───────────────────────────────────────────────────────
@@ -435,27 +435,38 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
+
 # ── Outcomes ─────────────────────────────────────────────────────────
-# Left panel (filter coefficients):
-#   - Unlike the MSE predictor, the PCS/DFP filters assign non-zero weight
-#     to the farthest lag k = q.
-#   - Stronger decoupling (smaller alpha0) progressively shifts weight away
-#     from recent observations toward the oldest lag. This is counter-intuitive
-#     but is a direct consequence of enforcing the CCF slope constraint.
 #
-# Right panel (CCFs):
-#   - The MSE predictors maximize the CCF at their respective forecast horizons.
-#   - Enforcing the slope constraint via decoupling works as intended: as
-#     alpha0 decreases, the slope between lags 0 and h=1 flattens and eventually
-#     inverts, confirming a peak shift toward lag h=1 (violet line).
-#   - Increasing the forecast horizon (any admissible htilde<=9) does not 
-#     shift the peak of the CCF of the MSE predictor.
-#   - The loss in target correlation at lag h=1 is minimised subject to the
-#     modified decoupling constraint (efficient frontier).
-
-# Tabular summary: CCF at lag 0 and lag h for each decoupling level
+# Left panel (filter coefficients):
+#   - As alpha0 decreases, the filter coefficients turn negative sooner and
+#     with greater magnitude (deeper negative swing).
+#   - The LID design provides a continuum of solutions between HP-MSE and HP-C:
+#       • alpha0 = 0.0123  → LID is nearly equivalent to MSE(4).
+#       • alpha0 = 0.00086 → LID is virtually identical to HP-C.
+#       • alpha0 ∈ (0.00086, 0.0123) → LID interpolates smoothly between
+#         MSE(4) and HP-C (e.g., alpha0 = 0.001).
+#       • alpha0 < 0.00086  → LID coefficients decay faster than HP-C and
+#         exhibit a stronger negative swing.
+#       • Tighter approximations to either MSE(4) or HP-C can be achieved
+#         by fine-tuning alpha0 accordingly.
+#
+# Right panel (cross-correlation functions, CCFs):
+#   - The CCFs of MSE(4) and HP-C are both replicable by the LID to within
+#     negligible deviation.
+#   - Increasing alpha0 progressively flattens the CCF; at the limit alpha0 = 0,
+#     the CCF peak shifts to h = 4, as expected by construction.
+#   - A peak shifted to the right of lag 0 introduces look-ahead behaviour,
+#     as illustrated in the predictor plots below.
+#
+# CCFs evaluated at lags h-1 and h:
 round(cor_vec_1, 2)
-
+# As alpha0 decreases, the difference CCF(4) - CCF(3) decreases in magnitude and 
+# eventually vanishes as alpha0 → 0, reflecting a rightward shift of the CCF peak.
+# Smaller absolute differences (i.e., a flatter CCF) imply a reduced CCF at
+# lag k = 0 (the nowcast correlation) — revealing an inherent trade-off:
+# a flatter CCF buys lead time (left-shift or advancement) at the cost of 
+# nowcast accuracy.
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.5 Compute DFP-Based LID (Leading Indicators)
@@ -463,8 +474,7 @@ round(cor_vec_1, 2)
 
 
 
-# Apply each filter to eps via causal (one-sided) convolution.
-# filter(..., sides = 1) computes the linear filter sum_{k=0}^{L-1} b_k * eps_{t-k}.
+# Apply each filter to the data.
 y_out_mat <- NULL
 for (i in 1:ncol(filter_mat))
   y_out_mat <- cbind(y_out_mat,
@@ -480,19 +490,19 @@ mplot<-scale(y_out_mat[anf:enf, ])
 par(mfrow = c(1, 1))
 ts.plot(mplot,
         main = "Predictor outputs (standardised): excerpt",
-        col = colo, xlab = "Time", ylab = "")
+        col = colo, xlab = "Time", ylab = "",lwd=lwd_vec,lty=lwd_vec)
 abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 
-# Finacial crisis:
+# Financial crisis:
 anf <- 50
 enf <- 80
 mplot<-scale(y_out_mat[anf:enf, ])
 par(mfrow = c(1, 1))
 ts.plot(mplot,
         main = "Predictor outputs (standardised): excerpt",
-        col = colo, xlab = "Time", ylab = "")
+        col = colo, xlab = "Time", ylab = "",lwd=lwd_vec,lty=lwd_vec)
 abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
@@ -500,17 +510,16 @@ for (i in 1:ncol(mplot))
 
 
 # Outcome:
-#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
-#   output shifts progressively to the left (looks further ahead) relative to
-#   the MSE predictor. This visual lead is confirmed quantitatively by the
-#   empirical CCFs below.
+#   Stronger decoupling from gamma_constraint (smaller alpha0), shifts the 
+#   predictor progressively leftwards (looks further ahead) relative to
+#   MSE(4) or HP-C. 
 
 
 # Compute empirical CCFs between the nowcast (x_t) and each predictor to
 # confirm that the population peak shift observed in Section 1.5 is
 # reproduced in finite-sample data.
 
-par(mfrow = c(1, 2))
+par(mfrow = c(2, 2))
 
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, 2]),
@@ -518,12 +527,23 @@ ccf(na.exclude(y_out_mat[, 1]),
     main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
 
 
+k<-7
 ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    na.exclude(y_out_mat[, k]),
     lag.max = 10, plot = TRUE,
-    main = paste0("CCF: strongest PCS predictor\n",
-                  "Peak shifted from k = 0 to k = h = ", h))
+    main = paste0("CCF: ",colnames(y_out_mat)[k],sep=""))
 
+k<-10
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, k]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: ",colnames(y_out_mat)[k],sep=""))
+
+k<-ncol(y_out_mat)
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, k]),
+    lag.max = 10, plot = TRUE,
+    main = paste0("CCF: ",colnames(y_out_mat)[k],sep=""))
 
 # ════════════════════════════════════════════════════════════════════
 # Exercise 2: PCS-Based LID
@@ -536,7 +556,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 #
 #   Path 1 – Modified DFP (exercise 1):
 #     The DFP function can solve this problem by supplying a suitably
-#     modified constraint vector, as demonstrated in the sections above.
+#     modified constraint vector, as demonstrated in exercise 1 above.
 #
 #   Path 2 – Direct PCS (used here):
 #     PCS_func() solves the same problem natively. Unlike the DFP
@@ -547,51 +567,54 @@ ccf(na.exclude(y_out_mat[, 1]),
 # solution obtained earlier, confirming that both paths yield the same
 # filter coefficients.
 
-
-# ── 2.1 Full Decoupling ─────────────────────────────────────────────
-# Under full decoupling (alpha0 = 0), the MSE-DFP predictor and the PCS
+# ─────────────────────────────────────────────────────────────────────
+# 2.1 Full Decoupling 
+# ─────────────────────────────────────────────────────────────────────
+# Under full decoupling (alpha0 = 0), the MSE-DFA predictor and the PCS
 # predictor coincide exactly, so no sign or scale adjustment is needed.
 
 # Set the decoupling parameter to zero (full decoupling)
 alpha0 <- 0
 
-# Compute the MSE-DFP filter coefficients using the specified constraint
+# Compute the MSE-DFA filter coefficients using the specified constraint
 # vector (gamma_constraint) and the target cross-covariance (gammah)
 b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 
-# ── PCS hyperparameter settings  ────────────────────────────────────
+# ── PCS hyperparameter settings ──────────────────────────────────────
 
 # Under full decoupling, beta equals alpha0 directly (no rescaling required)
 beta <- alpha0
 
-# Use strong regularization to enforce the constraint tightly
+# Use strong regularisation to enforce the constraint tightly
 lambda <- 100000
 
-# Specify the constraint:
+# Set the constraint order equal to the forecast horizon h
 Delta <- h
 
-
-# Use the true DGP 
+# Use the true DGP autocorrelation structure as the PCS target
 gamma_pcs <- gamma
 
-# Compute the PCS filter coefficients: equation 49 in Wildi (2026)
+# Compute the PCS filter coefficients via regularisation (equation 49 in Wildi (2026))
 b_pcs_regularized <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda)$b
 
-# We can also compute the exact closed-form solution: equations 47 and 48 in Wildi (2026) 
-b_pcs_closed_form<- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)$b
+# Compute the exact closed-form PCS solution (equations 47 and 48 in Wildi (2026))
+b_pcs_closed_form <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)$b
+
+# Plot all three sets of coefficients to verify mutual overlap
+par(mfrow = c(1, 1))
+ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
+        main = "Full Decoupling: MSE-DFA, PCS (Regularised) and PCS (Closed-Form) Overlap")
+
+# Note: the closed-form PCS and MSE-DFA solutions overlap exactly.
+# The regularised PCS is virtually identical and would coincide exactly
+# as lambda → ∞, assuming sufficient numerical precision.
 
 
-# Plot coefficients to verify they overlap
-par(mfrow=c(1,1))
-ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form), main = "Both Predictors Overlap")
-
-# Note: closed-form PCS and DFP overlap exactly; the regularized PCS is virtually identical: 
-# it would coincide exactly when lambda \to \infty (assuming infinite numerical precision).
 
 
-
-
-# ── 2.2 Partial Decoupling ──────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 2.2 Partial Decoupling
+# ─────────────────────────────────────────────────────────────────────
 # When alpha0 ≠ 0 (partial decoupling), the DFP and PCS parameterizations
 # use different sign conventions and scaling for the slope constraint.
 # A manual sign flip and rescaling of beta are therefore required before
@@ -620,6 +643,7 @@ ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form), main = "Both Predict
 
 
 
+# ─────────────────────────────────────────────────────────────────────
 # 2.3 PCS  Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
 
