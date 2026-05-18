@@ -257,7 +257,9 @@ ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",
 # ════════════════════════════════════════════════════════════════════════════════
 
 
-# ── 1.1 DFP Set-Up ───────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.1 DFP Set-Up 
+# ─────────────────────────────────────────────────────────────────────
 
 # Leading horizon: one year ahead for quarterly data.
 h <- 4
@@ -295,21 +297,23 @@ ts.plot(gamma_constraint,
         sub  = "Algebraic constraint vector encoding the CCF slope condition at lag h")
 abline(h = 0)
 
-# ── Baseline coupling and constraint levels ───────────────────────────────────
+# ── Baseline decoupling and constraint levels ───────────────────────────────────
 # Compute the inner product of the h-step MSE predictor with the constraint
 # vector. This serves as a natural upper bound for alpha0: if the DFP constraint
-# enforces a coupling below this value, the leading indicator will look further 
-# ahead (left-shift/advancement).
+# enforces a stronger decoupling (a smaller alpha0), the leading indicator will 
+# look further ahead (left-shift/advancement).
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
-# Construct a sequence of decoupling levels alpha0, all strictly below mse_coup.
-# Progressively smaller (more negative) values enforce a stronger rightward
-# shift of the CCF peak towards lag h.
+# Construct a sequence of decoupling levels alpha0, some above, others below 
+# mse_coup. Progressively smaller values enforce a stronger rightward
+# shift of the CCF peak toward lag k = h (when alpha0 = 0).
 alpha0_vec <- c(0.00123,0.001, 0.00086,mse_coup / 1.5^(1:5), 0)
 
 
 
-# ── 1.2 Run DFP ──────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.2 Run DFP 
+# ─────────────────────────────────────────────────────────────────────
 # For each alpha0 in alpha0_vec, compute the MSE-optimal filter via the
 # closed-form DFP solution (Proposition 1, Wildi 2026):
 
@@ -346,7 +350,9 @@ colnames(cor_vec_1) <- c("Lag 0",paste("Lag", (h - 1):h))
 rownames(cor_vec_1) <- paste0("alpha0=", round(alpha0_vec, 8))
 
 
-# ── 1.3 Routine Checks ───────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────
+# 1.3 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
 
 # Check 1 — Constraint satisfaction:
 # The residual  b' * gamma_constraint - alpha0  should be numerically zero
@@ -381,11 +387,8 @@ t(b_mat) %*% gamma0
 # and LID-constrained variants.
 filter_mat <- cbind(gamma0, gammah, hp_c[1:L],b_mat)
 colnames(filter_mat) <- c("Nowcast",  paste0("MSE(", h, ")"),
-                          "HP-C",paste0("LID ", round(alpha0_vec, 8)))
+                          "HP-C",paste0("LID: alpha0= ", round(alpha0_vec, 8)))
 
-#@@@ ??? Ideas: gammah can left-shift arbitrarily but is not anchored at nowcast: 
-#  phase can change, sign invert. HP-C has bad MSE performances. LID should have 
-# better MSE than HP-C and not loose tracking of nowcast (phase reverting).
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
@@ -439,9 +442,9 @@ box()
 # ── Outcomes ─────────────────────────────────────────────────────────
 #
 # Left panel (filter coefficients):
-#   - As alpha0 decreases, the filter coefficients turn negative sooner and
-#     with greater magnitude (deeper negative swing).
-#   - The LID design provides a continuum of solutions between HP-MSE and HP-C:
+#   - As alpha0 decreases, the filter coefficients decay faster, turn negative 
+#     sooner and with greater magnitude (deeper negative swing).
+#   - The LID design generalizes HP-MSE and HP-C:
 #       • alpha0 = 0.0123  → LID is nearly equivalent to MSE(4).
 #       • alpha0 = 0.00086 → LID is virtually identical to HP-C.
 #       • alpha0 ∈ (0.00086, 0.0123) → LID interpolates smoothly between
@@ -453,8 +456,8 @@ box()
 #
 # Right panel (cross-correlation functions, CCFs):
 #   - The CCFs of MSE(4) and HP-C are both replicable by the LID to within
-#     negligible deviation.
-#   - Increasing alpha0 progressively flattens the CCF; at the limit alpha0 = 0,
+#     negligible deviation. Both CCFs peak at lag k = 0.
+#   - Decreasing alpha0 progressively flattens the CCF; at the limit alpha0 = 0,
 #     the CCF peak shifts to h = 4, as expected by construction.
 #   - A peak shifted to the right of lag 0 introduces look-ahead behaviour,
 #     as illustrated in the predictor plots below.
@@ -508,11 +511,17 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 
 
-
 # Outcome:
 #   Stronger decoupling from gamma_constraint (smaller alpha0), shifts the 
 #   predictor progressively leftwards (looks further ahead) relative to
 #   MSE(4) or HP-C. 
+
+# Note: LID designs that approach full decoupling invert the level
+# or the trend direction of the signal (see exercise 1.3 above). In such cases, 
+# mean centering (i.e., standardization) is recommended, as non-zero baseline 
+# levels (due to positive long-term GDP growth) would otherwise undergo 
+# sign inversion.
+
 
 
 # Compute empirical CCFs between the nowcast (x_t) and each predictor to
@@ -568,7 +577,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 # filter coefficients.
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.1 Full Decoupling 
+# 2.1 Full Decoupling: Verify that DFP and PCS coincide.
 # ─────────────────────────────────────────────────────────────────────
 # Under full decoupling (alpha0 = 0), the MSE-DFA predictor and the PCS
 # predictor coincide exactly, so no sign or scale adjustment is needed.
@@ -588,16 +597,17 @@ beta <- alpha0
 # Use strong regularisation to enforce the constraint tightly
 lambda <- 100000
 
-# Set the constraint order equal to the forecast horizon h
+# Lag set for constraints: Delta = h means a single constraint 
+#  b' * (gamma_h-gamma_{h-1}) = beta.
 Delta <- h
 
-# Use the true DGP autocorrelation structure as the PCS target
+# Use the true target (HP) autocorrelation structure as the PCS target
 gamma_pcs <- gamma
 
-# Compute the PCS filter coefficients via regularisation (equation 49 in Wildi (2026))
+# First PCS: regularized criterion (equation 49 in Wildi (2026)).
 b_pcs_regularized <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda)$b
 
-# Compute the exact closed-form PCS solution (equations 47 and 48 in Wildi (2026))
+# Second PCS: exact closed-form solution (equations 47 and 48 in Wildi (2026))
 b_pcs_closed_form <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)$b
 
 # Plot all three sets of coefficients to verify mutual overlap
@@ -605,7 +615,8 @@ par(mfrow = c(1, 1))
 ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
         main = "Full Decoupling: MSE-DFA, PCS (Regularised) and PCS (Closed-Form) Overlap")
 
-# Note: the closed-form PCS and MSE-DFA solutions overlap exactly.
+# Note: in the case of full decoupling (peak CCF shifted to k = h = 4), 
+# the closed-form PCS and DFP solutions overlap exactly.
 # The regularised PCS is virtually identical and would coincide exactly
 # as lambda → ∞, assuming sufficient numerical precision.
 
@@ -613,19 +624,19 @@ ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Partial Decoupling
+# 2.2 Partial Decoupling: Verify that DFP and PCS coincide.
 # ─────────────────────────────────────────────────────────────────────
 # When alpha0 ≠ 0 (partial decoupling), the DFP and PCS parameterizations
 # use different sign conventions and scaling for the slope constraint.
 # A manual sign flip and rescaling of beta are therefore required before
 # the two filters will agree.
 
-alpha0 <- 0.5
+alpha0 <- 0.03
 
-# Compute the MSE-DFP filter coefficients for the partially decoupled case
+# Compute the DFP filter coefficients for the partially decoupled case
 b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 
-# Adjust beta: flip the sign and apply the empirical rescaling factor (~6.7 in this example)
+# Adjust beta: flip the sign and apply the empirical rescaling factor (~6.65 in this example)
 # that accounts for the difference in normalization between the two frameworks
 beta <- -6.65* alpha0
 
@@ -641,15 +652,21 @@ b_pcs_closed_form<- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)$b
 ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form), main = "Both Predictors Overlap")
 
 
-
+# Having verified that the DFP and PCS solutions are equivalent (under an
+# appropriate transformation of the hyperparameters alpha0 and beta), we now
+# proceed to evaluate the PCS across a grid of beta values. The grid points
+# are generated automatically by PCS_func(), which selects a range of
+# potentially relevant values.
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.3 PCS  Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
 
-# Grid of target slope values to be imposed on the CCF. A positive beta
-# implies that the CCF increases from k = h-1 to k = h: this might be 
-# too extreme for the problem cinsidered here.
+# Grid of target slope values to be imposed on the CCF.
+# A positive beta would require the CCF to increase from lag k = h-1 to lag
+# k = h — an overly strong constraint in this context. Accordingly, the largest
+# beta on the grid is zero, which corresponds to a flat CCF slope and yields the
+# largest lead (time advancement).
 beta_vec <- c(-0.1,-0.02,-0.007,-0.002, 0)
 
 # Selecting informative beta values manually can be difficult. PCS_func()
@@ -674,18 +691,11 @@ beta_vec           <- c(beta_vec_automatic[which(beta_vec_automatic<0)],0)
 
 
 
-# Constrained lag set: Type I) imposes a positive slope at every lag in Delta, 
-# here from 1 to h, enforcing a monotonically increasing CCF (if beta is 
-# positive and the problem is feasible) over the full interval
-# {0, …, h}. This is the most restrictive of the three PCS types (I, II and III).
+# PCS Constraint: a single constraint at k = h.
 Delta <- h
 
-# Very large regularisation weight: drives the solution toward exact
-# satisfaction of all h slope constraints simultaneously, producing a CCF
-# that increases linearly from k = 0 to k = h with uniform slope
-# beta / (b' * b). In practice, this level of regularisation is typically
-# more restrictive than necessary and may reduce target correlation unduly
-# (see the discussion in Exercises 3.5 and 4).
+# Very large regularisation weight: drives the solution toward nearly exact
+# satisfaction of the single constraint. 
 lambda <- 100000
 
 
@@ -711,7 +721,7 @@ for (i in seq_along(beta_vec)) {
   # Constraint check: for a feasible system, the residual of each slope
   # constraint — defined as the deviation from the target value beta —
   # should converge to zero as lambda -> Inf. Each printed value corresponds
-  # to the residual for one of the h = 5 constraints. Under large lambda,
+  # to the residual of the single constraint. Under large lambda,
   # small residuals confirm feasibility; persistent large residuals would
   # indicate infeasibility. Note that numerical precision imposes a practical
   # lower bound on the achievable residuals: deviations cannot be driven
@@ -735,45 +745,48 @@ colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 # Validated in the loop above: for a feasible system, residuals of each slope
 # constraint should vanish as lambda increases.
 
-# ── Check 2: Sign / orientation preservation ─────────────────────────
-# A strictly positive sum of filter coefficients confirms that the filter
-# does not invert the direction of a trend or level shift in the data.
-# Here, all peak-shifting designs (beta > 0) produce negative coefficient
-# sums, indicating trend inversion. This is a direct and potentially
-# undesirable cost of aggressive look-ahead behaviour under strong
-# regularisation: the linear CCF constraint forces the filter to assign
-# sufficiently negative weights to older lags that the overall orientation
-# of the filter is reversed. Milder regularisation (explored in Exercise 4)
-# can alleviate this potentially undesirable effect.
+# Check 2 — Filter orientation:
+# A strictly positive sum of filter coefficients ensures that the filter preserves
+# the direction of any trend or level shift present in the input data (i.e., an
+# upward movement in the input produces an upward movement in the output, and vice
+# versa). A negative sum would indicate that the filter inverts such directional
+# patterns — effectively flipping the sign of trends or shifts. Here we observe
+# that the `flat' CCF specification (beta = 0) causes this inversion, which has
+# direct implications for forecast behaviour (recall Exercise 1.5).
 apply(b_mat, 2, sum)
 
-# ── Check 3: Positive target covariance ──────────────────────────────────────
-# Verifies that each PCS predictor has a positive inner product with the
-# h-step-ahead MSE predictor, confirming a positive target correlation at
-# lag h. A negative inner product would indicate sign inversion, rendering
-# the predictor unusable.
-t(b_mat) %*% gammah
+# Check 3 — Positive target covariance.
+# A key distinction of the LID formulation here is that we do not verify that 
+# b' * gammah > 0 but b' * gamma0 > 0. Indeed, the target is not the
+# h-step-ahead MSE predictor, gammah (as used in DFP and PCS
+# applications), but rather the nowcast hp_trend of the two-sided HP trend. 
+# Consequently, the LID filter should closely approximate hp_trend (the
+# finite-length gamma0) while being left-shifted (i.e., time-advanced) relative
+# to it. This anchors the LID to the contemporaneous indicator itself, rather
+# than to an h-step-ahead forecast of it (as gammah would imply).
+# A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
+# of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+t(b_mat) %*% gamma0
 
-# Assemble all filters (nowcast, MSE references, and PCS variants) into a
-# single matrix for joint plotting and comparison.
-filter_mat <- cbind(gamma0, gammah, b_mat)
-colnames(filter_mat) <- c("Nowcast",
-                          paste0("MSE(", h, ")"),
-                          paste0("PCS lambda=", lambda,
-                                 ", beta=", round(beta_vec, 2)))
+# ── Collect all filters for downstream comparison ─────────────────────────────
+# Columns: nowcast, h-step ahead MSE predictor, classic concurrent HP-C, 
+# and LID-constrained variants.
+filter_mat <- cbind(gamma0, gammah, hp_c[1:L],b_mat)
+colnames(filter_mat) <- c("Nowcast",  paste0("MSE(", h, ")"),
+                          "HP-C",paste0("LID: beta= ", round(beta_vec, 8)))
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.6 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
-colo  <- c("black","green", rainbow(ncol(b_mat)))
+colo  <- c("black","green","violet", rainbow(ncol(b_mat)))
 
-lwd_vec<-c(2,2,rep(1,ncol(b_mat)))
+lwd_vec<-c(2,2,2,rep(1,ncol(b_mat)))
 
 # ── Left panel: filter coefficients ──────────────────────────────────
-# Truncate to the first q+1 lags where the MA process has support.
-mplot <- scale(filter_mat)
+# Scale to unit length for better visual inspection.
+mplot <- scale(filter_mat,center=F,scale=T)
 plot(mplot[, 1], main = "Filter coefficients: MSE and PCS variants",
      axes = FALSE, type = "l", xlab = "Lag", ylab = "",
      col = colo[1], lwd = lwd_vec,lty=lwd_vec,
@@ -810,7 +823,6 @@ abline(v = max_lag + 1 + h, lty = 2)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.7 Compute PCS-Based LID (Leading Indicators)
@@ -850,21 +862,6 @@ for (i in 1:ncol(mplot))
 # Compute empirical CCFs between the nowcast (x_t) and each predictor to
 # confirm that the population peak shift observed in Section 1.5 is
 # reproduced in finite-sample data.
-
-par(mfrow = c(1, 2))
-
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, 2]),
-    lag.max = 10, plot = TRUE,
-    main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
-
-
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, ncol(y_out_mat)]),
-    lag.max = 10, plot = TRUE,
-    main = paste0("CCF: strongest PCS predictor\n",
-                  "Peak shifted from k = 0 to k = h = ", h))
-
 
 
 
