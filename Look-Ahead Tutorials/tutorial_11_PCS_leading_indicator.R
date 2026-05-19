@@ -911,6 +911,90 @@ for (i in 1:ncol(mplot))
 # Discussion of outcome: see exercise 1.5.
 
 
+#==============================================================================
+# MAIN TAKE AWAYS
+#==============================================================================
+
+#------------------------------------------------------------------------------
+# 1. Interpretability
+#------------------------------------------------------------------------------
+
+# Classic DFP:
+# ------------
+# The classic DFP decouples from the nowcast gamma_0. The constraint can be
+# interpreted in terms of time-shift at frequency zero (see Tutorial 6).
+
+# Modified DFP (Exercise 1):
+# --------------------------
+# The modified DFP decouples from the PCS constraint vector instead of the nowcast 
+# gamma_0. By shifting the
+# peak of the CCF, the constraint can be interpreted as an aggregate time-shift
+# effect, covering all frequencies such that the aggregate CCF is effectively
+# modified.
+
+
+
+#------------------------------------------------------------------------------
+# 2. Problem Difficulty
+#------------------------------------------------------------------------------
+
+# The PCS problem considered here is an 'easy' problem, where a single PCS
+# constraint is sufficient to shift the peak of the CCF. The main reason is
+# that the HP filter is a periodic AR(2) design, whose DGP structure naturally
+# supports the right-shift of the CCF peak through the PCS constraint.
+
+# In such a case the PCS problem can be equally reformulated in terms of modified 
+# DFP, as in exercise 1.
+
+#------------------------------------------------------------------------------
+# 3. Structural Remark on AR-Inversion
+#------------------------------------------------------------------------------
+
+# Because (gamma_{h-1} - gamma_h) is NOT proportional to gamma_0:
+#
+#   - AR-inversion no longer yields an identity convolution.
+#   - Both the MA and AR forms of the PCS predictor involve multiple
+#     coefficients that vary across designs.
+#   - This makes the PCS predictor more complex than the DFP,
+#     but also more interpretable.
+#
+# Schematically:
+#
+#   DFP:  Simple structure | Decouples at frequency zero | Less interpretable
+#   PCS:  Richer structure | Covers all frequencies      | More interpretable
+
+
+
+
+
+
+
+
+
+
+
+# MAIN TAKE AWAYS
+
+# Interpretability:
+# The classic DFP decouples from the nowcast gamma0: the constraint can be 
+#  interpreted in terms of time-shift at frequency zero, see Tutorial 6.
+
+# The modified DFP presented in exercise 1 decouples from the PCS constraint vector: 
+# by shifting the peak of the CCF the constraint can be interpreted as an aggregate 
+# time-shift effect, covering all frequencies such that the aggregate CCF is 
+# effectively modified.
+
+
+# Difficulty
+# The PCS problem considered here is an `easy' problem, where the single 
+# proposed PCS constraint is  sufficient to move the peak of the CCF. The main 
+# reason is that the HP filter is a periodic AR(2) design, whose DGP structure 
+# supports the right-shift of the CCF peak through the PCS constraint.
+
+#     Note also that because (gamma_{h-1} - gammah) is not proportional to
+#    gamma0, AR-inversion no longer yields an identity convolution, so both
+#    the MA and AR forms of the PCS predictor involve multiple coefficients
+#    varying across designs — more complex than the DFP, but more interpretable.
 
 
 
