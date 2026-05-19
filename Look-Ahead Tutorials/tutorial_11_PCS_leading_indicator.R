@@ -199,6 +199,12 @@ hp_trend <- HP_obj$hp_mse
 
 ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",lambda_hp,")",sep=""))
 
+# Note on the HP Filter: An AR(2) Design
+# The HP filter satisfies an AR(2) difference equation, as illustrated by the
+# regression equations below (as L increases, the residuals vanish asymptotically):
+summary(lm(hp_c[2+1:L]~hp_c[1+1:L]+hp_c[1:L]))
+summary(lm(hp_trend[2+1:L]~hp_trend[1+1:L]+hp_trend[1:L]))
+
 # Background
 # - The LID should target the two-sided (acausal) HP trend, while ideally
 #   being slightly faster (left-shifted, advanced, leading) than its MSE-optimal 
@@ -237,15 +243,14 @@ ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",
 #
 # where  gamma_constraint = gamma_{h-1} - gamma_h  and  alpha0 = beta.
 #
-# In the classical DFP, the constraint vector is gamma_0 (decoupling from the
-# nowcast). Here it is the difference of two consecutive forecast vectors, so
-# the LID problem is not a classical DFP problem, but it can be solved by the
-# same DFP optimisation routine.
+# In the classical DFP, the constraint vector is gamma_0 (decoupling from present,
+# represented by the nowcast). Here it is the difference of two consecutive 
+# forecast vectors, so the LID problem is not a classical DFP problem, but it 
+# can be solved by the same DFP optimisation routine.
 #
 # Interpretation of the constraint vector:
 #   gamma_constraint = gamma_{h-1} - gamma_h is a purely algebraic construct,
-#   unlike the classical DFP vector gamma_0, which admits a direct physical
-#   interpretation as a present-value filter (Decoupling From Present).
+#   unlike the classical DFP vector gamma_0, which is the nowcast.
 #
 #   It encodes the CCF slope condition at lag h:
 #
@@ -303,11 +308,21 @@ abline(h = 0)
 # enforces a stronger decoupling (a smaller alpha0), the leading indicator will 
 # look further ahead (left-shift/advancement).
 mse_coup <- as.double(gammah %*% gamma_constraint)
+hp_c_coup <- as.double(hp_c[1:L] %*% gamma_constraint)
 
-# Construct a sequence of decoupling levels alpha0, some above, others below 
-# mse_coup. Progressively smaller values enforce a stronger rightward
-# shift of the CCF peak toward lag k = h (when alpha0 = 0).
-alpha0_vec <- c(0.00123,0.001, 0.00086,mse_coup / 1.5^(1:5), 0)
+# Define max, min and mean of MSE and HP-C constraint coupling 
+max_coup<-max(mse_coup,hp_c_coup)
+min_coup<-min(mse_coup,hp_c_coup)
+mean_coup<-mean(c(mse_coup,hp_c_coup))
+
+
+# Construct a sequence of decoupling levels alpha0, starting at alpha_0 = max_coup 
+# and ending at alpha0 = 0 (full constraint decoupling: flat CCF at h).  
+# Progressively smaller alpha0 enforce a stronger rightward
+# shift of the CCF peak toward lag k = h (when alpha0 = 0), i.e. a left-shift or 
+# advancement of the corresponding LID which becomes effectively leading.
+alpha0_vec <- c(max_coup,mean_coup,min_coup,0.001, 0.00086,min_coup / 1.5^(1:5), 0)
+alpha0_vec <- c(mean_coup,min_coup / 1.5^(1:5), 0)
 
 
 
@@ -380,6 +395,7 @@ apply(b_mat, 2, sum)
 # than to an h-step-ahead forecast of it (as gammah would imply).
 # A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
 # of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+# Here all LIDs are admissible (positive target correlation).
 t(b_mat) %*% gamma0
 
 # ── Collect all filters for downstream comparison ─────────────────────────────
@@ -445,20 +461,17 @@ box()
 #   - As alpha0 decreases, the filter coefficients decay faster, turn negative 
 #     sooner and with greater magnitude (deeper negative swing).
 #   - The LID design generalizes HP-MSE and HP-C:
-#       • alpha0 = 0.0123  → LID is nearly equivalent to MSE(4).
-#       • alpha0 = 0.00086 → LID is virtually identical to HP-C.
-#       • alpha0 ∈ (0.00086, 0.0123) → LID interpolates smoothly between
-#         MSE(4) and HP-C (e.g., alpha0 = 0.001).
-#       • alpha0 < 0.00086  → LID coefficients decay faster than HP-C and
+#       • alpha0 = 0.001214  → LID is nearly equivalent to MSE(4) (dashed green line).
+#       • alpha0 = 0.00424 → LID is virtually identical to HP-C (dashed violet line).
+#       • alpha0 ∈ (0.01214,0.00424) → LID interpolates smoothly between
+#         MSE(4) and HP-C (e.g., alpha0 = 0.00273).
+#       • alpha0 < 0.01214  → LID coefficients decay faster and
 #         exhibit a stronger negative swing.
-#       • Tighter approximations to either MSE(4) or HP-C can be achieved
-#         by fine-tuning alpha0 accordingly.
 #
 # Right panel (cross-correlation functions, CCFs):
-#   - The CCFs of MSE(4) and HP-C are both replicable by the LID to within
-#     negligible deviation. Both CCFs peak at lag k = 0.
-#   - Decreasing alpha0 progressively flattens the CCF; at the limit alpha0 = 0,
-#     the CCF peak shifts to h = 4, as expected by construction.
+#   - The CCFs of MSE(4) and HP-C both peak at lag k = 0.
+#   - Decreasing alpha0 progressively flattens the CCF of the LID; at the limit 
+#     alpha0 = 0, the CCF peak shifts to h = 4, as expected by construction.
 #   - A peak shifted to the right of lag 0 introduces look-ahead behaviour,
 #     as illustrated in the predictor plots below.
 #
@@ -517,11 +530,15 @@ for (i in 1:ncol(mplot))
 
 
 # Outcome:
-#   Stronger decoupling from gamma_constraint (smaller alpha0), shifts the 
-#   predictor progressively leftwards (looks further ahead) relative to
-#   MSE(4) or HP-C. 
+#   Stronger decoupling from the gamma constraint (smaller alpha0) shifts the
+#   predictor progressively leftward (i.e., further ahead in time) relative to
+#   MSE(4) or HP-C. Very small values of alpha0 (close to zero) may become
+#   difficult to interpret due to excessive lead caused by phase inversion
+#   (some LIDs already invert the trend direction or the sign of a fixed,
+#   non-vanishing level, see exercise 1.3).
 
 
+# Empirical CCF:
 # Compute empirical CCFs between the (HP-) nowcast and each predictor to
 # confirm that the population peak-shift is reproduced in finite-sample data.
 
