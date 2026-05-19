@@ -593,8 +593,9 @@ ccf(na.exclude(y_out_mat[, 1]),
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 Full Decoupling: Verify that DFP and PCS coincide.
 # ─────────────────────────────────────────────────────────────────────
-# Under full decoupling (alpha0 = 0), the MSE-DFA predictor and the PCS
-# predictor coincide exactly, so no sign or scale adjustment is needed.
+# Under full decoupling (alpha0 = 0), the DFP predictor and the PCS
+# predictor coincide exactly, so no sign or scale adjustment is needed for 
+# replication.
 
 # Set the decoupling parameter to zero (full decoupling)
 alpha0 <- 0
@@ -629,7 +630,7 @@ par(mfrow = c(1, 1))
 ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
         main = "Full Decoupling: MSE-DFA, PCS (Regularised) and PCS (Closed-Form) Overlap")
 
-# Note: in the case of full decoupling (peak CCF shifted to k = h = 4), 
+# Note: in the case of full decoupling (alpha0 = 0), 
 # the closed-form PCS and DFP solutions overlap exactly.
 # The regularised PCS is virtually identical and would coincide exactly
 # as lambda → ∞, assuming sufficient numerical precision.
@@ -645,6 +646,7 @@ ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
 # A manual sign flip and rescaling of beta are therefore required before
 # the two filters will agree.
 
+# Specify alpha0
 alpha0 <- 0.03
 
 # Compute the DFP filter coefficients for the partially decoupled case
@@ -670,25 +672,21 @@ ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form), main = "Both Predict
 # appropriate transformation of the hyperparameters alpha0 and beta), we now
 # proceed to evaluate the PCS across a grid of beta values. The grid points
 # are generated automatically by PCS_func(), which selects a range of
-# potentially relevant values.
+# potentially relevant values (the values are centered at the tipping point, 
+# where PCS is most sensitive to changes in beta).
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.3 PCS  Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
 
-# Grid of target slope values to be imposed on the CCF.
-# A positive beta would require the CCF to increase from lag k = h-1 to lag
-# k = h — an overly strong constraint in this context. Accordingly, the largest
-# beta on the grid is zero, which corresponds to a flat CCF slope and yields the
-# largest lead (time advancement).
-beta_vec <- c(-0.1,-0.02,-0.007,-0.002, 0)
-
-# Selecting informative beta values manually can be difficult. PCS_func()
+# Selecting informative beta values (slope parameter) manually can be difficult. PCS_func()
 # addresses this by automatically constructing a candidate grid concentrated
 # around the tipping point of the PCS optimization — the region where the
 # predictor reacts most sensitively to small changes in beta. Screening
 # solutions in this neighbourhood often provides the sharpest insight into the
 # structure of the optimization problem.
+
+# Generate automatic grid points: 
 beta               <- 0
 Type_III           <- FALSE
 scaled_constraints <- FALSE
@@ -702,7 +700,11 @@ beta_vec_automatic <- PCS_obj$beta_vec
 # Focus on negative beta only (positive beta are too extreme in this example)
 beta_vec           <- c(beta_vec_automatic[which(beta_vec_automatic<0)],0)
 
-
+# Note: a positive beta would require the CCF to increase from lag k = h-1 to lag
+# k = h — an overly strong constraint in this context. Accordingly, the largest
+# beta on the grid is zero, which corresponds to a flat CCF slope and yields the
+# largest lead (time advancement). Larger beta would generate phase inversion in 
+# this example.
 
 
 # PCS Constraint: a single constraint at k = h.
@@ -743,11 +745,48 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-# Note: PCS_func() also computes the MSE-optimal PCS:
-PCS_obj$b_mse
-# The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
-# scaling factor. The ordinary PCS is based on the regularised criterion (46)
-# in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
+#==============================================================================
+# Notes on PCS Computation
+#==============================================================================
+
+# Note 1: Closed-Form vs. Regularized PCS
+# ----------------------------------------
+# Instead of the regularized criterion, one can alternatively rely on the
+# closed-form solution, which is virtually identical when lambda is large.
+
+# Select a beat on the grid:
+beta <- beta_vec[length(beta_vec)]
+
+# Closed-form PCS solution
+b_pcs_closed_form <- PCS_closed_form_func(
+  h, Delta, gamma_pcs, L, beta
+)$b
+
+# Regularized PCS solution
+b_pcs_regularized <- PCS_func(
+  h, Delta, gamma_pcs, L, beta, lambda
+)$b
+
+# Sanity check: the difference between both solutions should be negligible
+max_diff <- max(abs(b_pcs_closed_form - b_pcs_regularized))
+cat("Max absolute difference (closed-form vs. regularized):", max_diff, "\n")
+
+#------------------------------------------------------------------------------
+# Note 2: MSE-Optimal PCS via PCS_func()
+# ----------------------------------------
+# PCS_func() also computes the MSE-optimal PCS, accessible via $b_mse.
+# The MSE-optimal PCS differs from the 'ordinary' PCS (b) only by an
+# MSE-optimal scaling factor.
+#
+# The ordinary PCS is based on the regularized criterion (46) in Wildi (2026),
+# which does not intrinsically scale to optimal MSE performance.
+
+b_pcs_mse_optimal <- PCS_func(
+  h, Delta, gamma_pcs, L, beta, lambda
+)$b_mse
+# In this example, both PCS are nearly the same:
+ts.plot(cbind(b_pcs_regularized,b_pcs_mse_optimal),main="MSE Optimal vs. Original PCS Designs")
+
 
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
@@ -772,7 +811,7 @@ apply(b_mat, 2, sum)
 # Check 3 — Positive target covariance.
 # A key distinction of the LID formulation here is that we do not verify that 
 # b' * gammah > 0 but b' * gamma0 > 0. Indeed, the target is not the
-# h-step-ahead MSE predictor, gammah (as used in DFP and PCS
+# h-step-ahead MSE predictor, gammah (as used in classic DFP and PCS
 # applications), but rather the nowcast hp_trend of the two-sided HP trend. 
 # Consequently, the LID filter should closely approximate hp_trend (the
 # finite-length gamma0) while being left-shifted (i.e., time-advanced) relative
@@ -780,6 +819,7 @@ apply(b_mat, 2, sum)
 # than to an h-step-ahead forecast of it (as gammah would imply).
 # A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
 # of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+# In this example, all LIDs produce a positive target correlation and are usable:
 t(b_mat) %*% gamma0
 
 # ── Collect all filters for downstream comparison ─────────────────────────────
@@ -838,6 +878,8 @@ axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
 
+# Discussion of outcome: see exercise 1.4.
+
 # ─────────────────────────────────────────────────────────────────────
 # 2.7 Compute PCS-Based LID (Leading Indicators)
 # ─────────────────────────────────────────────────────────────────────
@@ -866,16 +908,7 @@ abline(h = 0)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 
-# Outcome:
-#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
-#   output shifts progressively to the left (looks further ahead) relative to
-#   the MSE predictor. This visual lead is confirmed quantitatively by the
-#   empirical CCFs below.
-
-
-# Compute empirical CCFs between the nowcast (x_t) and each predictor to
-# confirm that the population peak shift observed in Section 1.5 is
-# reproduced in finite-sample data.
+# Discussion of outcome: see exercise 1.5.
 
 
 
