@@ -1372,7 +1372,7 @@ Delta <- 1:h
 
 # Range of regularisation weights: from near-zero (loose constraints, high
 # flexibility) to very large (tight constraints, near-exact slope enforcement).
-lambda_vec <- c(0.1, 0.5, 1, 5, 10, 30,1000000)
+lambda_vec <- c(0.1, 0.5, 1, 5, 10, 30,10000)
 
 b_mat <- NULL    # filter coefficients, one column per lambda value
 
