@@ -771,23 +771,6 @@ b_pcs_regularized <- PCS_func(
 max_diff <- max(abs(b_pcs_closed_form - b_pcs_regularized))
 cat("Max absolute difference (closed-form vs. regularized):", max_diff, "\n")
 
-#------------------------------------------------------------------------------
-# Note 2: MSE-Optimal PCS via PCS_func()
-# ----------------------------------------
-# PCS_func() also computes the MSE-optimal PCS, accessible via $b_mse.
-# The MSE-optimal PCS differs from the 'ordinary' PCS (b) only by an
-# MSE-optimal scaling factor.
-#
-# The ordinary PCS is based on the regularized criterion (46) in Wildi (2026),
-# which does not intrinsically scale to optimal MSE performance.
-
-b_pcs_mse_optimal <- PCS_func(
-  h, Delta, gamma_pcs, L, beta, lambda
-)$b_mse
-# In this example, both PCS are nearly the same:
-ts.plot(cbind(b_pcs_regularized,b_pcs_mse_optimal),main="MSE Optimal vs. Original PCS Designs")
-
-
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # ─────────────────────────────────────────────────────────────────────

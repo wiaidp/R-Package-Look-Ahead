@@ -1135,12 +1135,6 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-# Note: PCS_func() also computes the MSE-optimal PCS:
-PCS_obj$b_mse
-# The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
-# scaling factor. The ordinary PCS is based on the regularised criterion (46)
-# in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
-
 colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1402,7 +1396,7 @@ for (i in seq_along(lambda_vec)) {
 }
 
 # Note: PCS_func() also computes the MSE-optimal PCS:
-PCS_obj$b_mse
+PCS_obj$b_mse-PCS_obj$b
 # The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
 # scaling factor. The ordinary PCS is based on the regularised criterion (46)
 # in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
