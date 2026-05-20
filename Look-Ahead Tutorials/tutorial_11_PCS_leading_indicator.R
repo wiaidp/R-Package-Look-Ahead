@@ -1061,8 +1061,9 @@ for (i in 1:ncol(mplot))
 #     problems, and demonstrate how to obtain useful look-ahead behaviour even
 #     under severe misspecification or impossibility.
 
+
 #------------------------------------------------------------------------------
-# Note: AR-Form Structure — DFP vs. PCS
+# Concluding Remark: AR-Form Structure — DFP vs. PCS
 #------------------------------------------------------------------------------
 #
 # DFP (simpler AR form):
@@ -1098,69 +1099,6 @@ for (i in 1:ncol(mplot))
 
 
 
-
-
-
-
-
-#???????????????????????????????????????????????????????
-# 2. Interpretability: DFP vs. PCS (Tutorial 4):
-#    Even with the frequency-zero re-parameterisation of Exercise 3, the DFP
-#    concept remains less directly interpretable than the Peak Correlation 
-#    Shifting (PCS) predictor introduced in Tutorial 4, which, in its simplest 
-#    form, is defined as:
-
-#      MSE-PCS = gammah + lambda * (gamma_{h-1} - gammah)
-
-#    In PCS, the look-ahead modification weighted by lambda addresses the lead of the predictor 
-#    in AGGREGATE, i.e., not only at the trend-frequency omega=zero.  
-
-# Moreover, PCS does not interpolate between gamma_{h-1} and gammah but instead 
-# extrapolate, because lambda<0 whenn looking ahead.
-#    Note also that because (gamma_{h-1} - gammah) is not proportional to
-#    gamma0, AR-inversion no longer yields an identity convolution, so both
-#    the MA and AR forms of the PCS predictor involve multiple coefficients
-#    varying across designs — more complex than the DFP, but more interpretable.
-
-# Finally, the above simplest form might not suffice to shift the CCF peak: then 
-# the more complex PCS is required, i.e., PCS is inherently more complex than 
-# just decoupling at present: PCS controls monotonicity of CCF from present to h,
-# while DFP only controls present.
-#?????????????????????????????????????????????????????????
-
-
-
-
-#?????????????????????????????????????????????????
-# MSE-PCS is     MSE-PCS = gammah + lambda * (gamma_{h-1} - gammah)
-# Check that this is indeed MSE...
-# Problem:
-# The weight on gammah should be 1.
-# On the other hand the MSE predictor is given by projecting gammah orthogonally to plan 
-# spanned by PCS constraint, i.e. above formula.
-
-# Which argument is correct? The following piece shows that MSE-PCS as in paper is correct
-#???????????????????????????????????????????????????????
-# Note: select either gamma_target<-hp_trend[h+1:L]
-# or gamma_target<-hp_trend[1:L] as targets above.
-
-if (F)
-{
-  # Verify which PCS is MSE optimal
-  k<-ncol(b0_mat)
-  k<-4
-  b<-b0_mat[,k]
-  lambda1<-lambda1_vec[k]
-  lambda2<-lambda2_vec[k]
-  # 1. MSE-PCS as in paper: gammah+lambda(gamma_{h-1}-gammah) (divide above b0 by lambda1)
-  b<-b/lambda1
-  mean((b-gamma_target)^2)
-  # 1. MSE-PCS with overall weight 1 on gammah: gammah+lambda(gamma_{h-1}-gammah)
-  b<-b0_mat[,k]
-  b<-b/(lambda1-lambda2)
-  mean((b-gamma_target)^2)
-  
-}
 
 
 
