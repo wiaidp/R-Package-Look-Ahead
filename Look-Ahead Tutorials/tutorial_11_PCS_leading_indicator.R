@@ -1006,7 +1006,7 @@ for (i in 1:ncol(mplot))
 #   indicator directly, rather than a derivative such as its forecast.
 
 #------------------------------------------------------------------------------
-# 4. Inversion
+# 4. Look-Ahead and Inversion
 #------------------------------------------------------------------------------
 # - Strong look-ahead behaviour (large right-shift of the CCF) can generate
 #   INVERSION: reversal of trend direction or negative target correlation with
@@ -1019,9 +1019,26 @@ for (i in 1:ncol(mplot))
 #------------------------------------------------------------------------------
 # 5. Closed-Form vs. Strongly Regularized PCS
 #------------------------------------------------------------------------------
-# - When the problem is FEASIBLE (i.e., the PCS constraint can be satisfied),
-#   the closed-form and strongly regularized PCS solutions converge as the
-#   regularization weight lambda increases (given sufficient numerical precision).
+# FEASIBLE problem (constraint compatible with the DGP):
+#   - The closed-form and strongly regularized PCS solutions converge as the
+#     regularization weight lambda increases (given sufficient numerical
+#     precision).
+#
+# INFEASIBLE problem (constraint conflicts with the DGP):
+#   - The closed-form solution does NOT exist.
+#   - The regularized solution ALWAYS exists (the problem remains invertible),
+#     but will not satisfy the constraint exactly, irrespective of the
+#     magnitude of lambda.
+#   - In this case, the constraint should be interpreted as a MISSPECIFICATION:
+#     assigning excessive weight to it (selecting lambda too large) is not
+#     recommended — see the following tutorials for a detailed treatment.
+#
+# Summary:
+#
+#   Scenario     | Closed-Form Solution | Regularized Solution | Constraint Satisfied
+#   -------------|----------------------|----------------------|---------------------
+#   Feasible     | Exists               | Exists               | Exactly (large lambda)
+#   Infeasible   | Does NOT exist       | Always exists        | Never exactly
 
 #------------------------------------------------------------------------------
 # 6. Problem Difficulty
@@ -1029,8 +1046,8 @@ for (i in 1:ncol(mplot))
 # Easy case (current tutorial):
 #   - The CCF of the process has a single peak: flattening of the CCF at h thus 
 #     moves the peak to k = h.
-#   - The single PCS constraint generates effective look-ahead behaviour (lead)
-#     while maintaining optimal tracking of the target (nowcast).
+#   - In such a case, the single PCS constraint generates effective look-ahead 
+#     behaviour (lead) while maintaining optimal tracking of the target (nowcast).
 #
 #
 # Hard / impossible cases (upcoming tutorials):
@@ -1040,40 +1057,43 @@ for (i in 1:ncol(mplot))
 #     relying on the exact closed-form solution — can:
 #       * Generate strong losses in target correlation.
 #       * Drive target correlation negative, rendering the predictor unusable.
-#   - Future tutorials will analyze more challenging and even impossible PCS
+#   - Next tutorials will analyze more challenging and even impossible PCS
 #     problems, and demonstrate how to obtain useful look-ahead behaviour even
-#     under severe misspecification.
+#     under severe misspecification or impossibility.
 
 #------------------------------------------------------------------------------
-# 7. AR-Form Structure: DFP vs. PCS
+# Note: AR-Form Structure — DFP vs. PCS
 #------------------------------------------------------------------------------
-# DFP (simpler structure):
-#   - In AR form, only the first weight (lag 0, assigned to x_t) is affected.
-#   - This follows because the DFP decouples from gamma_0, and AR-inversion
-#     of gamma_0 yields the identity, which addresses only the lag-0 weight.
 #
-# PCS (richer structure):
-#   - The PCS constraint involves differences gamma_k - gamma_{k-1}.
-#   - Their AR-forms generally differ from the identity and affect the ENTIRE
-#     lag sequence of the predictor — not only the lag-0 weight.
-#   - The PCS is therefore more complex, addressing all lags and potentially
-#     multiple constraints simultaneously.
+# DFP (simpler AR form):
+#   - The original DFP (Tutorials 1–9) decouples from gamma_0, the nowcast.
+#   - In AR form, only the lag-0 weight (assigned to x_t) is affected by the
+#     decoupling constraint; lags k = 1, ..., L-1 remain unaffected.
+#     (see Tutorial 5, Exercise 2)
+#   - This follows because AR-inversion of the constraint in gamma_0 yields the 
+#     identity operator, which acts exclusively on the lag-0 weight.
+#
+# PCS (richer AR form):
+#   - The PCS constraint involves differences of the kind gamma_k - gamma_{k-1}.
+#   - The AR-forms of these differences generally differ from the identity and
+#     affect the ENTIRE lag sequence of the predictor, not only lag 0.
+#   - The PCS is therefore richer and more complex, addressing all lags and
+#     potentially multiple constraints simultaneously.
 #
 # Why PCS is more interpretable despite its complexity:
-#   - The shift of the CCF peak is an AGGREGATE time-shift measure, easier to
-#     interpret than the local, zero-frequency shift of the DFP.
+#   - The shift of the CCF peak is an AGGREGATE time-shift measure, covering
+#     all frequencies — easier to interpret in practice than the local,
+#     zero-frequency shift of the DFP.
 #
 # Summary comparison:
 #
-#   Feature                  | DFP                        | PCS
-#   -------------------------|----------------------------|------------------------------
-#   Decouples from           | gamma_0 (nowcast)          | PCS constraint vector
-#   Frequency coverage       | Zero frequency             | All frequencies (aggregate)
-#   AR-form lags affected    | Lag 0 only                 | All lags
-#   Interpretability         | Local (freq. zero shift)   | Global (CCF peak shift)
-#   Complexity               | Lower                      | Higher
-
-
+#   Feature                  | DFP                         | PCS
+#   -------------------------|-----------------------------|------------------------------
+#   Decouples from           | gamma_0 (nowcast)           | PCS constraint vector (single or multiple differences of MSE predictors at various lags)
+#   Frequency coverage       | Explicitly zero frequency   | All frequencies (aggregate)
+#   AR-form lags affected    | Lag 0 only                  | Generally all lags
+#   Interpretability         | Local (freq. zero shift)    | Aggregate (CCF peak shift)
+#   Complexity               | Lower                       | Higher
 
 
 
