@@ -1372,7 +1372,7 @@ Delta <- 1:h
 
 # Range of regularisation weights: from near-zero (loose constraints, high
 # flexibility) to very large (tight constraints, near-exact slope enforcement).
-lambda_vec <- c(0.1, 0.5, 1, 5, 10, 30,10000)
+lambda_vec <- c(0.1, 0.5, 1, 5, 10, 30,1000000)
 
 b_mat <- NULL    # filter coefficients, one column per lambda value
 
@@ -1395,9 +1395,7 @@ for (i in seq_along(lambda_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-# Note: PCS_func() also computes the MSE-optimal PCS:
-b_mse<-PCS_obj$b_mse
-b_mse/b
+
 # The MSE-optimal PCS differs from the 'ordinary' PCS b only by an MSE-optimal
 # scaling factor. The ordinary PCS is based on the regularised criterion (46)
 # in Wildi (2026), which does not intrinsically scale to optimal MSE performance.
@@ -1637,10 +1635,10 @@ lambda <- 1000
 PCS_obj <- PCS_func(h,Delta, xi, L, beta, lambda)
 
 # Retrieve MSE optimally scaled PCS: to align with scale of MSE-DFP above. 
-b_pcs_mse <- PCS_obj$b_mse
+b_pcs <- PCS_obj$b
 
 
-b_mat<-cbind(b_dfp,b_pcs_mse)
+b_mat<-cbind(b_dfp,b_pcs)
 colnames(b_mat) <- c("DFP","PCS")
 
 # Assemble all filters (nowcast, MSE references, and PCS variants) into a
@@ -1886,15 +1884,6 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 #   predictor maximises the inner product with gamma_h — and hence the target
 #   correlation — among all unit vectors (predictors) satisfying the constraint.
 #
-#   Note: the unit-length PCS predictor b can be rescaled to yield the
-#   MSE-optimal predictor:
-#
-#     b_mse <- b * (b' * gamma_h) / (b' * b) = b * (b' * gamma_h)  
-#     (with b' * b = 1 for the unit-length PCS)
-#
-#   where (b' * gamma_h) is the optimal scaling factor that
-#   minimises the mean squared prediction error along the direction of b.
-
 
 
 # ─────────────────────────────────────────────────────────────────────
