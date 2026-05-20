@@ -968,33 +968,111 @@ for (i in 1:ncol(mplot))
 
 
 
-
-
-
-
-
+#==============================================================================
 # MAIN TAKE AWAYS
+#==============================================================================
 
-# Interpretability:
-# The classic DFP decouples from the nowcast gamma0: the constraint can be 
-#  interpreted in terms of time-shift at frequency zero, see Tutorial 6.
+#------------------------------------------------------------------------------
+# 1. PCS vs. DFP
+#------------------------------------------------------------------------------
+# Classic DFP:
+#   - Decouples from the nowcast gamma_0.
+#   - The constraint can be interpreted as a time-shift at frequency zero
+#     (see Tutorial 6).
+#
+# PCS:
+#   - Aims at shifting the peak of the CCF.
+#   - Can be interpreted as an AGGREGATE time-shift effect, covering ALL
+#     frequencies, such that the aggregate CCF dependence measure is
+#     effectively modified.
 
-# The modified DFP presented in exercise 1 decouples from the PCS constraint vector: 
-# by shifting the peak of the CCF the constraint can be interpreted as an aggregate 
-# time-shift effect, covering all frequencies such that the aggregate CCF is 
-# effectively modified.
+#------------------------------------------------------------------------------
+# 2. Interpretability
+#------------------------------------------------------------------------------
+# - The single PCS constraint considered here requires a flat CCF at lag k = h.
+# - If the process has a single CCF peak, the constraint effectively shifts
+#   that peak to k = h.
+# - The CCF peak is one of the timeliness measures introduced in Tutorial 2
+#   (Exercise 1.2):
+#     * A RIGHT-shift of the CCF peak  <=>  LEFT-shift (advancement) of the predictor.
 
+#------------------------------------------------------------------------------
+# 3. LID (Look-ahead Indicator Design)
+#------------------------------------------------------------------------------
+# - Unlike classic forecasting (which targets gamma_h), the LID targets the
+#   nowcast gamma_0, anchoring the design to the current indicator while
+#   generating a lead through the single PCS constraint.
+# - Anchoring to gamma_0 underscores the importance of tracking the original
+#   indicator directly, rather than a derivative such as its forecast.
 
-# Difficulty
-# The PCS problem considered here is an `easy' problem, where the single 
-# proposed PCS constraint is  sufficient to move the peak of the CCF. The main 
-# reason is that the HP filter is a periodic AR(2) design, whose DGP structure 
-# supports the right-shift of the CCF peak through the PCS constraint.
+#------------------------------------------------------------------------------
+# 4. Inversion
+#------------------------------------------------------------------------------
+# - Strong look-ahead behaviour (large right-shift of the CCF) can generate
+#   INVERSION: reversal of trend direction or negative target correlation with
+#   the nowcast, despite anchoring at gamma_0.
+# - Inversion is undesirable and reduces interpretability.
+# - In principle, sign inversion is mitigated by nowcast anchoring; however,
+#   assigning excessive weight to potentially misspecified constraints can
+#   enforce inversion regardless.
 
-#     Note also that because (gamma_{h-1} - gammah) is not proportional to
-#    gamma0, AR-inversion no longer yields an identity convolution, so both
-#    the MA and AR forms of the PCS predictor involve multiple coefficients
-#    varying across designs — more complex than the DFP, but more interpretable.
+#------------------------------------------------------------------------------
+# 5. Closed-Form vs. Strongly Regularized PCS
+#------------------------------------------------------------------------------
+# - When the problem is FEASIBLE (i.e., the PCS constraint can be satisfied),
+#   the closed-form and strongly regularized PCS solutions converge as the
+#   regularization weight lambda increases (given sufficient numerical precision).
+
+#------------------------------------------------------------------------------
+# 6. Problem Difficulty
+#------------------------------------------------------------------------------
+# Easy case (current tutorial):
+#   - The CCF of the process has a single peak: flattening of the CCF at h thus 
+#     moves the peak to k = h.
+#   - The single PCS constraint generates effective look-ahead behaviour (lead)
+#     while maintaining optimal tracking of the target (nowcast).
+#
+#
+# Hard / impossible cases (upcoming tutorials):
+#   - In some cases the peak of the CCF cannot be moved to k = h.
+#   - In some cases the imposed constraint conflicts with the data-generating
+#     process (DGP). Assigning too much weight to such a constraint — or
+#     relying on the exact closed-form solution — can:
+#       * Generate strong losses in target correlation.
+#       * Drive target correlation negative, rendering the predictor unusable.
+#   - Future tutorials will analyze more challenging and even impossible PCS
+#     problems, and demonstrate how to obtain useful look-ahead behaviour even
+#     under severe misspecification.
+
+#------------------------------------------------------------------------------
+# 7. AR-Form Structure: DFP vs. PCS
+#------------------------------------------------------------------------------
+# DFP (simpler structure):
+#   - In AR form, only the first weight (lag 0, assigned to x_t) is affected.
+#   - This follows because the DFP decouples from gamma_0, and AR-inversion
+#     of gamma_0 yields the identity, which addresses only the lag-0 weight.
+#
+# PCS (richer structure):
+#   - The PCS constraint involves differences gamma_k - gamma_{k-1}.
+#   - Their AR-forms generally differ from the identity and affect the ENTIRE
+#     lag sequence of the predictor — not only the lag-0 weight.
+#   - The PCS is therefore more complex, addressing all lags and potentially
+#     multiple constraints simultaneously.
+#
+# Why PCS is more interpretable despite its complexity:
+#   - The shift of the CCF peak is an AGGREGATE time-shift measure, easier to
+#     interpret than the local, zero-frequency shift of the DFP.
+#
+# Summary comparison:
+#
+#   Feature                  | DFP                        | PCS
+#   -------------------------|----------------------------|------------------------------
+#   Decouples from           | gamma_0 (nowcast)          | PCS constraint vector
+#   Frequency coverage       | Zero frequency             | All frequencies (aggregate)
+#   AR-form lags affected    | Lag 0 only                 | All lags
+#   Interpretability         | Local (freq. zero shift)   | Global (CCF peak shift)
+#   Complexity               | Lower                      | Higher
+
 
 
 
