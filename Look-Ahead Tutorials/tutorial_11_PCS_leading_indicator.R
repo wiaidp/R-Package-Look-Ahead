@@ -966,8 +966,8 @@ for (i in 1:ncol(mplot))
 # PCS:
 #   - Aims at shifting the peak of the CCF.
 #   - Can be interpreted as an AGGREGATE time-shift effect, covering ALL
-#     frequencies, such that the aggregate CCF dependence measure is
-#     effectively modified.
+#     frequencies, such that the AGGREGATE CCF dependence measure is
+#     effectively modified, see Tutorial 2.
 
 #------------------------------------------------------------------------------
 # 2. Interpretability
@@ -982,16 +982,16 @@ for (i in 1:ncol(mplot))
 #------------------------------------------------------------------------------
 # 3. LID (Look-ahead Indicator Design)
 #------------------------------------------------------------------------------
-# - Unlike classic forecasting (which targets gamma_h), the LID targets the
-#   nowcast gamma_0, anchoring the design to the current indicator while
-#   generating a lead through the single PCS constraint.
+# - Unlike usual DFP or PCS forecasting (which target the MSE predictor gamma_h), 
+#   the LID targets the nowcast gamma_0, anchoring the design to the current 
+#   indicator while generating a lead through the single PCS constraint.
 # - Anchoring to gamma_0 underscores the importance of tracking the original
 #   indicator directly, rather than a derivative such as its forecast.
 
 #------------------------------------------------------------------------------
 # 4. Look-Ahead and Inversion
 #------------------------------------------------------------------------------
-# - Strong look-ahead behaviour (large right-shift of the CCF) can generate
+# - Strong look-ahead behavior (large right-shift of the CCF) can generate
 #   INVERSION: reversal of trend direction or negative target correlation with
 #   the nowcast, despite anchoring at gamma_0.
 # - Inversion is undesirable and reduces interpretability.
@@ -1030,7 +1030,7 @@ for (i in 1:ncol(mplot))
 #   - The CCF of the process has a single peak: flattening of the CCF at h thus 
 #     moves the peak to k = h.
 #   - In such a case, the single PCS constraint generates effective look-ahead 
-#     behaviour (lead) while maintaining optimal tracking of the target (nowcast).
+#     behavior (lead) while maintaining optimal tracking of the target (nowcast).
 #
 #
 # Hard / impossible cases (upcoming tutorials):
@@ -1041,7 +1041,7 @@ for (i in 1:ncol(mplot))
 #       * Generate strong losses in target correlation.
 #       * Drive target correlation negative, rendering the predictor unusable.
 #   - Next tutorials will analyze more challenging and even impossible PCS
-#     problems, and demonstrate how to obtain useful look-ahead behaviour even
+#     problems, and demonstrate how to obtain useful look-ahead behavior even
 #     under severe misspecification or impossibility.
 
 
@@ -1067,7 +1067,7 @@ for (i in 1:ncol(mplot))
 # Why PCS is more interpretable despite its complexity:
 #   - The shift of the CCF peak is an AGGREGATE time-shift measure, covering
 #     all frequencies — easier to interpret in practice than the local,
-#     zero-frequency shift of the DFP.
+#     zero-frequency shift of the DFP (see Tutorial 6).
 #
 # Summary comparison:
 #

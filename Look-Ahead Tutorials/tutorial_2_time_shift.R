@@ -132,7 +132,8 @@ summary(model)   # inspect coefficient significance across lags
 filter_mat <- cbind(x, y)
 max_lead   <- 10
 compute_min_tau_func(filter_mat, max_lead)
-# The measure is noisy (it looks only at zero crossings).
+# The measure is noisy (it looks only at zero crossings). We see a minimum 
+# around -5.
 
 # ── 1.5 Frequency-Domain: Coherence and Phase ─────────────────────────
 # Cross-spectral analysis decomposes the lead/lag relationship by frequency.
@@ -268,13 +269,16 @@ box()
 # EXERCISE 3: Filters — Equally Weighted vs. Exponentially Weighted MA
 # Compares a simple moving average (equal weights) to an EWMA.
 # Equal weights assign uniform importance to all past observations;
-# the EWMA down-weights older observations geometrically, making it
-# more responsive to recent data but potentially more lagged on average.
+# For similar effects, the EWMA down-weights older observations geometrically, 
+# making it potentially more responsive to recent data and less lagging on 
+# average.
 # ════════════════════════════════════════════════════════════════════
 
 # ── 3.1 Define Filters ────────────────────────────────────────────────
 L  <- 10    # filter length
 a1 <- 0.8   # geometric decay factor for the EWMA
+# Note: L and a1 should be `aligned' so that their filters produce roughly 
+# similar effects.
 
 # b1: equally weighted MA — each of the L observations has weight 1/L
 b1 <- rep(1 / L, L)
@@ -288,8 +292,9 @@ ts.plot(cbind(b1, b2),xlab="",ylab="",
 
 # ── 3.2 Filter CCF ────────────────────────────────────────────────────
 # Cross-correlate the two filter coefficient vectors to compare their
-# relative timing. Because both filters are centred at the same horizon
-# (neither introduces an artificial lag), we expect the CCF peak at lag 0,
+# relative timing. Because both filters are centred at the same horizon 
+# (neither introduces an artificial lag), and both generate similar lowpass 
+# behavior (a1 and L are roughly aligned), we expect the CCF peak at lag 0,
 # indicating the two filters are contemporaneously aligned.
 max_lag <- 5
 h <- 0   # forecast horizon parameter passed to CCF utility
@@ -341,9 +346,10 @@ box()
 
 # ── Time-shift plot ────────────────────────────────────────────────────────────
 # Time-shift (phase delay in time units) at each frequency:
-# larger (more negative) values indicate greater lag introduced by the filter.
+# larger values indicate greater lag introduced by the filter.
 # The EWMA has a smaller shift magnitude than the equally-weighted MA because
-# it concentrates more weight on recent observations, making it more responsive.
+# (for similar effects) it concentrates more weight on recent observations, 
+# making it potentially more responsive.
 mplot <- cbind(as_obj1$shift, as_obj2$shift)
 colnames(mplot) <- c("Equally weighted", "Exponentially weighted")
 
@@ -363,7 +369,8 @@ box()
 # Key takeaway:
 # The EWMA's time-shift is uniformly smaller in magnitude than that of the
 # equally-weighted MA, meaning it introduces less lag at every frequency.
-# This makes the EWMA a better choice when timeliness is a priority.
+# This makes the EWMA possibly (though not uniformly so) a better choice when 
+# timeliness is a priority.
 
 
 #----------------------------------------------------------------------------
@@ -485,11 +492,13 @@ ts.plot(cbind(x_shift_amp_trend2, y2_trend),
 #    centroid) are exact and sample-independent: they describe what the filter
 #    does in population, not what happened to be observed in one realisation.
 #
-# 3. FILTER CCF IS LESS INFORMATIVE
+# 3. FILTER CCF AS AGGREGATE MEASURE
 #    ─────────────────────────────────
 #    The CCF of two filter coefficient vectors collapses the full
 #    frequency-specific lead/lag structure into a single scalar lag estimate.
 #    This summary is too coarse to capture how filters differ across frequencies.
+#    However, the CCF is a potentially important measure for AGGREGATE time-shift
+#    effects.
 #
 # 4. THE TIME-SHIFT FUNCTION IS INFORMATIVE BUT FREQUENCY-SPECIFIC
 #    ───────────────────────────────────────────────────────────────
