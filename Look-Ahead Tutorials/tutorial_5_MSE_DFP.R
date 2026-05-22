@@ -663,7 +663,7 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 # ─────────────────────────────────────────────────────────────────────
 # We now convert the MA-form predictors to their AR equivalents by
 # convolving each predictor with the AR(3) operator. A similar proceeding
-# applies to the unitary DFP in tutorial 3.
+# applies to the unitary DFP (presented in Tutorial 3).
 
 # --------------------------------------------------------------------------
 # 2.1 Validation of the Convolution Approach
@@ -818,14 +818,14 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 #    implicit. It is not guaranteed that a given alpha0 produces a predictor
 #    that leads the target by any specific or desirable amount. 
 #
-#    Tutorial 5 partly resolves this gap by re-parameterising alpha0 in terms
+#    Tutorial 6 addresses this gap by re-parameterising alpha0 in terms
 #    of a pre-specified lead at the trend frequency (frequency zero), thereby
 #    making the sufficient condition explicit — at least for the trend component.
 #
-# 3. Interpretability — Part II: DFP vs. PCS (Tutorial ???):
-#    Even with the frequency-zero re-parameterisation of Tutorial 5, the DFP
+# 3. Interpretability — Part II: DFP vs. PCS (Tutorials 10 and ff):
+#    Even with the frequency-zero re-parameterisation of Tutorial 6, the DFP
 #    concept remains less directly `look ahead' interpretable than the Peak 
-#    Correlation Shifting (PCS) predictor introduced in Tutorial ????. The key 
+#    Correlation Shifting (PCS) predictor introduced in Tutorial 10. The key 
 #    distinction is the scope of the `lead' constraint:
 #
 #      - PCS addresses the lead of the predictor in an AGGREGATE sense,
@@ -835,8 +835,8 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 #
 #      - As a consequence of this specific `look ahead' constraint, the PCS 
 #        effect generally spreads across all AR lags rather than being
-#        confined to the first coefficient as in the above DFP. The filter 
-#        (predictor) structure is therefore more complex.
+#        confined to the first coefficient as in the above DFP (exercise 2). 
+#        The filter (predictor) structure is therefore more complex.
 #
 #    In summary, the two look ahead approaches present an 
 #    interpretability-complexity trade-off:
