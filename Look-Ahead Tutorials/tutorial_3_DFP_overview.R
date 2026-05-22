@@ -45,8 +45,8 @@
 #
 # Crucially, however, decoupling is not merely a limitation — it is the very
 # mechanism that enables y_t(h) to look ahead effectively.
-# No other predictor can look as far ahead as the DFP predictor for a given 
-# level of tracking accuracy, see Wildi 2026, sections 3.5 and 4.3.
+# No other predictor can look as far ahead as the DFP predictor in a given sense 
+# and for a given level of tracking accuracy, see Wildi 2026, sections 3.5 and 4.3.
 
 # ── GENERALISATION ────────────────────────────────────────────────────
 # The framework extends naturally beyond point forecasting:
@@ -66,8 +66,8 @@
 #   (first differences) that carries the economically relevant signal.
 #   First-differencing renders most economic series approximately stationary,
 #   at least over the sample periods relevant for short- to medium-term
-#   forecasting. The DFP framework is therefore applied to differenced data
-#   without material loss of generality for practical applications.
+#   forecasting. The DFP framework is therefore applied to either natively 
+#   stationary data or to data rendered stationary through differencing.
 
 # ── TWO OPTIMISATION FORMS ────────────────────────────────────────────
 # DFP can be formulated in two equivalent but complementary ways:
@@ -129,15 +129,16 @@
 #     interpretations (correlation with target; lead relative to present).
 #   - DFP nests MSE as a special case.
 #   - Closed-form solutions guarantee global optimality and fast computation.
-#   - The framework is modular: swap the target signal z_t to design
+#   - The framework is modular: swap the target signal z_t to obtain
 #     predictors tailored to cycles, trends, or custom band-pass signals.
-#   - It is possible to formulate a specialized leading indicator DFP.
+#   - It is possible to formulate a specialized leading indicator DFP, 
+#     as illustrated in one of the tutorials.
 # ════════════════════════════════════════════════════════════════════
 
 #---------------------------------------------------------------------
 # SHORT NOTE  ON EMPIRICAL EXAMPLES:
 #---------------------------------------------------------------------
-# oUR examples TYPICALLY illustrate challenging forecast problems in which the DGP is
+# Our examples TYPICALLY illustrate challenging forecast problems in which the DGP is
 # characterized by a slowly and monotonically decaying autocorrelation (ACF) 
 # pattern (see also tutorial 1). The corresponding time series dynamics 
 # imply that the classical MSE predictor is effectively trapped at the 
