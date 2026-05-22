@@ -205,7 +205,7 @@ tau0-tauh
 # Display tauhtilde:
 # Increasing the forecast horizon from h to htilde does not substantially 
 # reduce the time-shift, confirming that longer-horizon MSE prediction alone 
-# does not resolve the look-ahead problem.
+# does not resolve the look-ahead problem ("Stuck at Present" problem).
 tau0-tauhtilde
 
 
@@ -496,12 +496,12 @@ mat_perf
 #
 # 1. tau(0) — Frequency-zero time-shift
 #
-#    - MSE(h): the classical h-step MSE predictor has a time-shift of
-#      approximately 4.01, meaning that when applied to a linear trend
+#    - MSE(h): the classical h = 3-step MSE predictor has a time-shift of
+#      approximately 4.04, meaning that when applied to a linear trend
 #      the output is delayed by ~4 time units (right-shifted).
 #
-#    - MSE(htilde): increasing the forecast horizon to h = htilde does
-#      not materially reduce the time-shift. A longer horizon alone
+#    - MSE(htilde=20): increasing the forecast horizon from h = 3 to htilde = 20 
+#      does not materially reduce the time-shift. A longer horizon alone
 #      cannot address timeliness — the look-ahead problem persists
 #      within the MSE paradigm regardless of h.
 #
@@ -579,7 +579,6 @@ for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = colo[i])
   mtext(colnames(mplot)[i], col = colo[i], line = -i)
 }
-
 # Redraw the h-step MSE filter on top to ensure it is not occluded
 lines(mplot[, 2], col = colo[2])
 
@@ -604,7 +603,6 @@ plot(mplot[, 1],
      xlab = "Lag", ylab = "CCF",
      col  = colo[2], lwd = 1,
      ylim = c(min(mplot), max(mplot)))
-
 # Overlay CCFs for the time-shift DFP and fully decoupled DFP
 for (i in 1:ncol(mplot)) {
   lines(mplot[, i], col = colo[1 + i])
@@ -612,11 +610,9 @@ for (i in 1:ncol(mplot)) {
 # Reference lines:
 #   solid  vertical → lag 0 (current observation x_t)
 #   dashed vertical → lag h (target forecast horizon)
-#   solid horizontal → CCF = 0 baseline
 abline(v = 1,       lty = 1)
 abline(v = 1 + h,   lty = 2)
 abline(h = 0)
-
 axis(1, at     = 1:nrow(mplot),
      labels = -1 + 1:nrow(mplot))
 axis(2)
@@ -639,7 +635,6 @@ box()
 #   at lag 0 to zero by construction. The resulting CCF at the target
 #   horizon h is substantially reduced — it represents the maximum
 #   attainable correlation at h under complete decoupling from x_t.
-
 
 
 
@@ -724,10 +719,11 @@ for (i in 1:ncol(y_out_mat))
 
 # --- Interpretation of the Plot ---
 #
-# The plot compares the outputs of all four predictors over the sample
+# The plot compares the outputs of all three predictors over the sample
 # window [anf, enf], illustrating the practical consequences of the
 # DFP constraint when alpha0 = alpha0(tau) is derived from the desired
-# frequency-zero lead tau.
+# frequency-zero lead tau. Note: the MSE(20) predictor is nearly the same 
+# as MSE(3) and is ignored.
 #
 # - DFP-shifted (blue): the predictor anticipates mean reversion over
 #   mid-term dynamics. This is visible as sustained intervals where the
@@ -747,8 +743,7 @@ for (i in 1:ncol(y_out_mat))
 #          the true amplitude of the process.
 #
 #     (ii) Increased noise — the predictor output is noisier than the
-#          DFP-shifted variant, as complete decoupling discards all
-#          signal content associated with x_t.
+#          DFP-shifted variant.
 #
 #   Together, these two costs reduce the cross-correlation (CCF)
 #   between the fully decoupled predictor and the target x_{t+h} at
@@ -816,7 +811,11 @@ ccf(y_out_mat[, 2], y_out_mat[, 4],
 #    This raises natural questions about the interpretability and
 #    statistical consistency of aggressive look-ahead designs. These
 #    questions are examined further in subsequent tutorials; see also
-#    Sections 4.3 and 5 of Wildi (2026) for a formal treatment.
+#    Sections 4.3 and 5 of Wildi (2026) for a formal treatment. At this 
+#    stage, interpretability is primarily tied to optimality: no 
+#    other predictor can outperform the DFP in term of target correlation 
+#    or mean-square performance at the forecast horizon h, subject to the 
+#    specified time-shift lead at frequency zero.
 
 
 
