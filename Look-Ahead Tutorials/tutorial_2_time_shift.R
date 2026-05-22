@@ -12,9 +12,10 @@
 #   - Producing actionable measures that guide predictor refinement or design
 #
 # ── TIMELINESS MEASURES FOR TIME SERIES ──────────────────────────────
-#   1. Cross-Correlation Function (CCF)
+#   1. Sample Cross-Correlation Function (CCF)
 #        Estimates the lag at which two series are most linearly correlated.
-#        Simple and widely used, but sensitive to sample noise.
+#        Simple and widely used: sample CCFs are potentially sensitive to 
+#        sample noise.
 #
 #   2. Dynamic regression with distributed lags
 #        Regresses the target on current and lagged values of the predictor.
@@ -30,9 +31,10 @@
 #        to time units gives the frequency-specific lag.
 #
 # ── TIMELINESS MEASURES FOR FILTERS ──────────────────────────────────
-#   5. Filter CCF
+#   5. True/Expected CCF
 #        Cross-correlates two filter coefficient vectors to estimate their
-#        relative timing. Coarser than frequency-domain measures.
+#        relative timing. Measure the aggregate timeliness effect and are 
+#        coarser than frequency-domain measures.
 #
 #   6. Amplitude and time-shift functions
 #        Describe, at every frequency, how a filter scales (amplitude/gain)
@@ -66,11 +68,12 @@ rm(list = ls())
 # of a zero-mean stationary series (Wildi 2024)
 source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 
-# Load signal extraction and filter utility functions from the JBCY paper
+# Load signal extraction and filter utility functions from the 2024 paper
 # Provides amp_shift_func(), compute_ccf_func(), and related helpers
 # Dependency: the mFilter package must be installed
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
+library(mFilter)
 
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 1: Data Samples — Lead/Lag Measures for Time Series
@@ -102,7 +105,7 @@ ts.plot(cbind(x, y), main = "Simulated series: x (black) and y (red)",
         col = c("black", "red"))
 
 
-# ── 1.2 Cross-Correlation Function (CCF) ──────────────────────────────
+# ── 1.2 Sample Cross-Correlation Function (CCF) ──────────────────────────────
 # The CCF measures the linear correlation between x and y at various lags.
 # The lag at which the CCF peaks provides a simple estimate of the lead/lag.
 # Expected peak: near lag = shift (y leads x by `shift` units).
@@ -131,9 +134,9 @@ summary(model)   # inspect coefficient significance across lags
 # `max_lead` sets the maximum lead horizon to test.
 filter_mat <- cbind(x, y)
 max_lead   <- 10
-compute_min_tau_func(filter_mat, max_lead)
-# The measure is noisy (it looks only at zero crossings). We see a minimum 
-# around -5.
+tau<-compute_min_tau_func(filter_mat, max_lead)
+# The measure is noisy (it looks only at zero crossings). We see dips 
+# at -4 and -8.
 
 # ── 1.5 Frequency-Domain: Coherence and Phase ─────────────────────────
 # Cross-spectral analysis decomposes the lead/lag relationship by frequency.
@@ -217,17 +220,26 @@ b1 <- c(rep(0, shift), a1^(0:(L - 1 - shift)) / sum(a1^(0:(L - 1 - shift))))
 b2 <- a1^(0:(L - 1)) / sum(a1^(0:(L - 1)))
 
 ts.plot(cbind(b1, b2),xlab="",ylab="",
-        main = "Filter coefficients: lagged (b1) vs. unlagged (b2) EWMA")
+        main = "Filter coefficients: lagged (b1: blue) vs. unlagged (b2: red) EWMA",col=c("blue","red"))
 h <- 5   # forecast horizon parameter passed to CCF utility
 
 
-# ── 2.2 Filter CCF ────────────────────────────────────────────────────
-# Compute the cross-correlation between the two filter coefficient vectors.
+# ── 2.2 True/Expected (Filter) CCF ────────────────────────────────────────────────────
+# Compute the true (expected) cross-correlation between the two filter (predictor) 
+# coefficient vectors.
 # The lag at the CCF peak estimates the relative lag of b1 with respect to b2.
 # Expected peak: at lag = shift (= 1), confirming the one-period offset.
 max_lead <- 5
+ccf<-compute_ccf_func(b2, b1 )
+plot(ccf,main="True/Expected CCF: Peaks at lag = 1", type = "l", axes = FALSE,
+     xlab = "Lag", ylab = "CCF")
+axis(1, at = 1:length(ccf),
+     labels = names(ccf))
+axis(2)
+abline(v=which(ccf==max(ccf)),lty=2)
+box()
 
-compute_ccf_func(b2, b1 )
+
 
 
 # ── 2.3 Time-Shift Function ───────────────────────────────────────────

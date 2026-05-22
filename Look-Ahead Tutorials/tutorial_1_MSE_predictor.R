@@ -16,7 +16,7 @@
 #   (3) Smoothness  — the predictor does not over-react to noise
 #
 # The classical MSE criterion optimises (1) alone, often at the expense
-# of (2). This tutorial makes that trade-off visible and motivates the
+# of (2) (or (3)). This tutorial makes that trade-off visible and motivates the
 # "look-ahead" predictors introduced in Wildi (2026).
 
 # ── BACKGROUND / REFERENCES ───────────────────────────────────────────
@@ -50,21 +50,20 @@ source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
 # coefficient a1 = 0.9. Its moving-average weights decay geometrically:
 #   b_k = a1^k,  k = 0, 1, ..., 9
 #
-# This DGP is simple enough to allow closed-form derivation of the
-# optimal h-step-ahead MSE predictor, making it ideal for illustration.
+# This DGP is simple, making it ideal for illustration.
 # ════════════════════════════════════════════════════════════════════
 
 # ── 1.1 Data Generation ───────────────────────────────────────────────
 # Define MA(9) filter coefficients: b_k = a1^k, k = 0,...,q
 q  <- 9          # MA order
 a1 <- 0.9        # AR(1) coefficient (controls persistence of the process)
-b  <- a1^(0:9)   # geometrically decaying MA weights
+b  <- a1^(0:q)   # geometrically decaying MA weights
 
 par(mfrow = c(1, 1))
 ts.plot(b, main = "MA(9) filter coefficients (geometrically decaying)",
         xlab = "Lag", ylab = "Weight")
 
-# Simulate a realisation of the MA(9) process
+# Simulate a realisation of the process
 len     <- 100
 set.seed(231)
 eps <- rnorm(len + q + 1)   # innovations (i.i.d. standard normal)
@@ -81,7 +80,7 @@ ts.plot(x, main = "Simulated MA(9) process")
 
 # Inspect the autocorrelation structure:
 # ACF should show significant lags up to order q = 9 and then cut off
-acf(na.exclude(x), main = "ACF of simulated MA(9) — cuts off at lag 9")
+acf(na.exclude(x), main = "ACF of simulated MA(9)")
 
 
 # ── 1.2 MSE-Optimal h-Step-Ahead Predictor ────────────────────────────
@@ -134,12 +133,12 @@ axis(1, at = 1:nrow(mplot), labels = 1:nrow(mplot))
 axis(2)
 box()
 
-# Panel 2: original series x_t vs. the MSE forecast (unshifted)
+# Panel 2: original series x_t vs. the MSE forecast (un-shifted)
 # The predictor tracks x_t closely rather than x_{t+h}, revealing the
 # "stuck-at-present" behaviour: the forecast is effectively contemporaneous.
 mplot <- na.exclude(cbind(x, xhat))
 plot(mplot[,1],
-     main = "Original series x_t and 5-step-ahead MSE forecast (green)",
+     main = "Original (unshifted) series x_t and 5-step-ahead MSE forecast (green)",
      axes = FALSE, type = "l", xlab = "Time", ylab = "",
      col = colo[1], lwd = 1)
 lines(mplot[,2], col = colo[2])
@@ -148,6 +147,9 @@ mtext("MSE predictor", col = "green", line = -2)
 axis(1, at = 1:nrow(mplot), labels = 1:nrow(mplot))
 axis(2)
 box()
+
+# The predictor (green) lags the (shifted) target x_{t+h} and correlates strongly 
+# with the contemporaneous (un-shifted) x_t 
 
 
 # ── 1.3 Cross-Correlation Function (CCF) of the MSE Predictor ─────────
@@ -219,7 +221,7 @@ axis(2); box()
 # Q: Can we shift the CCF peak of the MSE predictor to the left by 
 #    increasing h?
 
-# Left as an exercise.
+# Left as an exercise (the answer is: No).
 
 
 # ════════════════════════════════════════════════════════════════════

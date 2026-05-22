@@ -15,7 +15,7 @@
 # The optimal h-step-ahead MSE forecast reduces to hat{x}_{t+h|t} = a1^h * x_t,
 # meaning the forecast is simply a rescaled version of the current observation.
 # This exemplifies the "anchoring" problem: as the horizon h increases, the
-# forecast remains structurally tied to x_t, offering diminishing predictive
+# forecast remains structurally tied to x_t, offering no predictive
 # value about the true future dynamics. While the AR(1) case is especially
 # transparent — the dependence on x_t is explicit and direct — the same
 # tendency arises more broadly: for many stationary processes, the forecast
@@ -44,12 +44,12 @@
 #     tutorial series concentrates on the core look-ahead ideas, which
 #     are most clearly illustrated in a simple univariate framework.
 #
-# In applications to (non-seasonal) economic time series, a typical
-# pattern of economic time series is a monotonically decaying AutoCorrelation 
-# Function (ACF), such as in the AR(1) process. Under such persistence, the 
-# classic MSE predictor tends to remain "stuck at the present" regardless of 
-# the forecast horizon h. However, the proposed DFP and PCS approaches extend 
-# to general stationary processes, with arbitrarily rich ACF profiles. 
+# In applications to non-seasonal economic time series, a typical
+# pattern is a monotonically decaying autocorrelation function (ACF),
+# as observed in the AR(1) process. Under such persistence, the classic
+# MSE predictor tends to remain stuck (anchored) to the present regardless of
+# the forecast horizon h. The proposed DFP and PCS approaches extend naturally 
+# to general stationary processes with arbitrarily rich ACF profiles.
 #
 # ── LIMITATIONS ────────────────────────────────────────────
 
