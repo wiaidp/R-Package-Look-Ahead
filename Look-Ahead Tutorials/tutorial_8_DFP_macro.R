@@ -24,7 +24,7 @@
 #
 # To remedy this, we re-parameterise the DFP constraint by linking alpha0
 # to the time-shift (phase delay) at frequency zero — the trend frequency —
-# as introduced in Tutorial 2, see tutorial 6 for background.
+# as introduced in Tutorial 2, see Tutorial 6 for background.
 #
 # Concretely, the re-parameterised DFP predictor is designed so that its
 # output leads the MSE predictor by a pre-specified number of time steps,
@@ -73,7 +73,7 @@
 #
 #   - Upcoming comparison:
 #       A simpler, aperiodic ARMA(1,1) model will be examined in tutorial 9,
-#       providing a useful contrast to the periodic AR(2,2) setting.
+#       providing a useful contrast to the periodic ARMA(2,2) setting.
 
 # ════════════════════════════════════════════════════════════════════
 
@@ -291,6 +291,7 @@ mtext(paste("MSE(",htilde,") predictor",sep=""),col="orange",line=-3)
 # (negative value = the DFP output leads by |lead| time steps at the zero 
 # trend frequency). We analyse a sequence of increasing leads at frequency zero.
 lead_vec <- c(-2^(0:5),-200)
+lead_vec
 
 # Note on DFP behavior under large leads:
 #
@@ -306,8 +307,6 @@ lead_vec <- c(-2^(0:5),-200)
 #       the relatively large leads imposed via lead_vec — balancing the
 #       zero-frequency time-shift requirement against optimal tracking
 #       of the target x_{t+h} (conflicting requirements).
-
-lead_vec
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.4 Run Time-Shift MSE-DFP
@@ -1314,6 +1313,7 @@ sum(gammahtilde)
 # Negative values indicate that the DFP leads the MSE predictor (anticipates 
 # earlier). We use the same as in exercise 1 (but discard the extreme lead).
 lead_vec <- -2^(0:5)
+lead_vec
 
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Run Time-Shift MSE-DFP
@@ -1518,7 +1518,6 @@ plot(mplot[, 1],
      col  = colo[1],
      ylim = c(min(mplot), max(mplot)))
 mtext(colnames(mplot)[1], col = colo[1], line = -1)
-
 # Overlay remaining filters with color-coded labels
 for (i in 2:ncol(mplot)) {
   lines(mplot[, i], col = colo[i], type = "l", lty = lty_vec[i], lwd = lwd_vec[i])
@@ -1528,7 +1527,6 @@ axis(1, at = c(0, (1:(nrow(mplot)/10)) * 10),
      labels = c(0, (1:(nrow(mplot)/10)) * 10))
 axis(2)
 box()
-
 # --- Right panel: cross-correlation functions (CCF) ---
 # Compute the CCF between each predictor and the nowcast (gamma0),
 # evaluated at lags surrounding lag 0 and the target horizon h.
@@ -1551,7 +1549,6 @@ for (i in 1:ncol(mplot)) {
 }
 abline(v = 1 + h, lty = 2)  # vertical line marking the target horizon h
 abline(h = 0)
-
 axis(1, at = 1:nrow(mplot), labels = -1 + 1:nrow(mplot))
 axis(2)
 box()
