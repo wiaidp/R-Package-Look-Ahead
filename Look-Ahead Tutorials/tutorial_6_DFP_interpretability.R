@@ -1139,9 +1139,10 @@ for (i in 1:ncol(mplot))
 # large, the DFP leads the MSE predictor at cyclical turning points
 # even in the presence of noise. The plot suggests that this lead is
 # preserved here. A formal quantitative assessment via amplitude and
-# time-shift statistics is provided in the next section, where the
+# phase-shift statistics is provided in the next section, where the
 # empirical findings above are confirmed through a data-independent
-# frequency-domain analysis.
+# frequency-domain analysis. The trade-off for this improved timeliness
+# is increased sensitivity to noise.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1149,7 +1150,7 @@ for (i in 1:ncol(mplot))
 # ─────────────────────────────────────────────────────────────────────
 # Compute the amplitude and time-shift functions for all four filters
 # across the full frequency range [0, pi]. These spectral summaries
-# complement the time-domain verification in Sections 2.1–2.3 and
+# complement the time-domain verification in Sections 2.1–2.3.2 and
 # quantify the accuracy–timeliness tradeoff across frequencies.
 
 K      <- 600    # number of frequency grid points in [0, pi]
@@ -1215,8 +1216,7 @@ box()
 #      function is not monotonically decreasing.
 #    - The MSE predictor (green) closely tracks the process amplitude
 #      (black) across all frequencies, illustrating the "stuck at the
-#      present" problem: it adds little filtering relative to the
-#      nowcast.
+#      present" problem.
 #    - Both DFP designs exhibit reduced amplitude at low frequencies
 #      and relatively larger amplitude at high frequencies, reflecting
 #      the accuracy–timeliness (ATS) trilemma: gaining timeliness
