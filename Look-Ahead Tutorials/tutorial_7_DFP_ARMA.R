@@ -18,7 +18,6 @@
 #      achieve meaningful look-ahead behaviour: the predictor remains strongly
 #      coupled to x_t at lag 0.
 #
-#
 #   2. EXPLOITING NON-UTILISED STRUCTURE IN THE DATA-GENERATING PROCESS
 #      A direct comparison of predictor weights illustrates that the DFP
 #      exploits structure in the data-generating process that is left unused
@@ -38,14 +37,16 @@
 #
 #   4. TIME-SHIFT DFP CONSTRAINT
 #      Expressing the DFP constraint in terms of the zero-frequency lead (exercise 2)
-#      provides a natural safeguard against trend and level inversion.
-#      Although full decoupling may not always be achievable, the resulting
+#      provides a natural safeguard against trend and level inversion (inversion 
+#      cannot occur when alpha0 = alpha0(tau) is derived as a function of tau).
+#      Although full decoupling may not always be achievable (,i.e., there does not 
+#      exist a tau such that alpha0(tau) = 0), the resulting
 #      look-ahead dynamics are likely to be sufficient for many practical
 #      forecasting applications, offering a favourable balance between
 #      timeliness and interpretability.
 #
 #   5. ATS TRILEMMA
-#      A stronger dfp lead generates a left-shift in the filter output but at 
+#      A stronger DFP lead generates a left-shift in the filter output but at 
 #      the cost of increased noise. This is a direct consequence of the ATS 
 #      trilemma in prediction. The MSE predictor represents a single fixed 
 #      point on this tradeoff surface: it optimises accuracy alone, ignoring 
@@ -367,7 +368,6 @@ par(mfrow = c(1, 1))
 ts.plot(cbind(ar_mse_arma32, ar_dfp_arma32_mat)[1:10, ],
         col  = rainbow(length(alpha0_vec) + 1),
         main = "MSE and DFP predictors: AR form (first 10 coefficients)")
-
 # Redraw the MSE predictor in green for visual reference
 lines(ar_mse_arma32[1:10], lwd = 1, col = "green")
 
@@ -557,9 +557,9 @@ lines(mplot[, 2], col = "green", lty = 2, lwd = 2)
 for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], line = -i, col = coli[i])
 
-# Observation: the dominant difference between MSE(h) and MSE(htilde) is
-# scale — MSE(htilde) has a smaller variance due to stronger zero-shrinkage.
-# No meaningful gain in look-ahead timing is visible.
+# Observation: the dominant difference between MSE(h), h=3, and MSE(htilde), 
+# htilde = 20, is scale — MSE(htilde) has a smaller variance due to stronger 
+# zero-shrinkage. No meaningful gain in look-ahead timing is visible.
 
 
 # ── Step 2: Standardise to isolate timing differences ─────────────────
@@ -579,8 +579,8 @@ for (i in 1:ncol(mplot))
   mtext(colnames(mplot)[i], line = -i, col = coli[i])
 
 
-# Outcome: After standardisation, MSE(h_tilde) offers no timing advantage
-# over MSE(h). Increasing the forecast horizon within the MSE framework does
+# Outcome: After standardisation, MSE(20) offers no timing advantage
+# over MSE(3). Increasing the forecast horizon within the MSE framework does
 # NOT unlock genuine look-ahead behaviour, confirming that this remains a
 # fundamentally difficult forecasting problem.
 
@@ -701,9 +701,13 @@ tau0-tauh
 
 lead_vec <- c(-0.25,-0.5,-(1:h))
 
-# Note: a negative lead signifies that a linear trend will be left-sifted by 
-# abs(lead) time points when compared to gammah (DFP anticipates the MSE(h) 
-# predictor on a linear trend signal).
+# Notes: 
+# 1. When specifying the DFP based on the frequency-zero time-shift tau,
+#    the predictor preserves both the trend orientation and the sign of any
+#    fixed (mean) level — i.e., neither is inverted.
+# 2. A negative lead signifies that a linear trend will be left-sifted by 
+#    abs(lead) time points when compared to gammah (DFP anticipates the MSE(h) 
+#    predictor on a linear trend signal).
 b_mat<-lambda_vec<-alpha_vec<-NULL
 cor_vec_mat_2  <- cor_vec_2 <- NULL
 
@@ -758,9 +762,9 @@ for (i in 1:ncol(b_mat))
   print(sum(b_mat[, i] * (0:(L - 1))) / sum(b_mat[, i]) - (tauh + lead_vec[i]))
 }
 
-# CHECK 2 — Sign/orientation preservation: If the sum of filter weights 
-# is strictly positive, the DFP does not reverse
-# the direction (sign) of a trend signal.
+# CHECK 2 — Sign/orientation preservation: If the sum of filter weights
+# is strictly positive, the DFP does not reverse the direction (sign) of
+# a trend signal. 
 apply(b_mat, 2, sum)
 # Note: When the DFP constraint is formulated in terms of the lead at frequency
 # zero, as in this exercise, the resulting filter is guaranteed not to invert
@@ -769,8 +773,12 @@ apply(b_mat, 2, sum)
 # However, full decoupling is not guaranteed: even as lead -> -Inf, the
 # predictor may remain positively correlated with x_t (which is the case here). 
 
-# CHECK 3 — Positive Target Covariance
+# Covariance with x_t: all positive
+t(b_mat)%*%gamma0
 
+# CHECK 3 — Positive target covariance: A negative target correlation
+# would render the predictor unusable, as it would imply the filter
+# tracks the target in the wrong direction.
 t(b_mat)%*%gammah
 
 
@@ -914,10 +922,9 @@ for (i in 1:ncol(mplot))
 #
 #   1. DIFFICULT FORECAST PROBLEM
 #      The ARMA(3,2) process studied here is inherently difficult to forecast.
-#      Increasing the forecast horizon (MSE(h_tilde) vs. MSE(h)) does not
+#      Increasing the forecast horizon (MSE(h_tilde=20) vs. MSE(h=3)) does not
 #      achieve meaningful look-ahead behaviour: the predictor remains strongly
 #      coupled to x_t at lag 0.
-#
 #
 #   2. EXPLOITING NON-UTILISED STRUCTURE IN THE DATA-GENERATING PROCESS
 #      A direct comparison of predictor weights illustrates that the DFP
@@ -945,7 +952,7 @@ for (i in 1:ncol(mplot))
 #      timeliness and interpretability.
 #
 #   5. ATS TRILEMMA
-#      A stronger dfp lead generates a left-shift in the filter output but at 
+#      A stronger DFP lead generates a left-shift in the filter output but at 
 #      the cost of increased noise. This is a direct consequence of the ATS 
 #      trilemma in prediction. The MSE predictor represents a single fixed 
 #      point on this tradeoff surface: it optimises accuracy alone, ignoring 
