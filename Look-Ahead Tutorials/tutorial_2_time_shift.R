@@ -218,7 +218,8 @@ b1 <- c(rep(0, shift), a1^(0:(L - 1 - shift)) / sum(a1^(0:(L - 1 - shift))))
 
 # b2: Standard EWMA (no lag), used as the reference filter
 b2 <- a1^(0:(L - 1)) / sum(a1^(0:(L - 1)))
-
+# Need to set last lag to zero:
+b2[L]<-0
 ts.plot(cbind(b1, b2),xlab="",ylab="",
         main = "Filter coefficients: lagged (b1: blue) vs. unlagged (b2: red) EWMA",col=c("blue","red"))
 h <- 5   # forecast horizon parameter passed to CCF utility
@@ -281,9 +282,9 @@ box()
 # EXERCISE 3: Filters — Equally Weighted vs. Exponentially Weighted MA
 # Compares a simple moving average (equal weights) to an EWMA.
 # Equal weights assign uniform importance to all past observations;
-# For similar effects, the EWMA down-weights older observations geometrically, 
-# making it potentially more responsive to recent data and less lagging on 
-# average.
+# For roughly similar (but not identical) effects, the EWMA down-weights older 
+# observations geometrically, making it potentially more responsive to recent 
+# data and less lagging on average.
 # ════════════════════════════════════════════════════════════════════
 
 # ── 3.1 Define Filters ────────────────────────────────────────────────
@@ -309,11 +310,17 @@ ts.plot(cbind(b1, b2),xlab="",ylab="",
 # behavior (a1 and L are roughly aligned), we expect the CCF peak at lag 0,
 # indicating the two filters are contemporaneously aligned.
 max_lag <- 5
-h <- 0   # forecast horizon parameter passed to CCF utility
-
-compute_ccf_func(b2, b1)
 # Note: CCF peaks at lag 0 — both filters respond at the same time point,
 #       though they differ in how they weight past observations.
+max_lead <- 5
+ccf<-compute_ccf_func(b2, b1 )
+plot(ccf,main="True/Expected CCF: Peaks at lag = 0", type = "l", axes = FALSE,
+     xlab = "Lag", ylab = "CCF")
+axis(1, at = 1:length(ccf),
+     labels = names(ccf))
+axis(2)
+abline(v=which(ccf==max(ccf)),lty=2)
+box()
 
 
 #----------------------------------------------------------------------------
@@ -492,19 +499,19 @@ ts.plot(cbind(x_shift_amp_trend2, y2_trend),
 # MAIN FINDINGS
 # ════════════════════════════════════════════════════════════════════
 #
-# 1. SERIES-DEPENDENT MEASURES (Exercise 1) ARE NOISY
+# 1. SERIES-DEPENDENT (SAMPLE) MEASURES (Exercise 1) ARE NOISY
 #    ─────────────────────────────────────────────────
 #    CCF, dynamic regression, transfer entropy, and phase coherence all
 #    depend on the realised sample. Estimation noise makes them unreliable
 #    guides for comparing or designing predictors, especially in short series.
 #
-# 2. FILTER-BASED MEASURES ARE PREFERRED
+# 2. TRUE (EXPECTED) MEASURES ARE PREFERRED
 #    ─────────────────────────────────────
 #    Measures derived directly from filter coefficients (amplitude, time-shift,
 #    centroid) are exact and sample-independent: they describe what the filter
 #    does in population, not what happened to be observed in one realisation.
 #
-# 3. FILTER CCF AS AGGREGATE MEASURE
+# 3. CCF AS AGGREGATE MEASURE
 #    ─────────────────────────────────
 #    The CCF of two filter coefficient vectors collapses the full
 #    frequency-specific lead/lag structure into a single scalar lag estimate.
@@ -524,9 +531,8 @@ ts.plot(cbind(x_shift_amp_trend2, y2_trend),
 #    The zero-frequency (trend) shift — derived as the centroid of the filter's
 #    impulse response — is a closed-form, exact measure. Because macro-economic
 #    trends and cycles sit at or close to zero frequency, continuity of the 
-#    time-shift function implies that the zero-frequency shift is also a 
-#    reliable indicator of the lag a filter introduces at the trend or at 
-#    business-cycle frequencies.
+#    time-shift function implies that the zero-frequency shift can also be a 
+#    reliable indicator of the lag a filter introduces at business-cycle frequencies.
 #
 # 6. AMPLITUDE AND TIME-SHIFT FULLY CHARACTERISE FILTER EFFECTS ON SINUSOIDS
 #    ─────────────────────────────────────────────────────────────────────────
@@ -553,10 +559,10 @@ ts.plot(cbind(x_shift_amp_trend2, y2_trend),
 #
 # 9. THESE MEASURES ARE ACTIONABLE FOR FILTER DESIGN
 #    ──────────────────────────────────────────────────
-#    Amplitude and time-shift can be embedded directly into optimisation
-#    criteria, enabling the systematic design of filters that achieve a
-#    desired balance on the accuracy–timeliness frontier — without requiring
-#    any simulation or in-sample fitting.
+#    Amplitude and time-shift or true/expected CCF can be embedded directly 
+#    into optimisation criteria, enabling the systematic design of filters that 
+#    achieve a desired balance on the accuracy–timeliness frontier — without 
+#    requiring any simulation or in-sample fitting.
 # ════════════════════════════════════════════════════════════════════
 
 
