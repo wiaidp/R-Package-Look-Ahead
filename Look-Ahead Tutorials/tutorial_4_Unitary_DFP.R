@@ -32,11 +32,6 @@
 #     https://doi.org/10.48550/arXiv.2602.23087
 # ════════════════════════════════════════════════════════════════════
 
-
-# ════════════════════════════════════════════════════════════════════
-# Exercise 1: MA-PROCESS
-# ════════════════════════════════════════════════════════════════════
-
 # ── INITIALISATION ────────────────────────────────────────────────────
 rm(list = ls())
 
@@ -50,10 +45,13 @@ source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 # Load general DFP/PCS utility functions (amplitude, time-shift, CCF helpers)
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
+# ════════════════════════════════════════════════════════════════════
+# Exercise 1: MA-PROCESS
+# ════════════════════════════════════════════════════════════════════
 
-# ════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────
 # CONCEPTUAL BACKGROUND
-# ════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────
 # Let x_t be a stationary time series with a convergent (square-summable)
 # Wold decomposition:
 #
@@ -86,8 +84,9 @@ source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = 
 
 L      <- 10          # filter length (truncation of the Wold decomposition)
 a1     <- 0.9         # geometric decay rate of the Wold coefficients
-gamma0 <- a1^(0:9)    # Wold coefficients: gamma_k = a1^k, k = 0,...,9
+gamma0 <- a1^(0:(L-1))    # Wold coefficients: gamma_k = a1^k, k = 0,...,9
 
+par(mfrow=c(1,1))
 ts.plot(gamma0, main = "Wold decomposition (MA coefficients of the DGP)",
         xlab = "Lag k", ylab = expression(gamma[k]))
 
@@ -496,6 +495,7 @@ x_max<-3
 y_min<--0.5
 y_max<-1.5
 lim <- 1.2 * max(1, abs(c(vx, vy))+0.5)
+par(mfrow=c(1,1))
 plot(NA, xlim = c(x_min,x_max), ylim = c(y_min, y_max),
      asp = 1, xlab = "", ylab = "", axes = TRUE)
 # Axes
