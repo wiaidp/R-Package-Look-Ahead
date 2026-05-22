@@ -75,7 +75,7 @@ source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = 
 # ════════════════════════════════════════════════════════════════════
 # EXERCISE 1: Introduction to MSE-DFP 
 # ════════════════════════════════════════════════════════════════════
-# This exercise introduces three novelties relative to Tutorial 3:
+# This exercise introduces three novelties relative to Tutorial 4:
 #
 # A) THE MSE-DFP CRITERION (Equation 9, Wildi 2026)
 #    Like the unit-length DFP, the MSE-DFP predictor lies in the plane
@@ -100,7 +100,7 @@ source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = 
 #        Its value depends on the scale of gamma0 (and hence gammah).
 #      - Except for alpha0=0 (complete decoupling) this might challenge 
 #        sensible a priori selection of the DFP constraint parameter.
-#      - See however exercise 4 below for an alternative selection criterion.
+#      - See however Tutorial 6 for an alternative selection criterion.
 #
 # B) AR FORM OF THE PREDICTORS
 #    In addition to the MA form, we derive the AR form of each predictor.
@@ -203,7 +203,8 @@ alpha0_MSE<-as.double(gammah%*%gamma0)
 alpha0_MSE
 
 
-# Grid of alpha0 values to sweep the AT frontier
+# Grid of alpha0 values to sweep the AT frontier: all values are smaller than 
+# alpha0_MSE, enforcing decoupling.
 # Note: alpha0 is NOT a correlation here (no unit-norm constraint);
 # it is the raw inner product b0 %*% gamma0, controlling decoupling strength
 alpha0_vec <- c(alpha0_MSE/1.1,alpha0_MSE/(1.5^(1:6)),0)
@@ -296,6 +297,21 @@ axis(1,at=1:nrow(mplot),labels=-max_lag-1+1:(nrow(mplot)))
 axis(2)
 box()
 
+# Outcome
+# 1. Filter Coefficients (Predictor Weights)
+# - Increasing decoupling (decreasing alpha0) shrinks the predictor coefficients
+#     towards zero: this is the price paid to retain MSE optimality subject to
+#     the enforced decoupling constraint.
+# - Increasing decoupling progressively transforms the coefficient path away from
+#   the classical monotonically decaying profile (MSE: green) towards a
+#   non-monotonic half-cycle shape (violet), despite the underlying DGP being acyclical.
+
+# 2. CCF (Cross-Correlation Function)
+# - Increasing decoupling (decreasing alpha0) progressively suppresses the CCF
+#   towards zero at lag 0: full decoupling is achieved when alpha0 = 0
+#   (violet line).
+# - The loss in CCF at the forecast horizon k = h is minimised by the DFP
+#   design, which balances decoupling against predictive accuracy optimally.
 
 # Round and display the correlation matrix for inspection
 mat_cor_vec <- round(cor_vec_1, 2)
@@ -411,11 +427,11 @@ for (i in 1:length(alpha0_vec))
 # The complementary AR-form perspective is examined in Exercise 2
 # below: progressively strengthening the decoupling (decreasing
 # alpha0) deflates the weight assigned to x_t, yet x_t retains its
-# dominant importance throughout.
+# dominant importance.
 
 
 ts.plot(b_mat[, ncol(b_mat)],
-        main = "Complete decoupling: the largest weight is assigned to x_t",
+        main = "Complete decoupling: the largest weight is assigned to epsilon_t",
         xlab = "Lag",
         ylab = "Filter coefficient")
 
@@ -624,8 +640,8 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 # acquiring an additional lead relative to gammah itself.
 #
 # However, in some non-standard cases, gammah does not lead gamma0 at frequency 
-# zero. This is discussed in Wildi (2026, Appendix A). In such a case, a
-# lead by the DFP predictor is obtained when either
+# zero, see Tutorial 9. This is discussed in Wildi (2026, Appendix A). In such 
+# a case, a lead by the DFP predictor is obtained when either
 #
 #   (i)  b lies between gamma0 and gammah, or
 #
@@ -634,8 +650,8 @@ text(gammah_plot[1]-lambda0*gamma0_plot[1]+1.4 * r * cos(th_mid)+0.05,
 #
 # Counterintuitively, in the non-standard case the objective function is
 # inverted in sign: rather than maximising the correlation with gammah
-# (the MSE predictor, as in the standard case), the DFP minimises it.
-# This highlights that designing predictors with genuine look-ahead
+# (the MSE predictor, as in the standard case), the DFP minimises it, see 
+# Tutorial 9. This highlights that designing predictors with genuine look-ahead
 # behaviour is more challenging and subtle than it may first appear.
 
 
