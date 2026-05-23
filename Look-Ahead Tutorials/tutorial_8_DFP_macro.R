@@ -687,21 +687,24 @@ box()
 #          In the MA representation of the predictor, the weight assigned
 #          to the most recent innovation epsilon_t decreases as the lead grows.
 #
-#   Explanation of the DFP strategy:
+#   Explanation of the DFP `strategy':
 #     These three effects reflect the DFP balancing competing objectives:
 #       - To remain tightly connected to x_{t+12} (the target), the phase
 #         advancement must be kept moderate — avoiding an overly large shift.
-#       - To disconnect from x_t (the concurrent observation), the weight
-#         on epsilon_t is reduced.
 #       - The large time-shift at frequency zero is then achieved primarily
 #         through enhanced band-pass behavior, i.e., a stronger negative
 #         half-cycle in the filter coefficients.
+#       - The weight on epsilon_t is substantially reduced in order to:
+#           a) decouple the forecast from the nowcast (i.e., from x_t, 
+#              black line), and
+#           b) allow for a steep relaxation of the otherwise binding time-shift
+#              constraint at frequency zero (lead = -200, violet line);
+#              see exercise 1.12 below.
 #
 #   Note: The DFP adopts a markedly different `strategy' to reconcile  
 #   mutually conflicting requirements in tutorial 9,
 #   where the underlying ARMA(1,1) model is aperiodic and the periodic
 #   structure exploited here is absent.
-
 
 
 

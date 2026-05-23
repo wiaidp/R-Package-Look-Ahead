@@ -9,17 +9,17 @@
 # This tutorial introduces two modifications relative to Tutorial 8:
 #
 #   1. A simpler ARMA(1,1) model: unlike the ARMA(2,2) used in
-#      Tutorial 8, the ARMA(1,1) is 'aperiodic', meaning the MSE
+#      Tutorial 8, the ARMA(1,1) is aperiodic, meaning the MSE
 #      predictor cannot exploit any phase effect and therefore behaves
-#      as a nowcast — it is effectively 'stuck at the present'
-#      regardless of the forecast horizon.
+#      as a nowcast — effectively "stuck at present" regardless
+#      of the forecast horizon.
 #
-#   2. A minor modification applied to the original h-step-ahead MSE
+#   2. A minor modification to the original h-step-ahead MSE
 #      predictor, which markedly affects the DFP solution.
 #
 # Unlike the ARMA(2,2) in Tutorial 8, the aperiodic ARMA(1,1) does
 # not support phase hunting: increasing the forecast horizon has no
-# effect on lead/lag, so the MSE predictor cannot deliver genuine
+# effect on lead or lag, so the MSE predictor cannot deliver genuine
 # look-ahead behaviour.
 #
 # The DFP, by contrast, is able to generate a genuine lead even in
@@ -29,20 +29,20 @@
 # zero.
 #
 #
-# Implications of the two modifications:
+# ── IMPLICATIONS OF THE TWO MODIFICATIONS ───────────────────────────
 #
-# Modification 1 gives rise to the so-called 'non-standard' case
-# discussed in Wildi (2026), Appendix A. This case has two defining
+# Modification 1 (ARMA(1,1) model) gives rise to the so-called non-standard 
+# case discussed in Wildi (2026), Appendix A. This case has two defining
 # features:
 #
-#   (a) The MSE predictor effectively lags the signal at frequency
-#       zero — a practically uncommon situation.
+#   (a) The MSE predictor effectively LAGS the nowcast at frequency
+#       zero — a counterintuitive forecast problem.
 #
 #   (b) As a consequence, the sign of the optimisation objective must
-#       be inverted: the DFP solution is obtained by minimising
-#       (rather than maximising) tracking accuracy. This is an unusual 
-#       and counter-intuitive outcome; see Wildi (2026), Appendix A, for the
-#       theoretical background.
+#       be inverted: the DFP solution is obtained by MINIMISING
+#       (rather than maximising) tracking accuracy. This is an
+#       unusual outcome predicated on a counterintuitive forecast case; see 
+#       Wildi (2026), Appendix A, for the theoretical background.
 #
 # Modification 2 reinstates the standard case via a minor adjustment
 # to the MSE predictor. However, DFP solutions optimised for larger
@@ -51,18 +51,19 @@
 # difficulty of the prediction problem: the DFP exploits every
 # available opportunity to satisfy the time-shift constraint while
 # maximising target correlation, an uncompromising strategy that can
-# lead to overfitting and, consequently, undesirable lagging rather
-# than genuine look-ahead.
+# lead to overfitting and, consequently, to undesirable lagging
+# rather than genuine look-ahead behaviour.
 #
-# This suggests that, in applications prone to overfitting, anchoring
-# the DFP constraint at frequency zero alone is insufficient to
-# generate an effective lead across the full range of
-# policy-relevant frequencies.
+# This suggests that, in difficult "stuck at present" forecast problems, which 
+# are also potentially prone to overfitting, anchoring the DFP constraint at 
+# frequency zero alone is insufficient to generate a meaningful and effective 
+# lead across the full range of relevant frequencies.
 #
-# Two potential remedies:
+#
+# ── POTENTIAL REMEDIES ───────────────────────────────────────────────
 #
 #   1. Optimise over an aggregate lead measure rather than a
-#      zero-frequency lead constraint alone; see the PCS criterion
+#      zero-frequency constraint alone; see the PCS criterion
 #      introduced in Tutorial 10.
 #
 #   2. Anchor the time-shift constraint at a frequency other than
@@ -190,6 +191,9 @@ if (ma_order > 0) {
 par(mfrow = c(1, 1))
 ts.plot(xi, main = "Wold decomposition: slowly decaying impulse response (post-1990)")
 
+# Note: the large weight assigned to lag 0, compared to lags k > 0, is responsible 
+# for the non-standard case discussed below.
+
 # The theoretical ACF implied by the Wold decomposition matches the
 # empirical ACF computed above.
 ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),main="Model-based ACF",ylab="",xlab="Lag")
@@ -297,7 +301,6 @@ abline(h = 0)
 # 6. Confirm that this matches the difference of time-shifts at frequency zero.
 tauh - tau0
 
-#---------------------------------------------------------------------
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.5 Run MSE-DFP Based on (Zero-Frequency) Lead Constraint
@@ -332,7 +335,7 @@ for (i in 1:length(lead_vec))#i<-1
     b       <- dfp_obj$b        # raw DFP filter coefficients (length-L vector)
     
     # Compute the inner product <gamma0, b>: measures the projection of the
-    # DFP filter onto the nowcast direction (target-correlation numerator)
+    # DFP filter onto the nowcast direction.
     alpha0 <- as.double(t(gamma0) %*% b)
     
     # Optionally normalise b to unit Euclidean length
@@ -357,8 +360,8 @@ for (i in 1:length(lead_vec))#i<-1
   }
 }
 
-
-
+# Note: the function mse_dfp_from_tau_func() warns that the case is non-standard.
+# Internally, the problem is addressed by inverting the direction of optimisation.
 
 # ─────────────────────────────────────────────────────────────────────
 # 1.6 Routine Checks
@@ -379,7 +382,7 @@ for (i in 1:length(lead_vec))
 
 # CHECK 2 — Sign/orientation preservation: If the sum of filter weights 
 # is strictly positive, the DFP does not reverse
-# the direction (sign) of a trend signal.
+# the direction (sign) of a trend signal (or a fixed (mean) level).
 apply(b_mat, 2, sum)
 # Note: When the DFP constraint is formulated in terms of the lead at frequency
 # zero, as in this exercise, the resulting filter is guaranteed not to invert
@@ -480,6 +483,8 @@ t(b_mat)%*%gammah
 #
 #   The scaling factor (gammah %*% b) / (b %*% b) ensures MSE optimality
 #   in the non-standard case for all three formulations.
+# - Positive scaling does not affect the time-shift constraint at frequency zero
+#   which is a scale independent lead-time measure.
 
 # ─────────────────────────────────────────────────────────────────────
 # TECHNICAL NOTE ON SINGULARITIES
@@ -516,7 +521,7 @@ tauh - tau0
 # is arbitrary and must always be corrected.
 
 # Our function mse_dfp_from_tau_func() differentiates all cases and generates 
-# an MSE optimal solution in stndard as well as in non-standard cases.
+# an MSE optimal solution in standard as well as in non-standard cases.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -947,16 +952,16 @@ box()
 #     confirming MSE optimality. The predictor also correlates strongly with
 #     the contemporaneous signal (lag 0), a direct consequence of the
 #     aperiodic ARMA(1,1) dynamics.
-#   - DFP with small leads (-0.5, -1 and -2): these filters couple more strongly
+#   - DFP with small leads (-0.5, -1 and -2): these filters COUPLE MORE STRONGLY
 #     with x_t than the MSE predictor. This behaviour — increasing lead
-#     accompanied by stronger coupling — cannot be observed in the standard case.
+#     accompanied by stronger coupling — CANNOT be observed in the STANDARD case.
 #   - DFP-shifted filters: as the specified lead increases, the CCF at lag 0
 #     declines and the target correlation at h = 12 decreases accordingly.
 #     The DFP minimises this loss in target correlation subject to the
 #     time-shift constraint.
 #
 #   - Compare these findings with Exercise 1.16 (AR form) and 2.8. In the 
-#     latter exercise, the target is almost the same
+#     latter Exercise, the target is almost the same
 #     but the predictors are very different, and the CCFs differ accordingly.
 
 
@@ -1008,7 +1013,7 @@ for (i in 1:ncol(y_out_mat))
 
 # Discussion:
 # With increasing imposed lead, the DFP predictors are more systematically and 
-# strongly left-shifted but noisier. 
+# strongly left-shifted but noisier (ATS-dilemma). 
 
 
 
@@ -1104,7 +1109,7 @@ par(mfrow = c(1, 1))
 ts.plot(theta, main = "AR inversion")
 
 # The first weight is always 1 (the weight assigned to x_t)
-# The other weights are decaying: the decay is very regular
+# The other weights are decaying: the decay is regular
 theta[2:L]/theta[1:(L-1)]
 # First element matches a1+b1 (up to sign)
 arima.obj$coef[ar_order + 1:ma_order]+arima.obj$coef[1:ar_order]
@@ -1155,8 +1160,9 @@ for (i in 1:ncol(filter_mat_ar))
   mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
 
 # Outcome:
-# - The MSE predictor decays monotonically, following an exponential form a1^k:
-gammah[2:L]/gammah[1:(L-1)]
+# - The MSE predictor in AR-form decays monotonically, following an exponential 
+#   form b1^k:
+filter_mat_ar[2:L,"MSE"]/filter_mat_ar[1:(L-1),"MSE"]
 # - Mild decoupling (small lead) gives more weight to x_t, which is intuitive.
 # - Stronger decoupling (larger leads) further increases the weight on x_t
 #   but assigns increasingly negative weights to lagged observations.
@@ -1209,9 +1215,6 @@ ts.plot(filter_mat_ar_unscaled, col = rainbow(ncol(filter_mat_ar_unscaled)),
 # Note: the scaling in the last plot is not MSE optimal. The MSE optimal 
 # predictors were shown in the previous plot.
 
-#---------------------------------------------------------------------------
-#---------------------------------------------------------------------------
-
 
 
 ##############################################################################
@@ -1236,7 +1239,7 @@ ts.plot(filter_mat_ar_unscaled, col = rainbow(ncol(filter_mat_ar_unscaled)),
 #   3. Larger leads imposed at frequency zero do not translate into an
 #      effective lead of the predictor at business-cycle or other
 #      policy-relevant frequencies — a cautionary finding that motivates
-#      the more comprehensive `look ahead' approach introduced in Tutorial 10.
+#      the more comprehensive PCS `look ahead' approach introduced in Tutorial 10.
 
 ##############################################################################
 
@@ -1458,8 +1461,7 @@ b_cd%*%gammah
 # is an interior (rather than outer/extreme) point of the DFP solution space
 # in this standard-case example.
 
-# We now assemble all relevant predictors, skipping the fully decoupled design
-# which is unusable in this example.
+# We now assemble all relevant predictors:
 filter_mat_2<-cbind(gamma0,gammah,b_mat,b_cd)
 colnames(filter_mat_2)<-c("Nowcast","MSE",paste("DFP ",lead_vec,sep=""),"Fully decoupled")
 
@@ -1510,7 +1512,7 @@ mat_perf
 # The table mirrors Exercise 1 in structure but differs in two important
 # respects:
 #
-#   1. MSE(htilde=24) now has a strictly smaller time-shift than MSE(h):
+#   1. MSE(htilde=24) now has a strictly smaller time-shift than MSE(h=12):
 #      the predictor modification allows the longer forecast horizon to
 #      meaningfully reduce the frequency-zero lag, a gain that was absent
 #      in the original ARMA(1,1) setting of Exercise 1, see 1.10.
@@ -1773,8 +1775,8 @@ axis(2); box()
 # a larger lead at frequency zero is not only insufficient to generate an
 # effective lead at business-cycle frequencies — it actively worsens
 # timeliness there. This motivates the aggregate lead criteria (PCS)
-# introduced in Tutorial 10, which optimise over a frequency band rather
-# than at a single point.
+# introduced in Tutorial 10, which implicitly optimise for the whole 
+# frequency band rather than at a single point.
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -1846,7 +1848,8 @@ axis(2); box()
 # Unexpected behaviour is most prevalent when the underlying forecast
 # problem is inherently difficult — i.e., when the classical MSE
 # predictor is essentially anchored to the present and unable to look
-# ahead effectively. In such cases the decoupling constraint may force
+# ahead effectively (gamma_0 and gamma_h are nearly collinear). 
+# In such cases the decoupling constraint may force
 # the optimiser into regions of the parameter space that violate
 # standard expectations regarding the properties, patterns, and profiles
 # of the resulting predictor, a phenomenon akin to overfitting.
@@ -1893,7 +1896,19 @@ axis(2); box()
 # coefficient is affected, leaving all remaining AR coefficients unchanged.
 # Although this result has intuitive appeal, we argue that examining the
 # effect of decoupling on the MA form of the DFP is more informative.
-# The MA representation is driven by white-noise innovations (epsilon_t),
-# whose i.i.d. structure ensures that every coefficient directly and
-# transparently reflects the impact of decoupling, without the confounding
-# influence of the serial dependence inherent in the AR-form regressor x_t.
+#   The MA representation is driven by white-noise innovations (epsilon_t),
+#   whose i.i.d. structure ensures that every coefficient directly and
+#   transparently reflects the impact of decoupling, without the confounding
+#   influence of the serial dependence inherent in the AR-form regressor x_t.
+# In the non-standard case, the above simple AR-form of the DFP does not hold 
+# in general (depending on cases a and b). 
+
+
+# ── 7. PCS vs. DFP ────────────────────────────────────────────────────────
+# The PCS, to be introduced in Tutorial 10, addresses a different timeliness
+# measure: the CCF. In contrast to the time-shift tau at frequency zero — a
+# point measure — the CCF provides an aggregate measure of timeliness,
+# implicitly accounting for the average lead across the entire frequency band.
+# Consequently, the PCS constraint system is more general and more complex,
+# and the resulting AR-form of the predictor will generally depart from the
+# simple lag-zero structure of the DFP.
