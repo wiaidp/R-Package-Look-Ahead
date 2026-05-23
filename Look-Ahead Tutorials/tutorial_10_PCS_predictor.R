@@ -30,9 +30,10 @@
 #       zero (see Tutorials 6–9).
 #
 #     - Although DFP can always left-shift a linear trend by an arbitrary 
-#       amount (arbitrarily large lead at frequency zero), the induced lead 
+#       amount (arbitrarily large lead at frequency zero), provided nowcast 
+#       gamma_0 and MSE predictor gamma_h are not collinear, the induced lead 
 #       may not extend to adjacent relevant frequencies, e.g., business-cycle
-#       frequencies (see Tutorial 9).
+#       frequencies (see Tutorial 9). 
 #
 # ── PCS Approach ─────────────────────────────────────────────────────
 #
@@ -46,7 +47,7 @@
 #       CCF value at lag h.
 #
 #     - To obtain an effective peak shift, PCS controls the slope of the CCF
-#       via one of three design choices (Type I, II, and III below),
+#       via one of four design choices (Type I, II, III and IV below),
 #       which differ in the number of lags constrained, the specific lags
 #       targeted, and the degree of flexibility allowed in enforcing the
 #       slope requirements.
@@ -63,7 +64,7 @@
 #       accuracy–timeliness trade-off explicit and controllable.
 #
 #     - By directly controlling the peak location, PCS addresses one of the
-#       lead measures introduced in Tutorial 2.
+#       lead measures, the true/expected CCF, introduced in Tutorial 2.
 #
 #     - In contrast to DFP, which controls the lead locally at frequency zero
 #       (see Tutorial 6), PCS targets an aggregate lead effect that is strong 
@@ -78,24 +79,27 @@
 # - Although in certain applications the resulting CCF profiles may look
 #   similar, DFP and PCS are geometrically distinct:
 #     - DFP: the predictor lies in the plane spanned by (gamma_0, gamma_h).
-#     - PCS: depending on the implementation variant (I, II, or III below),
+#     - PCS: depending on the implementation variant (I, II, III, or IV below),
 #       the predictor lies in the plane spanned by gamma_h and a single
-#       gamma_k for k in {0, …, h-1}, or in a combination of such planes.
+#       gamma_k for k in {0, …, h-1}, or in an arbitrarily complex combination 
+#       of such planes.
 #   - In practice, PCS can often enforce stronger effective look-ahead
 #     behaviour than DFP, though generally at the cost of some reduction in
 #     target correlation.
 #
-# ── Necessary Conditions for a Peak Shift from k = 0 to k = h ────────
+# ── PCS Types ────────────────────────────────────────────────────────
 #
-# Three type of constraints are considered to shift the CCF peak from 0 to h:
+# Four type of constraints are considered to shift the CCF peak from 0 to h:
 #
 #   TYPE I (neither necessary nor sufficient condition) 
 #       Monotonically increasing CCF over {0, …, h} (most restrictive):
 #       The CCF must be strictly increasing across the full interval, i.e.,
 #       CCF(k-1) < CCF(k) for all k = 1, …, h. See Wildi (2026), Section 3.2 
 #       and Appendix E. This condition is generally not exactly feasible 
-#       (see Exercise ???); The principal PCS optimization function 
-#       PCS_func() enforces it as closely as possible via regularisation.
+#       (see Tutorials 12-15); The principal PCS optimization function 
+#       PCS_func() enforces it as closely as possible via regularisation. When 
+#       feasible, the function PCS_closed_form_func() provides an exact 
+#       close-form solution.
 #
 #   TYPE II (necessary but not sufficient)
 #       Local positive slope at the target lag (weaker than I):
@@ -110,11 +114,15 @@
 #       The CCF must be increasing on average from k = 0 to k = h, i.e.,
 #       CCF(0) < CCF(h). In some cases where additional structure is imposed 
 #       by the data-generating process, conditions I) and III) may become 
-#       equivalent.
+#
+#   TYPE IV (necessary but not sufficient) 
+#       Positive average slope from lag 0 to lag 1 (weaker than I):
+#       The CCF must be increasing over the initial step only, i.e.,
+#       CCF(0) < CCF(1).
 #
 #   A link to decoupling:
-#       Even the weaker conditions of types II) and III) are not always exactly
-#       feasible. When they are, however, both can be imposed within the DFP
+#       Even the weaker conditions of types II), III) or IV) are not always exactly
+#       feasible. When they are, however, all can be imposed within the DFP
 #       optimisation framework by using a suitably modified constraint vector
 #       (see Exercise 1 below).
 #
@@ -137,7 +145,7 @@
 # where:
 #   b       : filter coefficient vector (the predictor to be designed),
 #   gamma_k : k-step-ahead MSE predictor coefficients (forward-shifted Wold
-#             coefficients), normalised to unit length.
+#             coefficients), NORMALISED to unit length.
 #
 # CCF and unit-length scaling:
 #   - The CCF requires both b and gamma_k to be of unit length.
@@ -156,7 +164,8 @@
 #
 #   Type I)   requires  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
 #   Type II)  requires  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
-#   Type III) requires  b' * (gamma_h - gamma_0)     > 0   (k = h only)
+#   Type III) requires  b' * (gamma_h - gamma_0)     > 0   
+#   Type IV)  requires  b' * (gamma_1 - gamma_0)     > 0   (k = 1 only)
 #
 # Note: the sign convention adopted here is the opposite of Wildi (2026).
 #
@@ -166,12 +175,12 @@
 #   s.t. b' * (gamma_k - gamma_{k-1}) = beta,  k in Delta
 #
 # where:
-#   Delta = {h}       corresponds to Condition II) (local slope at lag h), and
-#   Delta = {1, …, h} corresponds to Condition I)  (monotonicity from 0 to h).
+#   Delta = {h} or {1} correspond to Types II) and IV), and
+#   Delta = {1, …, h}  corresponds to Type I)  (monotonicity from 0 to h).
 #
 # Type III) is handled by setting Delta = {h} and replacing the ordinary
-# differencing vector (gamma_h - gamma_{h-1}), i.e., delta = 1, with the
-# lag-delta differencing vector (gamma_h - gamma_0), where delta = h.
+# differencing vector (gamma_h - gamma_{h-delta}), where delta = 1, with the
+# general lag-delta differencing vector (gamma_h - gamma_0), where delta = h.
 #
 # Notes: 
 # 1. The objective (maximising target correlation) can alternatively be
@@ -239,7 +248,8 @@
 #   Exercise 5 — PCS type I) vs. fully decoupled DFP:
 #                Compares the look-ahead behaviour and CCF profiles produced
 #                by PCS and the fully decoupled DFP predictor, highlighting
-#                differences in the resulting CCF profiles.
+#                differences in the resulting CCF profiles (which are minor in 
+#                this specific example).
 #
 #   Exercise 6 — Geometry of the PCS predictor:
 #                Visualises the PCS type II) predictor in the plane spanned by
