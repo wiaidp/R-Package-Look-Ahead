@@ -1906,9 +1906,11 @@ axis(2); box()
 
 # ── 7. PCS vs. DFP ────────────────────────────────────────────────────────
 # The PCS, to be introduced in Tutorial 10, addresses a different timeliness
-# measure: the CCF. In contrast to the time-shift tau at frequency zero — a
-# point measure — the CCF provides an aggregate measure of timeliness,
-# implicitly accounting for the average lead across the entire frequency band.
+# measure: the CCF (see Tutorial 2). In contrast to the time-shift tau at 
+# frequency zero — a point measure — the CCF provides an aggregate measure of 
+# timeliness, implicitly accounting for the average lead across the entire 
+# frequency band.
 # Consequently, the PCS constraint system is more general and more complex,
 # and the resulting AR-form of the predictor will generally depart from the
-# simple lag-zero structure of the DFP.
+# simple lag-zero structure of the DFP in the standard case (or the non-standard 
+# case b).
