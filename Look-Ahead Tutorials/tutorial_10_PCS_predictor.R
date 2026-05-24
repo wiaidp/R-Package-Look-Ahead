@@ -434,6 +434,9 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Sequence of decoupling levels alpha0, strictly smaller than the above mse_coup. 
 # Smaller (more negative) values enforce progressively stronger CCF slope at 
 # lag h (a right-shift of the peak towards h=1).
+# Note: since the predictors are not normalized (||b|| \neq ||gamma_h||) the rule
+# is not exact, i.e., alpha0 < mse_coup does not necessarily imply that b decouples 
+# more strongly. But the rule serves as a good proxy.
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
 # The DFP constraint enforces stronger decoupling from gamma_constraint than 
