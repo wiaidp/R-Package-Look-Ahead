@@ -190,7 +190,8 @@ names(x) <- index(na.exclude(diff(y_xts)))
 #
 # Nevertheless, for the purpose of trend filtering, xi = 1 is a reasonable
 # working assumption: the filter attenuates the high-frequency noise and
-# preserves the economically relevant features (trend growth and downturns).
+# preserves the economically relevant features (long term trend growth and 
+# `cyclical' downturns).
 
 
 # ── HP FILTER SET-UP ──────────────────────────────────────────────────────────
@@ -209,7 +210,11 @@ hp_c <- HP_obj$hp_trend
 # Right tail of symmetric HP trend filter
 hp_trend <- HP_obj$hp_mse
 
-ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",lambda_hp,")",sep=""))
+par(mfrow=c(1,1))
+ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",lambda_hp,")",sep=""),
+        col=c("green","violet"))
+mtext("Right-half HP (MSE optimal under white noise)",line=-1,col="green")
+mtext("Classic HP-C",line=-2,col="violet")
 
 # Note on the HP Filter: An AR(2) Design
 # The HP filter satisfies an AR(2) difference equation, as illustrated by the
@@ -221,16 +226,15 @@ summary(lm(hp_trend[2+1:L]~hp_trend[1+1:L]+hp_trend[1:L]))
 # - The LID should target the two-sided (acausal) HP trend, while ideally
 #   being slightly faster (left-shifted, advanced, leading) than its MSE-optimal 
 #   one-sided (causal) nowcast.
-# - The classic concurrent HP filter, hp_c above, is not an MSE-optimal nowcast 
-#   when the data are (close to) white noise.
+# - The classic concurrent HP filter (violet line in above plot), is not an 
+#   MSE-optimal nowcast when the data are (close to) white noise.
 # - Under white noise, the MSE-optimal HP nowcast is given by the right-tail
-#   output of the acausal two-sided HP filter applied to the full sample,
-#   i.e., hp_trend.
-# - The optimisation is invariant to the choice of target: substituting the
+#   output of the acausal two-sided HP filter (green line), i.e., hp_trend.
+# - The PCS optimisation is invariant to the choice of target: substituting the
 #   two-sided HP filter for its MSE-optimal nowcast hp_trend in the objective
-#   function yields the same LID solution.
+#   function yields the same LID solution (under white noise).
 # - Accordingly, the target adopted here is hp_trend: the MSE-optimal
-#   one-sided predictor of the two-sided HP trend.
+#   one-sided predictor of the two-sided HP trend (green line).
 # - When the data are autocorrelated (xi ≠ 1), the MSE-optimal nowcast is
 #   constructed as follows:
 #     1. Compute the convolution HP_two ∘ xi, yielding the MA representation
@@ -269,8 +273,8 @@ summary(lm(hp_trend[2+1:L]~hp_trend[1+1:L]+hp_trend[1:L]))
 #     b' * gamma_constraint = 0   ⟺   CCF(h-1) = CCF(h)   [CCF flat at lag h]
 #
 #   A flat CCF at lag h implies (in this example at least) that the peak is 
-#   shifted rightward from lag 0 toward lag h, indicating look-ahead behaviour 
-#   (x as a leading indicator).
+#   shifted rightward from lag 0 toward lag h, indicating look-ahead behaviour: 
+#   a LEADING INDICATOR.
 # ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -290,8 +294,11 @@ gammahm1 <- hp_trend[h-1 + 1:L] # Length L (h-1)-step-ahead MSE predictor
 # Plot the three target filters for visual comparison.
 colo <- c("black", "blue", "cyan")
 ts.plot(cbind(gamma0, gammahm1, gammah),
-        main = "Nowcast, h-step and (h-1)-step MSE predictors",
+        main = "Nowcast, h=4-step and (h-1=3)-step MSE predictors",
         col  = colo)
+mtext("Nowcast",line=-1,col="black")
+mtext("MSE(3)",line=-2,col="blue")
+mtext("MSE(4)",line=-3,col="cyan")
 
 if (FALSE) {
   # Diagnostic checks on the target filter:
@@ -320,6 +327,7 @@ abline(h = 0)
 # enforces a stronger decoupling (a smaller alpha0), the leading indicator will 
 # look further ahead (left-shift/advancement).
 mse_coup <- as.double(gammah %*% gamma_constraint)
+# Same for HP.
 hp_c_coup <- as.double(hp_c[1:L] %*% gamma_constraint)
 
 # Define max, min and mean of MSE and HP-C constraint coupling 
@@ -333,9 +341,8 @@ mean_coup<-mean(c(mse_coup,hp_c_coup))
 # Progressively smaller alpha0 enforce a stronger rightward
 # shift of the CCF peak toward lag k = h (when alpha0 = 0), i.e. a left-shift or 
 # advancement of the corresponding LID which becomes effectively leading.
-alpha0_vec <- c(max_coup,mean_coup,min_coup,0.001, 0.00086,min_coup / 1.5^(1:5), 0)
 alpha0_vec <- c(mean_coup,min_coup / 1.5^(1:5), 0)
-
+alpha0_vec
 
 
 # ─────────────────────────────────────────────────────────────────────
