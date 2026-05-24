@@ -1045,7 +1045,7 @@ for (i in 1:ncol(mplot))
 #   Decouples from           | gamma_0 (nowcast)           | PCS constraint vector (single or multiple differences of MSE predictors at various lags)
 #   Frequency coverage       | Explicitly zero frequency   | All frequencies (aggregate)
 #   AR-form lags affected    | Lag 0 only                  | Generally all lags
-#   Interpretability         | Local (freq. zero shift)    | Aggregate (CCF peak shift)
+#   Interpretability         | Local (freq. zero shift)    | Aggregate (CCF peak shift): generally easier to interpret
 #   Complexity               | Lower                       | Higher
 
 
