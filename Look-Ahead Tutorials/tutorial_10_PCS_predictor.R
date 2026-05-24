@@ -426,7 +426,7 @@ abline(h = 0)
 # The plots below will clarify this point.
 
 # Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor. 
+# unconstrained MSE predictor gammah. 
 # Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
 # DFP should enforce a coupling strictly below this.
 mse_coup <- as.double(gammah %*% gamma_constraint)
@@ -436,7 +436,7 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # lag h (a right-shift of the peak towards h=1).
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
-# The DFP constraint enforces stronger decoupling form gamma_constraint than 
+# The DFP constraint enforces stronger decoupling from gamma_constraint than 
 # the MSE predictor gammah: the last negative value suggests that the peak CCF
 # should be shifted to the right: from k=0 to k=h=1.
 alpha0_vec
@@ -455,13 +455,13 @@ alpha0_vec
 # decoupling constraint b' * gamma_constraint = alpha0.
 
 b_mat       <- NULL    # filter coefficients, one column per alpha0
-lambda_vec1 <- NULL    # corresponding Lagrange multipliers
 cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
 
 # CCF values at lags 0 and h for each alpha0 (for tabular summary)
 cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
 
-# Number of leads on either side of lag 0 to include in the CCF
+# Number of leads on either side of lag 0 to include in the CCF (does not affect 
+# optimization)
 max_lag <- 1
 
 for (i in seq_along(alpha0_vec)) {
@@ -672,7 +672,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 L <- 20
 h <- 5
 # Reference: apply a higher forecast lead for look ahead behaviour in the MSE
-htilde<-5
+htilde<-7
 
 # Feasibility check: for an MA(q) process, the h-step-ahead MSE predictor
 # is identically zero when h > q, because all innovations more than q steps
@@ -700,7 +700,7 @@ gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 # Type III) requires alpha0 < 0.
 #
 
-# For h = 1: gamma_{h-1} = gamma_0 (nowcast predictor, padded to length L)
+# Nowcast (padded to length L)
 gamma0 <- c(b_ma, rep(0, L - length(b_ma)))
 
 # Constraint vector: difference between consecutive MSE predictors at lags h-1 and h
@@ -719,7 +719,7 @@ abline(h = 0)
 # The plots below will clarify this point.
 
 # Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor. 
+# unconstrained MSE predictor gammah. 
 # Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
 # DFP should enforce a coupling strictly below this.
 mse_coup <- as.double(gammah %*% gamma_constraint)
@@ -729,9 +729,12 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # slope from k=0 to k=h=5 (a right-shift of the peak towards h=5).
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
-# The PCS constraint enforces stronger decoupling form gamma_constraint than 
-# the MSE predictor gammah: the last negative value suggests that the peak CCF
-# should be shifted to the right: from k=0 to k=h=1.
+# The PCS constraint enforces stronger decoupling from gamma_constraint than
+# the MSE predictor gammah: the last negative value indicates that the peak CCF
+# may eventually shift from lag k=0 to lag k=h=5. Note, however, that the
+# criterion governs the average slope only; a negative average slope over
+# lags k=0 to k=h=5 does not guarantee that the peak is effectively relocated 
+# to k=h=5.
 alpha0_vec
 
 
@@ -748,7 +751,6 @@ alpha0_vec
 # decoupling constraint b' * gamma_constraint = alpha0.
 
 b_mat       <- NULL    # filter coefficients, one column per alpha0
-lambda_vec1 <- NULL    # corresponding Lagrange multipliers
 cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
 
 # CCF values at lags 0 and h for each alpha0 (for tabular summary)
@@ -854,7 +856,7 @@ box()
 
 # ── Outcomes ─────────────────────────────────────────────────────────
 # Left panel (filter coefficients):
-#   - Unlike the MSE predictor, the PCS/DFP filters assign non-zero weight
+#   - Unlike the MSE predictor, the PCS filters assign non-zero weight
 #     up to the farthest lag k = q.
 #   - Stronger decoupling (smaller alpha0) progressively shifts weight away
 #     from recent observations toward the oldest lag. This is counter-intuitive
@@ -979,24 +981,47 @@ b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 # Under full decoupling, beta equals alpha0 directly (no rescaling required)
 beta <- alpha0
 
-# Use strong regularization to enforce the constraint tightly
+# -----------------------------
+# A. Regularized PCS Criterion
+# -----------------------------
+# Solves the PCS optimization problem via PCS_func() using strong penalization
+# to enforce the constraint tightly (numerically approximates the exact solution).
+# Reference: Wildi (2026), criterion in equation 46, solution in equation 49.
+
+# Large penalty weight to enforce the constraint tightly
 lambda <- 100000
 
-# Define the two-point constraint grid: origin and forecast horizon h
+# Two-point constraint grid spanning the origin and the forecast horizon h
 Delta <- c(0, h)
 
-# Use a Type III PCS specification
+# Activate the Type III PCS specification
 Type_III <- TRUE
 
-# Use the true DGP 
+# Use the true DGP autocovariance structure as input to the PCS criterion
 gamma_pcs <- gamma0
 
-# Compute the PCS filter coefficients
-b_pcs <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda, Type_III)$b
+# Compute the regularized PCS filter coefficients
+b_pcs_reg <- PCS_func(h, Delta, gamma_pcs, L, beta, lambda, Type_III)$b
 
-# Plot both sets of coefficients to verify they overlap
-par(mfrow=c(1,1))
-ts.plot(cbind(b_dfp, b_pcs), main = "Both Predictors Overlap")
+# ------------------------------------
+# B. Exact (Closed-Form) PCS Criterion
+# ------------------------------------
+# Solves the same PCS problem analytically, bypassing the need for penalization.
+# Reference: Wildi (2026), criterion in equation 45, solution in equations 47–48.
+
+# Compute the exact PCS filter coefficients via the closed-form solution
+b_pcs_exact <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta, Type_III)$b
+
+# -----------------------------------------------------------
+# Verification: overlay all three sets of filter coefficients
+# -----------------------------------------------------------
+# Under full decoupling, the MSE-DFP and exact PCS filters should produce 
+# identical coefficients. The regularized PCS should be nearly identical if 
+# lambda is large. 
+par(mfrow = c(1, 1))
+ts.plot(cbind(b_dfp, b_pcs_reg, b_pcs_exact),
+        main = "All Predictors Overlap Under Full Decoupling")
+
 
 
 # ── 2.7.2 Partial Decoupling ──────────────────────────────────────────
@@ -1352,7 +1377,7 @@ ccf(na.exclude(y_out_mat[, 1]),
 # EXERCISE 4: PCS I) — Relaxing Constraints via the Regularisation Weight
 # ════════════════════════════════════════════════════════════════════
 #
-# We apply PCS type I) with h = 5, fixing the slope parameter beta=0.1 to a
+# We apply PCS type I) with h = 5, fixing the slope parameter beta=0.05 to a
 # moderately small positive value and varying the regularisation weight lambda
 # across a range of values. The goal is to explore how relaxing the structural
 # constraints on the CCF — imposed rigidly in Exercise 3 — affects the
@@ -1509,6 +1534,11 @@ box()
 #     regularisation favours correlation height; heavier regularisation
 #     affirms `clearer' peak location through tighter (linear) control of the 
 #     CCF slope.
+#
+#   - Reducing lambda relaxes the constraint, allowing the CCF path to deviate
+#     from a strictly linear trajectory: smaller lambda values yield increasingly
+#     convex profiles, whereas lambda = 10000 (violet) produces a near-perfectly
+#     linear path.
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1590,8 +1620,8 @@ ccf(na.exclude(y_out_mat[, 1]),
 # ════════════════════════════════════════════════════════════════════
 # Exercise 5 Peak Correlation Shifting AND Complete Decoupling
 # ════════════════════════════════════════════════════════════════════
-# We compare a DFP fully decoupled design (exercise 5.2) with a PCS design 
-# whose slope beta is selected to provide virtual full decoupling, up to 
+# We compare a DFP fully decoupled design (exercise 5.2) with a PCS Type I) 
+# design whose slope beta is selected to provide virtual full decoupling, up to 
 # negligible deviation (exercise 5.3).
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1743,7 +1773,7 @@ ccf_mat
 # ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
-# 6.1 Geometry Case II)
+# 6.1 Geometry PCS Type II)
 # ─────────────────────────────────────────────────────────────────────
 # See Wildi section 3.2 for background.
 #
@@ -1864,7 +1894,9 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 # Explanation:
 #   The PCS predictor (Type II) lives in the plane spanned by gamma_h and
 #   gamma_{h-1} (see Wildi 2026, section 3.2). Therefore, we require gammah and 
-#   gamma_{h-1} to be linearly independent. If not, a perturbation based solution is proposed in Tutorial ???. 
+#   gamma_{h-1} to be linearly independent. If not, a perturbation based solution 
+#   is proposed in Tutorial 14. 
+
 #   The PCS type II is defined by the following 
 #   optimisation:
 #
@@ -1880,7 +1912,7 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 #
 #     Blue solution (b2):  b2' * (gamma_h - gamma_{h-1}) = beta > 0.
 #                          A strictly positive slope is enforced, rotating b2
-#                          away from gamma_h.
+#                          further away from gamma_h.
 #
 #   A larger beta rotates b further away from gamma_h, on the side opposite
 #   to gamma_{h-1}, increasing the angle theta_{h,b}: theta_{h,b2} >
@@ -1994,7 +2026,8 @@ solve_acos_bsin_eq(a, b, c)
 # 2. Three PCS design types:
 #    Three design variants (Types I, II, and III) were presented, each
 #    conditioning an effective CCF peak shift — under suitable conditions —
-#    with varying degrees of restrictiveness:
+#    with varying degrees of restrictiveness (Type IV PCS is presented in 
+#    Tutorial 15):
 #      - Type II  (weakest):    requires a positive CCF slope at lag h only,
 #                               i.e., CCF(h-1) < CCF(h).
 #      - Type III (moderate):   requires a positive average slope from k = 0
@@ -2012,7 +2045,7 @@ solve_acos_bsin_eq(a, b, c)
 #    behaviour, provided the problem is at least approximately feasible. Even
 #    fully infeasible problems can be addressed by the regularised Type I PCS,
 #    though sizable constraint residuals may persist even as the regularisation
-#    weight is increased.
+#    weight is increased (see next Tutorials).
 #
 # 3. Feasibility and efficiency:
 #    When a peak shift is feasible, it can often be achieved without imposing
@@ -2028,12 +2061,12 @@ solve_acos_bsin_eq(a, b, c)
 # 4. Geometric distinction between DFP and PCS:
 #    DFP and PCS operate in geometrically distinct subspaces: the DFP
 #    predictor lies in the plane spanned by (gamma_0, gamma_h), whereas PCS
-#    predictors lie in planes spanned by gamma_h and one or more gamma_k for
-#    k in {0, …, h-1}. This geometric difference underlies their distinct
-#    behaviour in terms of CCF shape, peak location, and target correlation.
-#    As illustrated in Exercise 5, however, the practical differences between
-#    the two approaches can be marginal in certain process structures and
-#    forecast settings.
+#    predictors lie in planes spanned by gamma_h and one or more differences 
+#    gamma_k - gamma_{k-1} for k in Delta. This geometric difference underlies 
+#    their distinct behaviour in terms of CCF shape, peak location, and target 
+#    correlation. As illustrated in Exercise 5, however, the practical 
+#    differences between the two approaches can be marginal in certain process 
+#    structures and forecast settings.
 
 
 
