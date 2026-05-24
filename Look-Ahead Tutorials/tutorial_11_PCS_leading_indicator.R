@@ -1,11 +1,11 @@
-# ════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
 # TUTORIAL 11 — BUSINESS CYCLE ANALYSIS AND LEADING INDICATOR DESIGN
-# ════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
 
-# ── MACRO INDICATOR DESIGN ───────────────────────────────────────────
+# ── MACRO INDICATOR DESIGN ───────────────────────────────────────────────────
 #
-# This section follows the Leading Indicator Design (LID) framework
-# introduced in Wildi (2026), Section 3.5.
+# This section follows the Leading Indicator Design (LID) framework introduced
+# in Wildi (2026), Section 3.3.
 #
 # Let x_t be a stationary indicator of interest — for example, the first
 # difference of a non-stationary macro series such as industrial production,
@@ -13,23 +13,35 @@
 #
 #   Phi' * X_t  (AR form)   ≡   gamma' * Epsilon_t  (MA form)
 #
-# Where Phi and gamma are vectors of length L and X_t=(x_t,...,X-{t-L+1}), 
-# Epsilon_t=(epsilon_t,...,epsilon_{t-L+1}).
-
-# Typical targets Phi (or gamma) include trend-, cycle-, or
-# seasonal adjustment filters and  Phi' * X_t represents signal-growth: trend-, 
-# cycle-, or seasonally adjusted growth. 
-
-# Stationary signal-growth is often more relevant to analysts and decision 
-# makers than non-stationary signal-level.
-
-# Throughout this tutorial we work in the MA form. Here, gamma is the 
-# convolution of the Wold decomposition xi of x_t with the filter Phi:
+# where Phi and gamma are coefficient vectors of length L,
+#       X_t       = (x_t, ..., x_{t-L+1})' is the observation vector, and
+#       Epsilon_t = (epsilon_t, ..., epsilon_{t-L+1})' is the innovation vector.
+#
+# Typical targets Phi (or gamma) include trend, cycle, or seasonal adjustment
+# filters, so that Phi' * X_t represents the corresponding signal-growth:
+# trend-adjusted, cycle-adjusted, or seasonally adjusted growth.
+#
+# Notes:
+#   1. Useful signals can be derived from acausal two-sided filters. Here we
+#      consider the symmetric bi-infinite Hodrick-Prescott (HP) trend filter 
+#      as the target. In this case, Phi or gamma represent the optimal causal 
+#      approximations:
+#        - the MSE-optimal one-sided HP trend filter, or
+#        - the classic concurrent HP-C filter.
+#   2. Stationary signal-growth is often more relevant to analysts and
+#      decision-makers than the non-stationary signal level:
+#        - Negative growth indicates contraction; positive growth indicates
+#          expansion. This emphasis of growth dynamics is
+#          generally more informative than the absolute signal level.
+#
+# Throughout this tutorial we work in the MA form, where gamma is obtained as
+# the convolution of the Wold decomposition xi of x_t with the filter Phi:
 #
 #   gamma = Phi ∘ xi,   where ∘ denotes convolution.
 #
-# Let gamma_k denote the minimum mean-squared-error (MSE) predictor of the
-# signal at horizon k.
+# Let gamma_k denote the MSE-optimal predictor of the target signal at horizon
+# k, so that gamma_0 corresponds to the nowcast (k = 0) of a possibly acausal 
+# target (e.g., the two-sided HP trend).
 
 # ── LEADING INDICATOR DESIGN (LID) ─────────────────────────────────────────
 #
@@ -39,7 +51,7 @@
 #   subject to  b' * (gamma_h - gamma_{h-1}) = beta   [lead constraint]
 #
 # See section 3.3, Wildi (2026). This problem is related (though not identical) 
-# to the Type II PCS approach introduced in Tutorial 12. 
+# to the Type II PCS approach (see Tutorial 12). 
 
 # The objective minimizes the distance from the causal (nowcast) filter
 # gamma; no explicit forecasting step is involved. The hyperparameters
@@ -50,7 +62,7 @@
 #   - beta = 0 : the CCF is constrained to be flat between lags h-1 and h.
 # 
 # Under some circumstances, these constraints can determine an effective shift 
-# of the CCF at k >= h, see examples below.
+# of the CCF peak at k = h (more exactly: between h-1 and h), see examples below.
 #
 # ── HP TREND: BUSINESS-CYCLE ANALYSIS ─────────────────────────
 #
@@ -79,8 +91,8 @@
 # not guarantee that the global CCF peak occurs exactly at lag h. However, for 
 # the present business-cycle application — which combines the HP filter with
 # the above LID design — the problem is relatively well-conditioned:
-# the CCF peak is naturally shifted to h = 0 as a direct consequence of
-# the DGP gamma = HP ∘ xi.
+# the CCF peak is naturally shifted to k = h (between h-1 and h) as a direct 
+# consequence of the DGP gamma = HP ∘ xi.
 #
 # In more demanding forecasting settings (covered in Tutorials 12–15),
 # such a peak shift may not arise automatically and may require more
