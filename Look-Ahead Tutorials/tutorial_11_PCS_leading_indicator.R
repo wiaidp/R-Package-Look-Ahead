@@ -326,22 +326,17 @@ abline(h = 0)
 # vector. This serves as a natural upper bound for alpha0: if the DFP constraint
 # enforces a stronger decoupling (a smaller alpha0), the leading indicator will 
 # look further ahead (left-shift/advancement).
+# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
+# of b (PCS) from gamma_constraint — but it serves as a useful practical proxy.
 mse_coup <- as.double(gammah %*% gamma_constraint)
-# Same for HP.
-hp_c_coup <- as.double(hp_c[1:L] %*% gamma_constraint)
-
-# Define max, min and mean of MSE and HP-C constraint coupling 
-max_coup<-max(mse_coup,hp_c_coup)
-min_coup<-min(mse_coup,hp_c_coup)
-mean_coup<-mean(c(mse_coup,hp_c_coup))
-
 
 # Construct a sequence of decoupling levels alpha0, starting at alpha_0 = max_coup 
 # and ending at alpha0 = 0 (full constraint decoupling: flat CCF at h).  
 # Progressively smaller alpha0 enforce a stronger rightward
 # shift of the CCF peak toward lag k = h (when alpha0 = 0), i.e. a left-shift or 
 # advancement of the corresponding LID which becomes effectively leading.
-alpha0_vec <- c(mean_coup,min_coup / 1.5^(1:5), 0)
+alpha0_vec <- c(mse_coup,0.00087, mse_coup/ 1.5^(1:5), 0)
 alpha0_vec
 
 
@@ -481,10 +476,10 @@ box()
 #     sooner and with greater magnitude (deeper negative swing).
 #   - The LID design generalizes HP-MSE and HP-C:
 #       • alpha0 = 0.001214  → LID is nearly equivalent to MSE(4) (dashed green line).
-#       • alpha0 = 0.00424 → LID is virtually identical to HP-C (dashed violet line).
-#       • alpha0 ∈ (0.01214,0.00424) → LID interpolates smoothly between
-#         MSE(4) and HP-C (e.g., alpha0 = 0.00273).
-#       • alpha0 < 0.01214  → LID coefficients decay faster and
+#       • alpha0 = 0.00087 → LID is virtually identical to HP-C (dashed violet line).
+#       • alpha0 ∈ (0.00087,0.01214) → LID interpolates smoothly between
+#         MSE(4) and HP-C.
+#       • alpha0 < 0.00087  → LID coefficients decay faster and
 #         exhibit a stronger negative swing.
 #
 # Right panel (cross-correlation functions, CCFs):
@@ -496,7 +491,7 @@ box()
 #
 # CCFs evaluated at lags h-1 and h:
 round(cor_vec_1, 2)
-# As alpha0 decreases, the difference CCF(4) - CCF(3) decreases in magnitude and 
+# As alpha0 decreases, the difference CCF(3) - CCF(4) decreases in magnitude and 
 # eventually vanishes as alpha0 → 0, reflecting a rightward shift of the CCF peak.
 # Smaller absolute differences (i.e., a flatter CCF) imply a reduced CCF at
 # lag k = 0 (the nowcast correlation) — revealing an inherent trade-off:
@@ -588,7 +583,7 @@ ccf(na.exclude(y_out_mat[, 1]),
     main = paste0("CCF: ",colnames(y_out_mat)[k],sep=""))
 
 # ════════════════════════════════════════════════════════════════════
-# Exercise 2: PCS-Based LID
+# Exercise 2: PCS Type II) Based LID
 # ═══════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
@@ -612,14 +607,14 @@ ccf(na.exclude(y_out_mat[, 1]),
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 Full Decoupling: Verify that DFP and PCS coincide.
 # ─────────────────────────────────────────────────────────────────────
-# Under full decoupling (alpha0 = 0), the DFP predictor and the PCS
+# Under full decoupling (alpha0 = 0), the DFP predictor and the PCS (Type II)
 # predictor coincide exactly, so no sign or scale adjustment is needed for 
 # replication.
 
 # Set the decoupling parameter to zero (full decoupling)
 alpha0 <- 0
 
-# Compute the MSE-DFA filter coefficients using the specified constraint
+# Compute the MSE-DFP filter coefficients using the specified constraint
 # vector (gamma_constraint) and the target cross-covariance (gammah)
 b_dfp <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
 
@@ -647,7 +642,7 @@ b_pcs_closed_form <- PCS_closed_form_func(h, Delta, gamma_pcs, L, beta)$b
 # Plot all three sets of coefficients to verify mutual overlap
 par(mfrow = c(1, 1))
 ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
-        main = "Full Decoupling: MSE-DFA, PCS (Regularised) and PCS (Closed-Form) Overlap")
+        main = "Full Decoupling: MSE-DFP, PCS (Regularised) and PCS (Closed-Form) Overlap")
 
 # Note: in the case of full decoupling (alpha0 = 0), 
 # the closed-form PCS and DFP solutions overlap exactly.
@@ -658,7 +653,7 @@ ts.plot(cbind(b_dfp, b_pcs_regularized, b_pcs_closed_form),
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 Partial Decoupling: Verify that DFP and PCS coincide.
+# 2.2 Partial Decoupling: Verify that DFP and PCS Type II coincide.
 # ─────────────────────────────────────────────────────────────────────
 # When alpha0 ≠ 0 (partial decoupling), the DFP and PCS parameterizations
 # use different sign conventions and scaling for the slope constraint.
@@ -735,7 +730,7 @@ lambda <- 100000
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.4 PCS Optimisation over the Slope Grid
+# 2.4 PCS Type II Optimisation over the Slope Grid
 # ─────────────────────────────────────────────────────────────────────
 # For each beta in beta_vec, compute the regularised PCS predictor using
 # criterion (46) from Appendix D of Wildi (2026).
@@ -746,7 +741,7 @@ for (i in seq_along(beta_vec)) {
   
   beta <- beta_vec[i]
   
-  # Compute PCS Type I) predictor.
+  # Compute PCS Type II) predictor.
   PCS_obj <- PCS_func(h,Delta, gamma_pcs, L, beta, lambda)
   
   b       <- PCS_obj$b
@@ -786,7 +781,9 @@ b_pcs_regularized <- PCS_func(
   h, Delta, gamma_pcs, L, beta, lambda
 )$b
 
-# Sanity check: the difference between both solutions should be negligible
+# Sanity check: the difference between both solutions should be negligible 
+# (the difference vanishes asymptotically, as lambda increases, provided sufficient
+# numerical precision).
 max_diff <- max(abs(b_pcs_closed_form - b_pcs_regularized))
 cat("Max absolute difference (closed-form vs. regularized):", max_diff, "\n")
 
@@ -913,62 +910,6 @@ for (i in 1:ncol(mplot))
 # Discussion of outcome: see exercise 1.5.
 
 
-#==============================================================================
-# MAIN TAKE AWAYS
-#==============================================================================
-
-#------------------------------------------------------------------------------
-# 1. Interpretability
-#------------------------------------------------------------------------------
-
-# Classic DFP:
-# ------------
-# The classic DFP decouples from the nowcast gamma_0. The constraint can be
-# interpreted in terms of time-shift at frequency zero (see Tutorial 6).
-
-# Modified DFP (Exercise 1):
-# --------------------------
-# The modified DFP decouples from the PCS constraint vector instead of the nowcast 
-# gamma_0. By shifting the
-# peak of the CCF, the constraint can be interpreted as an aggregate time-shift
-# effect, covering all frequencies such that the aggregate CCF is effectively
-# modified.
-
-
-
-#------------------------------------------------------------------------------
-# 2. Problem Difficulty
-#------------------------------------------------------------------------------
-
-# The PCS problem considered here is an 'easy' problem, where a single PCS
-# constraint is sufficient to shift the peak of the CCF. The main reason is
-# that the HP filter is a periodic AR(2) design, whose DGP structure naturally
-# supports the right-shift of the CCF peak through the PCS constraint.
-
-# In such a case the PCS problem can be equally reformulated in terms of modified 
-# DFP, as in exercise 1.
-
-#------------------------------------------------------------------------------
-# 3. Structural Remark on AR-Inversion
-#------------------------------------------------------------------------------
-
-# Because (gamma_{h-1} - gamma_h) is NOT proportional to gamma_0:
-#
-#   - AR-inversion no longer yields an identity convolution.
-#   - Both the MA and AR forms of the PCS predictor involve multiple
-#     coefficients that vary across designs.
-#   - This makes the PCS predictor more complex than the DFP,
-#     but also more interpretable.
-#
-# Schematically:
-#
-#   DFP:  Simple structure | Decouples at frequency zero | Less interpretable
-#   PCS:  Richer structure | Covers all frequencies      | More interpretable
-
-
-
-
-
 
 #==============================================================================
 # MAIN TAKE AWAYS
@@ -977,23 +918,32 @@ for (i in 1:ncol(mplot))
 #------------------------------------------------------------------------------
 # 1. PCS vs. DFP
 #------------------------------------------------------------------------------
-# Classic DFP:
+# Classic DFP (Tutorials 1 - 9):
 #   - Decouples from the nowcast gamma_0.
-#   - The constraint can be interpreted as a time-shift at frequency zero
-#     (see Tutorial 6).
+#   - Interpreted as a time shift at frequency zero (see Tutorial 6).
+#
+# Modified DFP (Exercise 1 above):
+#   - Decouples from gamma_h - gamma_{h-1} (Type II PCS constraint).
+#   - Aims to shift the peak of the cross-correlation function (CCF):
+#       an aggregate lead effect that extends beyond frequency zero
+#       and captures shifts across all frequencies.
 #
 # PCS:
-#   - Aims at shifting the peak of the CCF.
-#   - Can be interpreted as an AGGREGATE time-shift effect, covering ALL
-#     frequencies, such that the AGGREGATE CCF dependence measure is
-#     effectively modified, see Tutorial 2.
+#   - Aims to shift the peak of the CCF as an aggregate timing adjustment.
+#   - Interpreted as a global time shift affecting all frequencies, so that
+#     the aggregate CCF dependence measure is modified (see Tutorial 2).
+#   - PCS Types II), III), and IV) can be replicated within a modified DFP setup.
+#     Type I) addresses multiple constraints that cannot be handled by the
+#     single-constraint DFP framework.
+
+
 
 #------------------------------------------------------------------------------
 # 2. Interpretability
 #------------------------------------------------------------------------------
-# - The single PCS constraint considered here requires a flat CCF at lag k = h.
+# - The single PCS constraint considered here enforces a flat CCF at lag k = h.
 # - If the process has a single CCF peak, the constraint effectively shifts
-#   that peak to k = h.
+#   that peak to k = h (more precisely: between h-1 and h).
 # - The CCF peak is one of the timeliness measures introduced in Tutorial 2
 #   (Exercise 1.2):
 #     * A RIGHT-shift of the CCF peak  <=>  LEFT-shift (advancement) of the predictor.
@@ -1027,7 +977,7 @@ for (i in 1:ncol(mplot))
 #     precision).
 #
 # INFEASIBLE problem (constraint conflicts with the DGP):
-#   - The closed-form solution does NOT exist.
+#   - The closed-form solution does not always exist.
 #   - The regularized solution ALWAYS exists (the problem remains invertible),
 #     but will not satisfy the constraint exactly, irrespective of the
 #     magnitude of lambda.

@@ -421,27 +421,23 @@ ts.plot(gamma_constraint,
         sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
 abline(h = 0)
 
-# The shape of gamma_constraint may raise doubts about whether decoupling b
-# from it will effectively enforce look-ahead behaviour in the PCS predictor.
-# The plots below will clarify this point.
-
 # Baseline coupling: inner product of gammah with gamma_constraint under the
-# unconstrained MSE predictor gammah. 
-# Purpose: mse_coup is a natural upper bound for the DFP constraint, i.e., 
-# DFP should enforce a coupling strictly below this.
+# unconstrained MSE predictor gammah.
+# Purpose: mse_coup serves as a natural upper bound for the DFP constraint,
+# i.e., any effective decoupling should enforce a coupling strictly below this.
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
-# Sequence of decoupling levels alpha0, strictly smaller than the above mse_coup. 
-# Smaller (more negative) values enforce progressively stronger CCF slope at 
-# lag h (a right-shift of the peak towards h=1).
-# Note: since the predictors are not normalized (||b|| \neq ||gamma_h||) the rule
-# is not exact, i.e., alpha0 < mse_coup does not necessarily imply that b decouples 
-# more strongly. But the rule serves as a good proxy.
+# Sequence of decoupling levels alpha0, each strictly smaller than mse_coup.
+# Smaller (more negative) values enforce a progressively steeper CCF slope
+# at lag h, shifting the peak to the right towards k = h = 1.
+# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
+# of b from gamma_constraint — but it serves as a useful practical proxy.
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
 
-# The DFP constraint enforces stronger decoupling from gamma_constraint than 
-# the MSE predictor gammah: the last negative value suggests that the peak CCF
-# should be shifted to the right: from k=0 to k=h=1.
+# Display alpha0_vec: the last (negative) entry indicates that the DFP
+# constraint enforces stronger decoupling than the MSE predictor gammah,
+# which should shift the CCF peak to the right from k = 0 to k = h = 1.
 alpha0_vec
 
 
