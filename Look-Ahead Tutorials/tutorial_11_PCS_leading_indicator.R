@@ -48,7 +48,7 @@
 # The optimization problem is:
 #
 #   Minimize  (b - gamma)' (b - gamma)          [MSE objective]
-#   subject to  b' * (gamma_h - gamma_{h-1}) = beta   [lead constraint]
+#   subject to  b %*% (gamma_h - gamma_{h-1}) = beta   [lead constraint]
 #
 # See section 3.3, Wildi (2026). This problem is related (though not identical) 
 # to the Type II PCS approach (see Tutorial 12). 
@@ -250,12 +250,12 @@ summary(lm(hp_trend[2+1:L]~hp_trend[1+1:L]+hp_trend[1:L]))
 # The LID (Lead-Indicator Design) imposes a single linear constraint on the
 # filter coefficients b:
 #
-#   b' * (gamma_{h-1} - gamma_h) = beta
+#   b %*% (gamma_{h-1} - gamma_h) = beta
 #
 # This maps onto the standard DFP (Decoupling Filter Problem) framework:
 # minimise MSE subject to
 #
-#   b' * gamma_constraint = alpha0,
+#   b %*% gamma_constraint = alpha0,
 #
 # where  gamma_constraint = gamma_{h-1} - gamma_h  and  alpha0 = beta.
 #
@@ -270,7 +270,7 @@ summary(lm(hp_trend[2+1:L]~hp_trend[1+1:L]+hp_trend[1:L]))
 #
 #   It encodes the CCF slope condition at lag h:
 #
-#     b' * gamma_constraint = 0   ⟺   CCF(h-1) = CCF(h)   [CCF flat at lag h]
+#     b %*% gamma_constraint = 0   ⟺   CCF(h-1) = CCF(h)   [CCF flat at lag h]
 #
 #   A flat CCF at lag h implies (in this example at least) that the peak is 
 #   shifted rightward from lag 0 toward lag h, indicating look-ahead behaviour: 
@@ -384,7 +384,7 @@ rownames(cor_vec_1) <- paste0("alpha0=", round(alpha0_vec, 8))
 # ─────────────────────────────────────────────────────────────────────
 
 # Check 1 — Constraint satisfaction:
-# The residual  b' * gamma_constraint - alpha0  should be numerically zero
+# The residual  b %*% gamma_constraint - alpha0  should be numerically zero
 # for every column of b_mat.
 t(b_mat) %*% gamma_constraint - alpha0_vec
 
@@ -400,15 +400,15 @@ apply(b_mat, 2, sum)
 
 # Check 3 — Positive target covariance.
 # A key distinction of the LID formulation here is that we do not verify that 
-# b' * gammah > 0 but b' * gamma0 > 0. Indeed, the target is not the
+# b %*% gammah > 0 but b %*% gamma0 > 0. Indeed, the target is not the
 # h-step-ahead MSE predictor, gammah (as used in DFP and PCS
 # applications), but rather the nowcast hp_trend of the two-sided HP trend. 
 # Consequently, the LID filter should closely approximate hp_trend (the
 # finite-length gamma0) while being left-shifted (i.e., time-advanced) relative
 # to it. This anchors the LID to the contemporaneous indicator itself, rather
 # than to an h-step-ahead forecast of it (as gammah would imply).
-# A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
-# of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+# A non-positive value of b %*% gamma0 <= 0 therefore signals misspecification
+# of the LID, even if the h-step-ahead criterion b %*% gammah > 0 is satisfied.
 # Here all LIDs are admissible (positive target correlation).
 t(b_mat) %*% gamma0
 
@@ -627,7 +627,7 @@ beta <- alpha0
 lambda <- 100000
 
 # Lag set for constraints: Delta = h means a single constraint 
-#  b' * (gamma_h-gamma_{h-1}) = beta.
+#  b %*% (gamma_h-gamma_{h-1}) = beta.
 Delta <- h
 
 # Use the true target (HP) autocorrelation structure as the PCS target
@@ -809,15 +809,15 @@ apply(b_mat, 2, sum)
 
 # Check 3 — Positive target covariance.
 # A key distinction of the LID formulation here is that we do not verify that 
-# b' * gammah > 0 but b' * gamma0 > 0. Indeed, the target is not the
+# b %*% gammah > 0 but b %*% gamma0 > 0. Indeed, the target is not the
 # h-step-ahead MSE predictor, gammah (as used in classic DFP and PCS
 # applications), but rather the nowcast hp_trend of the two-sided HP trend. 
 # Consequently, the LID filter should closely approximate hp_trend (the
 # finite-length gamma0) while being left-shifted (i.e., time-advanced) relative
 # to it. This anchors the LID to the contemporaneous indicator itself, rather
 # than to an h-step-ahead forecast of it (as gammah would imply).
-# A non-positive value of b' * gamma0 <= 0 therefore signals misspecification
-# of the LID, even if the h-step-ahead criterion b' * gammah > 0 is satisfied.
+# A non-positive value of b %*% gamma0 <= 0 therefore signals misspecification
+# of the LID, even if the h-step-ahead criterion b %*% gammah > 0 is satisfied.
 # In this example, all LIDs produce a positive target correlation and are usable:
 t(b_mat) %*% gamma0
 

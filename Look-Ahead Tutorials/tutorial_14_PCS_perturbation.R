@@ -74,7 +74,7 @@
 # ── RANK-ONE CONSTRAINT SYSTEM AND ITS CONSEQUENCES ───────────────────────────
 
 # Due to self-similarity, the PCS constraint system has rank one for the AR(1)
-# DGP. While it is possible to impose b' * (gamma_k - gamma_{k-1}) = beta for a
+# DGP. While it is possible to impose b %*% (gamma_k - gamma_{k-1}) = beta for a
 # single k > 0, doing so with beta > 0 forces the sign of b in a direction that 
 # yields CCF(h) < 0 at the forecast horizon h — a negative target correlation, 
 # which is unacceptable for a predictor of x_{t+h}, see Tutorial 14 
@@ -89,7 +89,7 @@
 #
 # Rather than solving the PCS constraint system exactly — which would consume
 # too many degrees of freedom when feasible — we adopt the penalized criterion
-# from Wildi (2026), Equation 46 (Appendix E), with the solution given by
+# from Wildi (2026), Equation 46 (Appendix D), with the solution given by
 # Equation 49. The penalty weight nu > 0 (renamed lambda in these tutorials)
 # balances target correlation maximization against constraint deviation. It acts
 # as a regularization hyperparameter, not as a Lagrange multiplier. Large 
@@ -179,7 +179,7 @@
 # of V1, potentially yielding unusable predictors. To see why, note that if 
 # b ≈ V2, then:
 #
-#   0 = b' * gamma_0 = b' * gamma_h 
+#   0 = b %*% gamma_0 = b %*% gamma_h 
 #
 # since gamma_0 ∝ gamma_h under the AR(1) structure. That is, the target
 # correlation vanishes entirely, i.e., the predictor is unusable.
@@ -344,7 +344,7 @@
 # distance between the two model classes introduces a non-negligible degree
 # of misspecification relative to Exercise 3, justifying smaller regularization 
 # weights (the hyperparameter lambda in this tutorial or nu in Wildi 
-# (2026), Appendix E).
+# (2026), Appendix D).
 #
 # When the misspecification of the constraint equations is substantial, it is
 # advisable to limit the regularization weight to small or moderate values,
@@ -489,11 +489,11 @@ gamma_sol[2:L] / gamma_sol[1:(L - 1)]
 
 # M = I + lambda * N, where 
 # N = sum_{k in Delta} (gamma_k - gamma_{k-1}) %*% t(gamma_k - gamma_{k-1}), 
-# see Wildi (2026) Appendix E.
+# see Wildi (2026) Appendix D.
 # Verify: residual should vanish.
 max(abs(M - diag(rep(1, L)) - lambda * N))
 # Note:  (gamma_k - gamma_{k-1}) represents the PCS constraint at lag k: we want 
-# b' * (gamma_k - gamma_{k-1}) = beta.
+# b %*% (gamma_k - gamma_{k-1}) = beta.
 
 # Since (gamma_k - gamma_{k-1}) is AR(1) for all k, the L x L matrix N has rank one.
 eigenN <- eigen(N)
@@ -550,7 +550,7 @@ b[2:L] / b[1:(L - 1)]
 # However, for beta > 0 and lambda sufficiently large, the PCS constraint forces
 # an increasing CCF path by imposing:
 #
-#   b' * (gamma_k - gamma_{k-1}) = beta > 0,  for k = 1, ..., h.
+#   b %*% (gamma_k - gamma_{k-1}) = beta > 0,  for k = 1, ..., h.
 #
 # In the AR(1) case, satisfying this constraint with beta > 0 requires the sign
 # of b to flip relative to the beta < 0 case. To verify this, re-run the code
@@ -1343,7 +1343,7 @@ for (i in 1:ncol(mplot))
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
 #   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
-#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
 #
@@ -1514,7 +1514,7 @@ for (i in 1:ncol(mplot))
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
 #   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
-#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
 #
@@ -1927,7 +1927,7 @@ for (i in 1:ncol(mplot))
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
 #   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
-#     b' * gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
+#     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
 #

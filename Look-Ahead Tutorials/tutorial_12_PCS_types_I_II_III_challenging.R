@@ -572,7 +572,7 @@ length(which(abs(eigenvalues) > 10^{-10}))
 # Implications by PCS type:
 #
 #   Type II or III:
-#     A single constraint of the form b' * (gamma_h - gamma_0) consumes one
+#     A single constraint of the form b %*% (gamma_h - gamma_0) consumes one
 #     of the available 13 degrees of freedom, leaving 12 for optimization of
 #     the target correlation.
 #
@@ -592,7 +592,7 @@ lambda <- 1000000   # very strong regularization
 
 # Each constraint takes the form:
 #
-#   b' * (gamma_k - gamma_{k-1}) = beta,  k = 1, …, h
+#   b %*% (gamma_k - gamma_{k-1}) = beta,  k = 1, …, h
 #
 # where beta is a fixed slope target that is held constant across all h
 # constraints; see the regularized criterion in equation (46) of Wildi (2026).
@@ -1241,7 +1241,7 @@ box()
 
 # The Type I constraint system imposes h = 12 slope constraints:
 #
-#   b' * (gamma_k - gamma_{k-1}) = beta,  k = 1, …, 12.
+#   b %*% (gamma_k - gamma_{k-1}) = beta,  k = 1, …, 12.
 #
 # All constraints can be satisfied simultaneously (see exercise 2), but at 
 # cost of the target correlation CCF(h).
@@ -1565,7 +1565,7 @@ gamma_pcs <- gamma
 Delta <- c(0, h)
 
 # Inform PCS_func that a Type III constraint is used: otherwise Delta <- c(0, h) 
-# is not correctly interpreted as b' * (gamma_h - gamma_0) = beta.
+# is not correctly interpreted as b %*% (gamma_h - gamma_0) = beta.
 Type_III <- TRUE
 
 # Very strong regularization: 

@@ -6,7 +6,8 @@
 # The DFP and PCS look-ahead approaches impose constraints on the cross-
 # correlation function (CCF) of the resulting predictor with lagged (k < 0),
 # coincident (k = 0), or leading targets x_{t+k} (k > 0), while maximizing
-# the CCF at the forecast horizon k = h, i.e., CCF(h) = Cor(\hat{x}_t, x_{t+h}).
+# the CCF at the forecast horizon k = h, i.e., CCF(h) = Cor(x̂[t+h|t], x_{t+h}).
+# where x̂[t+h|t] denotes the h-step ahead predictor.
 #
 # Specifically:
 #   - The DFP controls CCF(0) while maximizing CCF(h).
@@ -66,7 +67,7 @@
 #
 #       The CCF must be strictly increasing across the full lag interval:
 #           CCF(k) - CCF(k-1) = beta_k > 0  for all k = 1, …, h.
-#       See Wildi (2026), Section 3.2 and Appendix E.
+#       See Wildi (2026), Section 3.2 and Appendix D.
 #       This condition is generally not exactly achievable (see Exercise 1).
 #       The principal PCS optimization function PCS_func() enforces it as
 #       closely as possible via regularization. Smaller regularization weights
@@ -121,7 +122,7 @@
 
 # ── WHEN AND WHY CAN A PROBLEM BE INFEASIBLE? ────────────────────────────────
 #
-# The Type I PCS solution takes the form (see Wildi 2026, Appendix D):
+# The Type I PCS (closed-form) solution takes the form (see Wildi 2026, Appendix D):
 #
 #   b = gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})
 #
@@ -133,22 +134,23 @@
 #   - lambda_k   are Lagrange multipliers (regularization weights) chosen to
 #                enforce a monotonically increasing CCF from lag k = 0 to k = h.
 #
-# Since CCF(k) = b' * gamma_k / (||b|| * ||xi||), where xi is the DGP (weights of 
+# Since CCF(k) = b %*% gamma_k / (||b|| * ||xi||), where xi is the DGP (weights of 
 # the Wold decomposition)  the monotonicity condition CCF(i) > CCF(i-1) requires:
 #
-#   b' * (gamma_i - gamma_{i-1}) > 0,   i = 1, …, h.
+#   b %*% (gamma_i - gamma_{i-1}) > 0,   i = 1, …, h.
 #
 # Our solution implements this condition in one of two forms:
 #
-#   (aa)  b' * (gamma_i - gamma_{i-1}) = beta
-#   (ab)  b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||
+#   (aa)  b %*% (gamma_i - gamma_{i-1}) = beta
+#   (ab)  b %*%  (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||
 #
 # The two cases are selected by setting scaled_constraints = FALSE (case aa)
-# or scaled_constraints = TRUE (case ab) in the call to PCS_func().
+# or scaled_constraints = TRUE (case ab) in the call to PCS_func() 
+# (the default value is F).
 #
 # In both cases, beta is a prescribed common CCF increment that enforces
 # the monotonically increasing profile if  beta > 0:
-#   - Case (aa) assumes a fixed, uniform slope across all lags (linear profile).
+#   - Case (aa) assumes a fixed, uniform slope across all lags (linear CCF profile).
 #   - Case (ab) scales the increment by ||gamma_i - gamma_{i-1}||, making the
 #     effective increment beta_i := beta * ||gamma_i - gamma_{i-1}|| lag-dependent,
 #     thereby accounting for the varying magnitude of successive predictor differences.
@@ -162,8 +164,8 @@
 # Substituting the expression for b into the constraint equations yields a
 # system of h linear equations in h unknowns (lambda_1, …, lambda_h):
 #
-#   (gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1}))'
-#       * (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h,
+#   [gamma_h + sum_{k=1}^{h} lambda_k * (gamma_k - gamma_{k-1})] %*%
+#           (gamma_i - gamma_{i-1}) = beta,   i = 1, …, h,
 #
 # for case (aa), and analogously for case (ab).
 #
@@ -176,7 +178,7 @@
 #
 #   Case B) The linear system has a solution, but the implied target correlation
 #           CCF(h) is non-positive. Since a predictor that is negatively
-#           correlated with x_{t+h} is inadmissible, the problem is declared
+#           correlated with the target x_{t+h} is inadmissible, the problem is declared
 #           infeasible in this case as well.
 #
 # A problem is therefore feasible if and only if:
@@ -200,7 +202,7 @@
 #
 #   Under the scaled constraint system (case ab):
 #
-#       b' * (gamma_k - gamma_{k-1}) = beta * ||gamma_k - gamma_{k-1}||,
+#       b %*%  (gamma_k - gamma_{k-1}) = beta * ||gamma_k - gamma_{k-1}||,
 #                                                          k = 1, …, h,
 #
 #   the right-hand side vector
@@ -215,7 +217,7 @@
 #
 #   Under the unscaled constraint system (case aa):
 #
-#       b' * (gamma_k - gamma_{k-1}) = beta,   k = 1, …, h,
+#       b %*% (gamma_k - gamma_{k-1}) = beta,   k = 1, …, h,
 #
 #   the right-hand side vector (beta, …, beta)' does not lie in the
 #   rank-one column space when h > 1 (more than one constraint) and beta ≠ 0. 
@@ -231,7 +233,7 @@
 #
 #   As a consequence:
 #
-#       b' * (gamma_k - gamma_{k-1}) = 0   for k = 2, …, h,
+#       b %*% (gamma_k - gamma_{k-1}) = 0   for k = 2, …, h,
 #
 #   meaning the constraint system cannot enforce a strictly increasing CCF
 #   beyond lag k = 1. The CCF peak therefore cannot be located at k > 1,
@@ -239,10 +241,10 @@
 #   constraints for any h > 1.
 #
 #   However, unlike the AR(1) case, the MA component introduces an asymmetry
-#   between k = 0 and k = 1. Specifically, if a1>0 and the MA coefficient b1 < 0,
-#   then CCF(1) > CCF(0), and the CCF peak is located at k = 1. In this
-#   configuration, a peak at k>0, namely k=1, is possible and feasible 
-#   (but not at k>1). 
+#   between k = 0 and k = 1. In our exercise the AR coefficient a1>0, the MA 
+#   coefficient b1 < 0, and CCF(1) > CCF(0), i.e., the CCF peak is located at 
+#   k = 1. In this configuration, a peak at k>0, namely k=1, is possible and 
+#   feasible (but not at k>1). 
 #   Interestingly, the Type III constraints (requiring CCF(h) > CCF(0) and
 #   CCF(h) > 0) may remain feasible even for h > 1 in this example, see 
 #   exercise 1. Nevertheless, because the peak is fixed at k = 1 and cannot be 
@@ -351,7 +353,8 @@
 # optimization flexibility.
 #
 # However, when the CCF peak migrates naturally towards k = h under the
-# simpler Type II or Type III constraints, the latter are generally preferred.
+# simpler Type II or Type III constraints, the latter are generally preferred 
+# (see Tutorial 11).
 # By imposing less extraneous structure on the CCF profile, Types II and III
 # leave more degrees of freedom available for optimization, making the target
 # correlation CCF(h) more amenable to effective maximization and reducing the
@@ -377,7 +380,7 @@
 #   the Type III constraint is imposed under structural conditions of the DGP
 #   that leave insufficient degrees of freedom to address the forecasting
 #   problem in any meaningful way: the constraint is satisfied, but only at
-#   the cost of a filter that is actively detrimental.
+#   the cost of a filter that is ill-posed and unusable.
 #
 #
 # Example 2 — Impossible and Infeasible: Case A
@@ -408,7 +411,7 @@
 #
 #   Under case (ab), the scaled constraint system takes the form:
 #
-#       b' * (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||,
+#       b %*% (gamma_i - gamma_{i-1}) = beta * ||gamma_i - gamma_{i-1}||,
 #                                                            i = 1, …, h.
 #
 #   For the considered ARMA(1,1) DGP and the one-year ahead forecast horizon 
@@ -443,11 +446,13 @@
 #   and feasibility of the resulting predictor.
 #
 #   - Example 4 (PCS Type I, large regularisation weight):
-#     Highlights Type A infeasibility. The constraints impose a linearly
-#     increasing CCF profile, which is structurally incompatible with the
-#     AR(2) DGP. The heavy regularisation weight enforces the misspecified
-#     constraints too rigidly, causing the resulting predictor to change sign
-#     and become practically unusable.
+#     Illustrates Type A infeasibility. The constraints impose a linearly
+#     increasing CCF profile that is structurally incompatible with the AR(2)
+#     DGP. The excessively large regularisation weight enforces these
+#     misspecified constraints too rigidly, causing the predictor to change
+#     sign and become practically unusable -- a striking failure given that
+#     the AR(2) is otherwise a favourable forecasting problem that readily
+#     admits a shift of the CCF peak to the desired horizon.
 #
 #   - Example 5 (PCS Type I, moderate regularisation weight):
 #     Explores the same framework with a reduced regularisation weight,
@@ -1043,7 +1048,7 @@ for (i in 1:ncol(filter_mat_ar))
 # constrained optimisation problem for a given target slope beta.
 
 # Target slope values for the single Type III constraint:
-#   b' * (gamma_h - gamma_{h-1}) = beta
+#   b %*% (gamma_h - gamma_{h-1}) = beta
 beta_vec <- c(-0.8, -0.4,  0,0.05, 0.4, 0.8)
 
 # Single constraint imposed between k = 0 and k = h: CCF(h)-CC(F)>0.
@@ -1169,7 +1174,7 @@ ccf_mat["CCF at lead: 12",] - ccf_mat["CCF at lead: 0", ]
 # constraint is feasible: CCF(12) > CCF(0) and the target correlation remains 
 # positive, provided beta > 0 is not too large.
 
-# Note: beta = b' * (gamma_h - gamma_0) differs from CCF(h) - CCF(0) since 
+# Note: beta = b %*% (gamma_h - gamma_0) differs from CCF(h) - CCF(0) since 
 # the correlation is scaled by 1/(||b||*||xi||): this scaling factor explains 
 # the difference between the `slope' parameter beta and the effective (average) 
 # slope CCF(h) - CCF(0).
@@ -1221,7 +1226,7 @@ length(which(abs(eigenvalues) > 10^{-10}))
 # indeed the case here, rendering the Type I PCS system infeasible.
 
 # Note on Exercise 1 (Type III PCS):
-# Type III imposes a single constraint of the form b' * (gamma_h - gamma_0) = beta,
+# Type III imposes a single constraint of the form b %*% (gamma_h - gamma_0) = beta,
 # which can always be solved exactly. With the effective rank equal to 2, one
 # degree of freedom remains available for optimisation. This is the degree of
 # freedom exploited in Exercise 1 — though with limited success, since the
@@ -1996,7 +2001,7 @@ box()
 # 6.1 Type II PCS Setup
 # ─────────────────────────────────────────────────────────────────────
 # Type II imposes a single slope constraint at the target horizon only:
-#   b' * (gamma_h - gamma_{h-1}) = beta,
+#   b %*% (gamma_h - gamma_{h-1}) = beta,
 # i.e., CCF(h) > CCF(h-1) when beta > 0.
 # A single constraint can always be satisfied exactly by the rank-two
 # constraint system of the AR(2) DGP, so a very large lambda is appropriate.
@@ -2179,7 +2184,7 @@ ccf_mat["CCF at lead: 12",]-ccf_mat["CCF at lead: 11",]
 # ─────────────────────────────────────────────────────────────────────
 # Type III imposes a single slope constraint:
 #
-#   b' * (gamma_h - gamma_0) = beta,
+#   b %*% (gamma_h - gamma_0) = beta,
 #
 # which enforces CCF(h) > CCF(0) whenever beta > 0.
 

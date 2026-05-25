@@ -140,7 +140,7 @@
 #
 # The CCF at lag k is given by:
 #
-#     CCF(k) = b' * gamma_k / ||b||
+#     CCF(k) = b %*% gamma_k / ||b||
 #
 # where:
 #   b       : filter coefficient vector (the predictor to be designed),
@@ -153,7 +153,7 @@
 #     imposing this constraint would complicate the geometry and lead to
 #     multiple solutions (cf. the unitary DFP in Tutorial 4).
 #   - Normalising only gamma_k to unit length is sufficient to ensure that
-#     b' * gamma_k is proportional to CCF(k) for all k, with ||b|| serving as
+#     b %*% gamma_k is proportional to CCF(k) for all k, with ||b|| serving as
 #     a common (k-invariant) scaling factor. This makes the slope conditions
 #     below well-defined and comparable across lags.
 #
@@ -162,17 +162,17 @@
 # Let beta > 0 be the PCS slope parameter. Conditions I)–III) translate 
 # into linear constraints on b:
 #
-#   Type I)   requires  b' * (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
-#   Type II)  requires  b' * (gamma_h - gamma_{h-1}) > 0   (k = h only)
-#   Type III) requires  b' * (gamma_h - gamma_0)     > 0   
-#   Type IV)  requires  b' * (gamma_1 - gamma_0)     > 0   (k = 1 only)
+#   Type I)   requires  b %*% (gamma_k - gamma_{k-1}) > 0,  k = 1, …, h
+#   Type II)  requires  b %*% (gamma_h - gamma_{h-1}) > 0   (k = h only)
+#   Type III) requires  b %*% (gamma_h - gamma_0)     > 0   
+#   Type IV)  requires  b %*% (gamma_1 - gamma_0)     > 0   (k = 1 only)
 #
 # Note: the sign convention adopted here is the opposite of Wildi (2026).
 #
 # The PCS criterion enforces these constraints with target slope beta:
 #
-#   max  b' * gamma_h                          (maximise target correlation)
-#   s.t. b' * (gamma_k - gamma_{k-1}) = beta,  k in Delta
+#   max  b %*% gamma_h                          (maximise target correlation)
+#   s.t. b %*% (gamma_k - gamma_{k-1}) = beta,  k in Delta
 #
 # where:
 #   Delta = {h} or {1} correspond to Types II) and IV), and
@@ -376,18 +376,18 @@ ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,")
 # 1.3 PCS Type II): Setting Up the Modified DFP Constraint
 # ─────────────────────────────────────────────────────────────────────
 # Type II) requires CCF(h) > CCF(h-1), i.e., the CCF must increase
-# over the final step to the forecast horizon h. Using CCF(k) = b' * gamma_k, 
+# over the final step to the forecast horizon h. Using CCF(k) = b %*% gamma_k, 
 # this becomes:
 #
-#   b' * gamma_{h-1} < b' * gamma_h
-#   <=>  b' * (gamma_{h-1} - gamma_h) < 0
+#   b %*% gamma_{h-1} < b %*% gamma_h
+#   <=>  b %*% (gamma_{h-1} - gamma_h) < 0
 #
-# Equivalently, setting alpha0 = b' * gamma_constraint with
+# Equivalently, setting alpha0 = b %*% gamma_constraint with
 #   gamma_constraint = gamma_{h-1} - gamma_h,
 # Type II) requires alpha0 < 0.
 #
 # This maps exactly onto a standard DFP decoupling problem: minimise MSE
-# subject to b' * gamma_constraint = alpha0, with gamma_constraint playing
+# subject to b %*% gamma_constraint = alpha0, with gamma_constraint playing
 # the role of gamma_0. We therefore apply compute_mse_dfp() with
 # gamma_constraint in place of gamma_0, and decrease alpha0 below the MSE
 # baseline to progressively enforce the slope condition.
@@ -400,7 +400,7 @@ ts.plot(cbind(gammah,gammahtilde),main=paste("MSE(",h,") and MSE(",htilde,")
 
 #   is a difference of two forecast vectors and has no direct physical interpretation
 #   as a "present-value" filter. Its role is purely algebraic: zeroing out
-#   b' * gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
+#   b %*% gamma_constraint forces CCF(h-1) = CCF(h), and driving it negative
 #   enforces CCF(h-1) < CCF(h). The resulting filter may therefore look
 #   unusual (e.g., non-monotone weights), which is expected and not a cause
 #   for concern: the constraint is meaningful even if gamma_constraint itself
@@ -451,7 +451,7 @@ alpha0_vec
 #   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
 #
 # This closed-form solution minimises the MSE subject to the modified
-# decoupling constraint b' * gamma_constraint = alpha0.
+# decoupling constraint b %*% gamma_constraint = alpha0.
 
 b_mat       <- NULL    # filter coefficients, one column per alpha0
 cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
@@ -490,7 +490,7 @@ rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 
 # ── Check 1: PCS constraint ──────
 
-# Verification: the constraint b' * gamma_constraint = alpha0 should hold
+# Verification: the constraint b %*% gamma_constraint = alpha0 should hold
 # exactly for every column of b_mat (residuals should be numerically zero).
 t(b_mat) %*% gamma_constraint - alpha0_vec
 
@@ -689,12 +689,12 @@ gammahtilde <- c(b_ma[(htilde + 1):(q + 1)], rep(0, L - (q - htilde + 1)))
 # ─────────────────────────────────────────────────────────────────────
 # Type III) requires CCF(h) > CCF(0), i.e., the CCF must increase
 # on average from lag 0 to the forecast horizon h. Using 
-# CCF(k) = b' * gamma_k, this becomes:
+# CCF(k) = b %*% gamma_k, this becomes:
 #
-#   b' * gamma_0 < b' * gamma_h
-#   <=>  b' * (gamma_0 - gamma_h) < 0
+#   b %*% gamma_0 < b %*% gamma_h
+#   <=>  b %*% (gamma_0 - gamma_h) < 0
 #
-# Equivalently, setting alpha0 = b' * gamma_constraint with
+# Equivalently, setting alpha0 = b %*% gamma_constraint with
 #   gamma_constraint = gamma_0 - gamma_h,
 # Type III) requires alpha0 < 0.
 #
@@ -747,7 +747,7 @@ alpha0_vec
 #   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
 #
 # This closed-form solution minimises the MSE subject to the modified
-# decoupling constraint b' * gamma_constraint = alpha0.
+# decoupling constraint b %*% gamma_constraint = alpha0.
 
 b_mat       <- NULL    # filter coefficients, one column per alpha0
 cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
@@ -784,7 +784,7 @@ rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 
 # ── Check 1: PCS constraint ──────
 
-# Verification: the constraint b' * gamma_constraint = alpha0 should hold
+# Verification: the constraint b %*% gamma_constraint = alpha0 should hold
 # exactly for every column of b_mat (residuals should be numerically zero).
 t(b_mat) %*% gamma_constraint - alpha0_vec
 
@@ -1133,7 +1133,7 @@ Delta <- 1:h
 # Very large regularisation weight: drives the solution toward exact
 # satisfaction of all h slope constraints simultaneously, producing a CCF
 # that increases linearly from k = 0 to k = h with uniform slope
-# beta / (b' * b). In practice, this level of regularisation is typically
+# beta / (b %*% b). In practice, this level of regularisation is typically
 # more restrictive than necessary and may reduce target correlation unduly
 # (see the discussion in Exercises 3.5 and 4).
 lambda <- 100000
@@ -1285,10 +1285,10 @@ box()
 
 # Technical note:
 #   As the regularisation weight lambda increases, the CCF slope at each
-#   constrained lag converges to beta / (b' * b), i.e., the target slope
+#   constrained lag converges to beta / (b %*% b), i.e., the target slope
 #   beta divided by the squared norm of the filter vector b. The dependence
 #   on ||b||^2 is undesirable; however, eliminating it would require an
-#   additional unit-length constraint b' * b = 1, which would complicate
+#   additional unit-length constraint b %*% b = 1, which would complicate
 #   the geometry and typically lead to multiple solutions (cf. the unitary
 #   DFT in Tutorial 4). Crucially, this unwanted scaling effect does not
 #   affect the look-ahead properties of the predictor, since the CCF peak
@@ -1652,7 +1652,7 @@ gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 # 5.2 DFP Full Decoupling
 # ─────────────────────────────────────────────────────────────────────
 
-# DFP contraint: b' * gamma0=alpha0. Full decoupling means alpha0 = 0. 
+# DFP contraint: b %*% gamma0=alpha0. Full decoupling means alpha0 = 0. 
 gamma_constraint <- gamma0
 alpha0<-0
 
@@ -1899,8 +1899,8 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 #   The PCS type II is defined by the following 
 #   optimisation:
 #
-#     Objective:  b' * gamma_h  ->  max        (maximise target correlation)
-#     Constraint: b' * (gamma_h - gamma_{h-1}) = beta  (enforce CCF slope at h)
+#     Objective:  b %*% gamma_h  ->  max        (maximise target correlation)
+#     Constraint: b %*% (gamma_h - gamma_{h-1}) = beta  (enforce CCF slope at h)
 #
 #   The geometric construction in the plot above illustrates how these two
 #   requirements are reconciled simultaneously, showing two PCS solutions:
@@ -1921,7 +1921,7 @@ text(1.15 * r * cos(thm1_seq[length(thm1_seq)])+0.08, 1.15 * r * sin(thm1_seq[le
 #   Geometrically, for a given beta, the unit-length PCS predictor is obtained by
 #   projecting gamma_h orthogonally onto the line (a radius of the unit
 #   sphere) in the plane spanned by gamma_h and gamma_{h-1} that satisfies
-#   the slope constraint b' * (gamma_h - gamma_{h-1}) = beta. The resulting
+#   the slope constraint b %*% (gamma_h - gamma_{h-1}) = beta. The resulting
 #   predictor maximises the inner product with gamma_h — and hence the target
 #   correlation — among all unit vectors (predictors) satisfying the constraint.
 #
@@ -2004,7 +2004,7 @@ solve_acos_bsin_eq <- function(a, b, c) {
 # The two solutions (when they exist) correspond to the two intersection
 # points of the constraint line with the unit circle in the (gamma_h, gamma_{h-1})
 # plane; the geometrically meaningful solution is the one consistent with
-# the optimisation direction (maximising b' * gamma_h).
+# the optimisation direction (maximising b %*% gamma_h).
 solve_acos_bsin_eq(a, b, c)
 
 
