@@ -13,7 +13,7 @@
 #
 # PCS attempts to shift the CCF peak away from k=0, ideally placing it at k=h, while
 # maintaining maximal correlation with x_{t+h}. This is achieved by constraining
-# the CCF path over lags k=0,...,h. Three constraint types are considered:
+# the CCF path over lags k=0,...,h. Four constraint types are considered:
 #
 #   Type I   PCS: CCF(k) - CCF(k-1) = beta_k >= 0,  for k = 1, ..., h
 #   Type II  PCS: CCF(h) - CCF(h-1) = beta    >= 0
@@ -40,7 +40,7 @@
 #
 # which define a rank-one system that leaves no room to adjust or
 # reshape the profile of the CCF for lags k=0,...,h (up to sign change). But 
-# room is eventually left for negative lags which PCS or DFP do not explicitly 
+# room is eventually left for NEGATIVE lags which PCS or DFP do not explicitly 
 # address.
 #
 # Denoting the h-step MSE predictor in MA-form as gamma_h (with gamma_0 being
@@ -54,7 +54,7 @@
 #
 # Self-similarity forces the CCF of any predictor b to satisfy:
 #
-#   CCF(k) = (b' %*% gamma_k) / (||b|| * ||gamma_0||) = a1^k * CCF(0).
+#   CCF(k) = (b %*% gamma_k) / (||b|| * ||gamma_0||) = a1^k * CCF(0).
 #
 # For a1 > 0, the CCF decays monotonically and exponentially from its peak at
 # k=0. This pattern is rigidly enforced by the DGP on every predictor b via the
@@ -64,7 +64,7 @@
 #
 # However, for negative lags k=-1,-2,...
 #
-#   CCF(k) = (b[-k+(1:L)]' %*% gamma_0) / (||b[-k+(1:L)]|| * ||gamma_0||) 
+#   CCF(k) = (b[-k+(1:L)] %*% gamma_0) / (||b[-k+(1:L)]|| * ||gamma_0||) 
 #
 # This expression depends on the predictor b and the (negative) lag k and hence
 # could be controlled somehow.
@@ -257,7 +257,8 @@
 # Example 2 — Single-lag perturbation.
 #             The first lag coefficient of gamma_0 is slightly modified. This is
 #             analogous to applying PCS to an ARMA(1,1) DGP, where the MA(1)
-#             parameter b1 perturbs only the lag-0 weight of gamma_0.
+#             parameter b1 perturbs only the lag-0 weight of gamma_0 (see, e.g., 
+#             Tutorial 13).
 #
 # Example 3 — Multi-lag AR(1) perturbation.
 #             The perturbation is based on a second AR(1) process with a slightly
@@ -289,7 +290,7 @@
 # A forecast problem is called impossible when the CCF peak cannot be relocated
 # to the forecast horizon k = h while remaining of positive height. Even so,
 # the problem generally remains amenable to look-ahead behaviour: predictors
-# exist that are LEFT-SHIFTED relative to the MSE benchmark while simultaneously
+# exist that are LEFT-SHIFTED (leading) relative to the MSE benchmark while simultaneously
 # maximising tracking accuracy. The CCF peak may be fixed at the origin (k = 0),
 # yet effective anticipatory behaviour can still be recovered by reshaping the
 # LEFT TAIL (negative lags) of the CCF. This tutorial demonstrates the 
@@ -300,33 +301,40 @@
 # II) Left Tail of the CCF
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# The AR(1) structure of the "hardest forecast problem" examined in this 
-# tutorial renders it impossible to shift the CCF peak to the right.
-# More precisely, no linear predictor can alter the exponentially decaying
-# profile of the CCF at positive lags. In this sense, the AR(1) forecast
-# problem can be considered as the hardest look-ahead problem.
+# The AR(1) structure of the hardest forecast problem examined in this
+# tutorial makes it impossible to shift the CCF peak to the right. More
+# precisely, no linear predictor can alter the exponentially decaying profile
+# of the CCF at positive lags -- confirming that the pure AR(1) represents
+# the most challenging look-ahead problem.
 #
-#---------------------------------------------------------------------------
-# How to Address Look-Ahead Behaviour When the CCF Peak Cannot Be Shifted?
-#---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# How to Achieve Look-Ahead Behaviour When the CCF Peak Cannot Be Shifted?
+# ─────────────────────────────────────────────────────────────────────────────
 #
 # Although the right tail of the CCF is entirely determined by the AR(1)
-# structure and is therefore immutable, the LEFT tail remains accessible to
-# manipulation via the choice of predictor. The following observation,
+# structure and is therefore immutable, the left tail remains accessible to
+# manipulation through the choice of predictor. The following observation,
 # carried over from Exercise 3.5, elaborates on this point:
 #
-#   - Only the left tail of the CCF is amenable to modification. Whereas the MSE
-#     predictor yields a symmetric CCF, the PCS predictor becomes progressively
-#     more asymmetric as beta increases. Effective look-ahead behaviour is thus
-#     achieved by skewing the CCF rightward — that is, by down-weighting the
-#     contribution of negative lags.
+#   - Only the left tail of the CCF is amenable to modification. While the
+#     MSE predictor yields a symmetric CCF, the PCS predictor becomes
+#     progressively more asymmetric as beta increases. Effective look-ahead
+#     behaviour is thus achieved by skewing the CCF rightward -- that is, by
+#     suppressing the contribution of negative lags.
 #
-# By introducing suitable perturbations to the original DGP (which may be made 
-# arbitrarily small), the left tail can be shaped to induce look-ahead behaviour. 
-# This offers a principled resolution to an otherwise impossible problem: rather
-# than attempting to shift the CCF peak rightwards, one instead recovers
-# effective lead behaviour by redistributing CCF mass away from negative lags.
+# By introducing suitable perturbations to the original DGP -- which may be
+# made arbitrarily small -- the left tail can be shaped to induce look-ahead
+# behaviour. This offers a principled resolution to an otherwise infeasible
+# problem: rather than attempting to shift the CCF peak rightward, one instead
+# recovers effective lead behaviour by redistributing CCF mass away from
+# negative lags.
 #
+# Perturbation-based approaches are, however, just one instance of a broader
+# strategy: modifying the left tail of the CCF is a general and flexible
+# pathway to look-ahead behaviour whenever the right tail is structurally
+# immutable or too rigid to admit meaningful modification.
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # III) Severity of Perturbation Misspecification
 # ─────────────────────────────────────────────────────────────────────────────
