@@ -510,7 +510,7 @@ library(alfred)
 # EXERCISE 1 — Impossible but Feasible (PCS Type III)
 # ════════════════════════════════════════════════════════════════════
 
-# We adopt the framework from Tutorial 9: an ARMA(1,1) model fitted to the
+# We adopt the framework from Tutorial 12: an ARMA(1,1) model fitted to the
 # monthly PAYEMS employment indicator. PCS Type III is applied with forecast
 # horizon h = 12, imposing the constraint CCF(12) > CCF(0).
 #
@@ -521,7 +521,7 @@ library(alfred)
 # However, the problem is impossible: the CCF peak cannot be located at
 # k = h = 12 for this DGP, regardless of the approach used. The Type III
 # constraint is satisfied, but only superficially — the resulting predictor
-# does not achieve the intended look-ahead objective.
+# does not achieve the intended look-ahead objective (quite the contrary).
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -631,6 +631,7 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
 # single constraint, the problem remains feasible. Unfortunately, the CCF
 # cannot peak at h = 12 — this is structurally impossible for the
 # ARMA(1,1) DGP — so the problem is classified as impossible but feasible.
+# The single Type III constraint conflicts severely with the DGP (misspecification).
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -653,7 +654,7 @@ gammah <- xi[h + 1:L]
 # ─────────────────────────────────────────────────────────────────────
 # The Type III PCS imposes decoupling of the predictor from the
 # difference filter (gamma_0 - gamma_h). Note that for h = 1 the
-# Type III and Type I PCS coincide; for h = 12 they differ.
+# Type III, Type II and Type I PCS coincide; for h = 12 they differ.
 
 gamma_constraint <- gamma0 - gammah
 gamma_target     <- gammah
@@ -879,7 +880,7 @@ for (i in 1:ncol(y_out_mat))
 
 # As in Exercise 2 of Tutorial 9, the PCS predictors visibly LAG the MSE
 # predictor rather than leading it. The problem cannot be addressed without 
-# misspecifying the predictor, see Tutorial 14 for alternative possible problem 
+# misspecifying the predictor, see Tutorial 14 for alternative problem 
 # formulations.  
 
 
@@ -973,7 +974,8 @@ theta <- c(1, -ar_inv)
 
 # Verify correctness via a known identity:
 # convolving the AR inversion filter with the Wold (MA) coefficients must
-# yield the identity filter, i.e., [1, 0, 0, ...].
+# yield the identity filter, i.e., [1, 0, 0, ...]. Negligible deviation from 
+# the identity is due to finite length-L inversions.
 conv_two_filt_func(xi, theta)$conv[1:10]
 
 # Visualise the AR inversion filter.
@@ -1234,8 +1236,15 @@ length(which(abs(eigenvalues) > 10^{-10}))
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 PCS Type I: Parameter Setup
+# 2.2 Regularized PCS Type I: Parameter Setup
 # ─────────────────────────────────────────────────────────────────────
+# The closed-form PCS does not admit a solution in this setting. We therefore
+# rely on the regularised PCS, which is always invertible. However, unlike in
+# the feasible case, the constraint deviations cannot be made arbitrarily
+# small by increasing the regularisation weight lambda -- a direct consequence
+# of the structural incompatibility between the imposed constraints and the
+# underlying DGP.
+
 # One-year-ahead forecast horizon.
 h <- 12
 
@@ -1247,11 +1256,11 @@ beta_vec <- c(-0.2, -0.1, 0,0.01, 0.1, 0.2, 0.3)
 
 # scaled_constraints = FALSE selects the unscaled constraint system (case aa):
 # the slope is fixed at beta for all lags, regardless of the magnitude of the
-# constraint vectors. 
+# constraint vectors. This imposes a strictly linear CCF profile. 
 scaled_constraints <- FALSE
 
 # Type I imposes a positive slope at every lag in Delta (here 1 to h),
-# enforcing a monotonically increasing CCF over the full interval {0, ..., h}.
+# enforcing a monotonically (linearly) increasing CCF over the full interval {0, ..., h}.
 # This is the most restrictive of the three PCS types.
 Delta <- 1:h
 
@@ -1289,7 +1298,7 @@ for (i in seq_along(beta_vec)) {
   b_mat   <- cbind(b_mat, b)
   
   # Constraint verification: for a feasible system the residual
-  # |d_delta' * b + beta| should approach zero as lambda -> Inf.
+  # |d_delta %*% b + beta| should approach zero as lambda -> Inf.
   # Here the residuals do not vanish with increasing lambda, confirming
   # that the system is infeasible: the vector (beta, ..., beta)' does not
   # lie in the column space of the constraint matrix.
@@ -1385,10 +1394,10 @@ box()
 #     imposed by the constraints is impossible to achieve),
 #
 # Notes: 
-# 1. For h = 1, PCS Types I and II are feasible because gamma_0 and
+# 1. For h = 1, PCS Types I, II and III are identical and feasible because gamma_0 and
 #    gamma_1 are not collinear, so the constraint system would have a solution.
 # 2. when the problem is feasible and lambda is large, the CCF increases
-#    linearly from k = 0 to k = h with a constant slope. Here, because the
+#    linearly from k = 0 to k = h with a constant slope  (see Tutorial 10). Here, because the
 #    problem is both infeasible and impossible, no constant-slope solution exists
 #    and the constraint residuals do not vanish as lambda -> Inf.
 
@@ -1729,7 +1738,7 @@ for (i in seq_along(beta_vec)) {
   print(abs(d_delta %*% b + beta))
 }
 
-colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 3))
+colnames(b_mat) <- paste0("lambda=", lambda, ", beta=", round(beta_vec, 7))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1817,14 +1826,8 @@ box()
 #     to k = h, but remain negative at k=h and do not peak at k = h. 
 #     The look-ahead objective is therefore not achieved in any meaningful sense.
 #
-# Note: for h = 1, PCS Types I and II are both feasible for this AR(2) DGP,
-# because gamma_0 and gamma_1 are not collinear and the single constraint
-# vector lies within the column space of the constraint matrix.
-#
-# Note: when the problem is feasible and lambda is large (strong regularization), 
-# the slope of the CCF is fixed, i.e., the CCF increases linearly from k=0 to k=h. 
-# Here, the problem is infeasible and impossible and the slope cannot be constant.
-
+# Notes: The AR(2) is periodic with a damped sinusoidal ACF that strongly 
+#        conflicts with the imposed linear CCF profile (severe misspecification).
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -2130,7 +2133,6 @@ box()
 # the predictor b is not normalised to unit length — beta specifies the
 # desired sign and direction of the slope, not its exact magnitude as a
 # correlation coefficient.
-
 ccf_mat["CCF at lead: 12",]-ccf_mat["CCF at lead: 11",]
 
 
@@ -2323,16 +2325,15 @@ box()
 #
 #   - Type II (Exercise 6) enforces CCF(h) > CCF(h-1), so the condition
 #     CCF(h) - CCF(h-1) = 0 is already sufficient to produce a flat —
-#     and therefore peaking — CCF at k = h. The required value beta = 0
-#     is known a priori and requires no tuning.
+#     and therefore peaking — CCF at k = h (between h-1 and h). The required 
+#     value beta = 0 is known a priori and requires no tuning.
 #
 #   - Type III (this exercise) enforces CCF(h) > CCF(0), so beta must be
 #     large enough to ensure that CCF(h) exceeds CCF(0) by a sufficient
 #     margin to displace the peak from its natural location to k = h.
 #     Unlike Type II, the required value of beta is not known a priori:
 #     it must either be derived analytically through involved calculations
-#     or determined empirically, making Type III considerably harder to
-#     tune in practice.
+#     or determined empirically, making Type III harder to tune in practice.
 #
 # In summary, Type II offers a simpler and more transparent route to peak
 # displacement: setting beta = 0 is both necessary and sufficient, and the
@@ -2413,7 +2414,7 @@ box()
 #
 # 1. Interaction between beta and lambda:
 #
-#    The parameters beta and lambda interact in a compensatory fashion: an
+#    The parameters beta and lambda interact in a partially compensatory fashion: an
 #    excessively large beta — which imposes an exaggerated and potentially
 #    misspecified positive CCF slope — can be partially mitigated by reducing
 #    lambda. The precise nature of this interaction is given in equation (49)
@@ -2437,7 +2438,7 @@ box()
 #    In such settings, the regularization weight lambda should not be set too
 #    large. An excessively large lambda amplifies the influence of the
 #    misspecified constraints, which can propagate into the filter coefficients
-#    and produce actively detrimental predictors — for example, through sign
+#    and produce unusable predictors — for example, through sign
 #    inversion, where the filter becomes negatively correlated with the target
 #    at the desired horizon, resulting in CCF(h) < 0, which is unacceptable.
 
