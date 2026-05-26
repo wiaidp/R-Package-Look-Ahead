@@ -140,7 +140,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
   max_eigen<-max(eigen(d_delta%*%t(d_delta))$values)
   if (min_eigen/max_eigen<10^{-12})
-    print("PCS constraints eventually singular: problem is potentially infeasible")
+    print("PCS constraint system has not full rank")
   
   
   if (F)
@@ -522,7 +522,7 @@ PCS_perturbation_func <- function(h,Delta, gamma_pcs, L, beta,lambda,gammah_mat_
   min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
   max_eigen<-max(eigen(d_delta%*%t(d_delta))$values)
   if (min_eigen/max_eigen<10^{-12})
-    print("PCS constraints eventually singular: problem is potentially infeasible")
+    print("PCS constraint system has not full rank")
   
   
   if (F)
@@ -871,7 +871,7 @@ PCS_delta_perturbation_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type
   min_eigen<-min(eigen(d_delta%*%t(d_delta))$values)
   max_eigen<-max(eigen(d_delta%*%t(d_delta))$values)
   if (min_eigen/max_eigen<10^{-12})
-    print("PCS constraints eventually singular: problem is potentially infeasible")
+    print("PCS constraint system has not full rank")
   
   
   if (F)

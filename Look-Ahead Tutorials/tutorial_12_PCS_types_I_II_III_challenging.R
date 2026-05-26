@@ -2578,7 +2578,6 @@ box()
 
 
 
-
 #==============================================================================
 # MAIN TAKEAWAYS
 #==============================================================================
@@ -2644,7 +2643,13 @@ box()
 #   PCS optimization problems.
 
 
-
-
-
-
+#==============================================================================
+# FINAL REMARKs
+#==============================================================================
+# - Exercise 7 demonstrates that the PCS approach fails to yield usable
+#   look-ahead predictors for the ARMA(1,1) example considered here.
+# - This finding can be contrasted with Tutorial 9, which addresses the same
+#   forecasting problem (based on the same ARMA(1,1) DGP) but instead relies
+#   on the DFP framework, non-standard case, — and does so successfully. 
+# - An alternative PCS-based approach in difficult forecast problems is proposed
+#   in Tutorial 14.

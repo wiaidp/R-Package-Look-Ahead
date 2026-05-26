@@ -589,6 +589,8 @@ b[2:L] / b[1:(L - 1)]
 # criterion: the CCF always peaks at k=0 and decays geometrically, regardless of
 # the hyperparameter settings.
 
+# However, this result applies to positive lags k > 0 only.
+
 
 
 
@@ -637,7 +639,7 @@ delta2 <- gamma1_perturbated - gamma2_perturbated
 # For k > 2, delta_k = gamma_{k-1} - gamma_k is proportional to delta_{k-1},
 # since the perturbation affects only the lag-0 coefficient of xi.
 
-# delta_1 lies in the span of {gamma_0, perturbation_vec}: both components
+# delta1 lies in the span of {gamma_0, perturbation_vec}: both components
 # are statistically significant and the residual vanishes.
 gamma0 <- xi[1:L]
 summary(lm(delta1 ~ gamma0 + perturbation_vec[1:L] - 1))
@@ -731,15 +733,21 @@ summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 #───────────────────────────────────────────────────────────────────────────────
 # 2.3 Exploring the Rank-Two System Under Strong Regularisation
 #───────────────────────────────────────────────────────────────────────────────
-# The PCS predictor lies in the span of V[,1] and
-# V[,2], with coefficients governed by beta and lambda. As beta varies, the
-# predictor traces a path between two limiting directions:
+# The PCS predictor lies in the span of V[,1] and V[,2], with coefficients
+# governed by beta and lambda. As beta varies, the predictor traces a path
+# between two limiting directions:
 #
-#   beta → -∞ :  predictor aligns with  -V[,2], if lambda is large
-#   beta → +∞ :  predictor aligns with  +V[,2], if lambda is large
+#   beta → -∞ :  predictor aligns with  -V[,2]  (for large lambda)
+#   beta → +∞ :  predictor aligns with  +V[,2]  (for large lambda)
 #
-# If lambda is small (which is not the case here), the limiting directions 
-# are determined by +/- V1. instead.
+# For small lambda (which does not apply here), the limiting directions are
+# determined by -V[,1] and +V[,1] instead.
+#
+# The role of lambda can be understood as a trade-off:
+#   - Large lambda: heavy weight on the PCS constraints, which require the
+#     full decoupling direction V[,2] to be activated.
+#   - Small lambda: heavy weight on the MSE target gamma_h, pulling the
+#     predictor toward the direction V[,1].
 
 # Regularisation weight (strong regularisation regime).
 lambda <- 5000000
@@ -806,10 +814,10 @@ colo<-plot_func()
 # The predictor profiles displayed in Panel 1 illustrate the effect of the
 # single-lag perturbation at lag 0. Because the perturbation affects only the
 # lag-0 coefficient of xi, the PCS predictor b follows the standard AR(1)
-# decay profile for all lags k >= 1, i.e., strictly greater than zero 
-# (up to possible sign inversion). The perturbation provides a single degree
+# decay profile for all lags k >= 1, up to possible sign inversion. 
+# The perturbation provides a single degree
 # of freedom — a fine-tuning adjustment at lag 0 only — without altering the
-# structure of the predictor at any other lag.
+# structure of the predictor at any other lag (eventually up to sign).
 #
 # This limited flexibility is the key limitation of the single-lag perturbation:
 # it expands the rank from 1 to 2, but the additional degree of freedom is
@@ -833,14 +841,15 @@ colo<-plot_func()
 # interplay between the target correlation (governed by V1) and the constraint
 # satisfaction (governed by V2) for the specified values of lambda and beta.
 #
-# Note that we can reparametrize b as
-# b = - lambda1 * V1 + lambda2 * V2, where lambda1,lambda2>0. The parameters 
-# lambda1 and lambda2 are determined by lambda and beta: not all combinations of 
-# lambda1 and lambda2 are optimal (solutions of the PCS criterion). The negative 
-# sign - lambda1 * V1 of V1 is due to placing very strong emphasis on the 
-# constraints relative to the target when lambda is very large. Sign inversion of V1 (equivalently, of gamma_0
-# or xi) is the only mechanism by which a monotonically increasing CCF over
-# lags k = 0, ..., h can be achieved under this configuration (see panel 2). 
+# Notes
+#  1. The coefficient vector b can be reparametrised as:
+#        b = lambda1 * V[,1] + lambda2 * V[,2],
+#     where lambda1 and lambda2 are determined by lambda and beta. Crucially,
+#     not all combinations of lambda1 and lambda2 are admissible: optimising
+#     the PCS criterion imposes constraints on their joint values.
+#  2. The signs of V[,1] and V[,2] are arbitrary (as is typical for
+#     eigenvectors); this is compensated by the signs of lambda1 and lambda2,
+#     which adjust the orientation of b accordingly. 
 
 # ── Interpretation of CCF Panels ──────────────────────────────────────────────
 #
@@ -855,9 +864,8 @@ colo<-plot_func()
 #   Isolates the gamma_0 contribution to the CCF. This reflects the immutable,
 #   fixed AR(1) profile: it is identical across all predictors b, regardless of
 #   the choice of hyperparameters beta and lambda. It coincides with the CCF
-#   profile in Panel 2 (CCF against xi), up to a possible sign change induced
-#   by the constraints (when lambda is large). NOte that the sign is inverted when 
-#   compared to panel 2 because of the negative sign of V1 in b, see above comment. 
+#   profile in Panel 2 (CCF against xi), up to a possible (arbitrary) sign change 
+#   due to arbitrary sign of the eigenvector V[,1]. 
 #
 # Panel 4 — CCF against V2:
 #   Isolates the `full decoupling' direction (V2) introduced by the perturbation.
@@ -905,8 +913,9 @@ beta <- 0
 PCS_obj <- PCS_func(h, Delta, gamma_pcs_perturbated, L, beta, lambda)
 
 # Extract the beta grid from the PCS object.
-beta_vec <- PCS_obj$beta_vec
-
+beta_vec_automatic <- PCS_obj$beta_vec
+# Add two extreme values at the boundaries
+beta_vec<-c(0,beta_vec_automatic,10)
 # Either the manual grid defined above or the automatic grid extracted here
 # may be used in subsequent computations (the manually computed has slightly 
 # better resolution).
@@ -923,8 +932,8 @@ for (i in 1:length(beta_vec))
   b_mat<-cbind(b_mat,b)
 }
 
-filter_mat<-scale(b_mat)
-colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,6))
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,5))
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.6 Plots
@@ -1093,7 +1102,7 @@ max(abs(M - diag(rep(1, L)) - lambda * N))
 
 # Confirm rank two: exactly two eigenvalues of N exceed the threshold 10^{-10}.
 eigenN <- eigen(N)
-which(abs(eigenN$values) > 1e-10)
+which(abs(eigenN$values) > 1e-13)
 
 # Key spectral properties:
 #   - Eigenvalues of M = I + lambda * N are: 1 + lambda * n_i (n_i from N).
@@ -1190,7 +1199,9 @@ beta<-0.
 PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
 
 # Grid of beta values 
-beta_vec<-PCS_obj$beta_vec
+beta_vec_automatic<-PCS_obj$beta_vec
+# Add some intermediary values for better resolution:
+beta_vec<-c(beta_vec_automatic[1:10],1.86e-07,1.88e-07,1.90e-07,beta_vec_automatic[11:length(beta_vec_automatic)])
 
 Delta <- 1:h
 b_mat <- NULL
@@ -1369,10 +1380,10 @@ for (i in 1:ncol(mplot))
 mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
 par(mfrow=c(2,2))
-ccf(mplot_ccf[,1],mplot_ccf[,1],main=colnames(mplot_ccf)[1])
-ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
-ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
+ccf(mplot_ccf[,1],mplot_ccf[,5],main=colnames(mplot_ccf)[5])
+ccf(mplot_ccf[,1],mplot_ccf[,6],main=colnames(mplot_ccf)[6])
+ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 
 
 
@@ -1710,7 +1721,8 @@ b[2:L] / b[1:(L - 1)]
 # through sign inversion of gamma_0, i.e., -V1.
 
 # When the perturbation conditions the constraints into a misspecified design 
-# (here AR(2) instead of AR(1)), emphasizing the constraints at the detriment of the target correlation through a large lambda might be problematic.
+# (here AR(2) instead of AR(1)), emphasizing the constraints at the detriment of 
+# the target correlation through a large lambda might be problematic.
 # ─────────────────────────────────────────────────────────────────────
 
 # Strong regularization

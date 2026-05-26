@@ -248,6 +248,7 @@ ts.plot(scale(cbind(gammah,gammahtilde),scale=T,center=F),
 # tauh-|lead|. If tauh-|lead|>0 the DFP is still lagging in absolute terms, 
 # but leading when compared to gammah.
 lead_vec <- -2^((-1):3)
+lead_vec <- -c(2^((-3):0),1.5,2,3,4,6)
 lead_vec
 
 
@@ -853,7 +854,7 @@ mat_perf
 #     gammah in filter space (see Tutorial 5, Exercise 1.6). In the standard
 #     case (tauh < tau0), a negative lambda places gammah between b and gamma0.
 #     In the non-standard case (tauh > tau0) addressed here, lambda is positive,
-#     placing b between gamma0 and gammah (case a: lead = -0.5), or gamma0
+#     placing b between gamma0 and gammah (case a: leads >= -0.5), or gamma0
 #     between gammah and b (case b: leads < -0.5 in the table) — the opposite
 #     rotation direction required to generate a genuine lead.
 #   - In formulation iii) of the non-standard case, lambda0 can become
@@ -918,7 +919,7 @@ mplot   <- NULL
 for (i in 1:ncol(filter_mat))
   mplot <- cbind(mplot, compute_ccf_func(filter_mat[, i], gamma0)[L - 1 + 1:max_lag])
 colnames(mplot) <- col_names
-
+ccf_mat<-mplot
 plot(mplot[, 1],
      main = "CCF", axes = F, type = "l",
      xlab = "", ylab = "",
@@ -952,11 +953,21 @@ box()
 #     confirming MSE optimality. The predictor also correlates strongly with
 #     the contemporaneous signal (lag 0), a direct consequence of the
 #     aperiodic ARMA(1,1) dynamics.
-#   - DFP with small leads (-0.5, -1 and -2): these filters COUPLE MORE STRONGLY
-#     with x_t than the MSE predictor. This behaviour — increasing lead
-#     accompanied by stronger coupling — CANNOT be observed in the STANDARD case.
-#   - DFP-shifted filters: as the specified lead increases, the CCF at lag 0
-#     declines and the target correlation at h = 12 decreases accordingly.
+#   - DFP with leads >= -2 (i.e., lead = -0.125, -0.25, -0.5, -1, -2):
+#     these filters COUPLE MORE STRONGLY with x_t than the MSE predictor,
+#     as can be verified by inspecting the CCF at lag 0:
+ccf_mat[1,]
+#     This behaviour — stronger coupling accompanying an increasing (more
+#     negative) lead — CANNOT be observed in the STANDARD (non-DFP) case.
+#     Two regimes can be distinguished:
+#       1. For leads in (-1, 0): as the lead decreases toward -1, coupling
+#          increases. Geometrically, the DFP lies between gamma_0 and gamma_h
+#          and rotates progressively toward gamma_0 (stronger coupling).
+#       2. For leads < -1: as the lead decreases further below -1, coupling
+#          decreases again. Here the DFP has crossed gamma_0 and now lies on
+#          the opposite side from gamma_h, rotating away from gamma_0.
+#   - DFP-shifted filters: as the specified lead becomes more negative, the CCF 
+#     at lag 0 declines and the target correlation at h = 12 decreases accordingly.
 #     The DFP minimises this loss in target correlation subject to the
 #     time-shift constraint.
 #
@@ -1204,16 +1215,44 @@ filter_mat_ar_unscaled <- NULL
 for (i in 1:ncol(b_mat_unscaled))
   filter_mat_ar_unscaled <- cbind(filter_mat_ar_unscaled,
                                   conv_two_filt_func(theta, b_mat_unscaled[, i])$conv)
-
+colnames(filter_mat_ar_unscaled)<-lead_vec
 # ── Step 3: Plot ──────────────────────────────────────────────────────────────
 # For the unscaled case b) designs, only the first weight differs across filters.
-# The case a) design (red line) is an exception, as expected.
-ts.plot(filter_mat_ar_unscaled, col = rainbow(ncol(filter_mat_ar_unscaled)),
-        main = "Un-scaled (non MSE-optimal) DFP Predictors:
+# Similarly for the case a) designs.
+# However, cases a) and b) differ:
+select_lags<-1:5 
+colo<-rainbow(ncol(filter_mat_ar_unscaled))
+plot(filter_mat_ar_unscaled[select_lags,1], col=colo[1],
+     main = "Un-scaled (non MSE-optimal) DFP Predictors:
         Only the first weight of unscaled case b) designs is affected.
-        Case a), red line, is different, though.")
-# Note: the scaling in the last plot is not MSE optimal. The MSE optimal 
-# predictors were shown in the previous plot.
+        Similarly, only the first weight of unscaled case a) is affected.",ylim=c(min(filter_mat_ar_unscaled),2),
+        type = "l", axes = FALSE,
+     xlab = "Lags", ylab = "")
+for (i in 1:ncol(filter_mat_ar_unscaled))
+{  
+  lines(filter_mat_ar_unscaled[select_lags,i],col=colo[i])
+  if (colnames(filter_mat_ar_unscaled)[i]<(-1))
+  {
+    mtext(paste("Case a: DFP between gamma0 and gammah. Lead=",colnames(filter_mat_ar_unscaled)[i],sep=""),line=-i,col=colo[i])
+  } else
+  {
+    mtext(paste("Case b: DFP rotates away from gamma0. Lead=",colnames(filter_mat_ar_unscaled)[i],sep=""),line=-i,col=colo[i])
+  }
+}
+axis(1, at = select_lags, labels = select_lags-1)
+axis(2)
+box()
+# Explanation: 
+# - According to exercise 1.7.1 case a) corresponds to 
+#         b = gammah + lambda0 * gamma0,  lambda0 > 0
+#   Both gamma0 and gammah are positively weighted and b lies between gamma0 and gammah.
+# - In case b) 
+#         b = -gammah + lambda0 * gamma0,  lambda0 > 0
+# The sign inversion on gammah can be observed for lags > 0 in the above plot.
+
+# Note: the scaling in the last plot is not MSE optimal. In the non-standard case, 
+# the (sign inverted) DFP optimization requires an additional MSE scaling: the 
+# corresponding MSE optimal predictors were shown in the previous plot.
 
 
 
