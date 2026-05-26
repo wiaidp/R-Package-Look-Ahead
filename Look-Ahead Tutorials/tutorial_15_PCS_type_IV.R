@@ -14,13 +14,10 @@
 #      the forecast horizon yields no additional predictive information.
 #
 #   2. The CCF of the MSE predictor peaks at lag k = 4, which lies significantly
-#      to the left of the intended forecast horizon h = 12. This misalignment
-#      indicates that the predictor draws most of its explanatory power from
-#      short lags rather than from the target horizon, leaving substantial room
-#      for look-ahead improvement. A predictor whose CCF peak is shifted
-#      rightward toward h = 12 would more directly target the intended forecast
-#      horizon and is therefore a potentially meaningful — though not necessarily
-#      realisable — objective.
+#      to the left of the intended forecast horizon h = 12. A predictor whose CCF 
+#      peak is shifted rightward toward h = 12 would more directly target the 
+#      intended forecast horizon and is therefore a potentially meaningful 
+#       — though not necessarily realisable — objective.
 #
 #   3. Attempts to displace the CCF peak further to the right via a PCS Type I
 #      constraint partly fail, because the linear-growth assumption underlying
@@ -46,7 +43,8 @@
 #     strong misspecification and biases the PCS toward unusable predictors
 #     (see Exercises 1 and 2 in Tutorial 12 and exercises 1 and 3 below).
 #
-#   - In contrast, TYPE IV PCS imposes the single constraint 
+#   - In contrast, the new TYPE IV PCS introduced in this Tutorial imposes the 
+#     single constraint 
 #           CCF(1) - CCF(0) = beta 
 #     which is feasible. For h = 1 this constraint coincides with Type I, II, 
 #     and III simultaneously, making it a natural look ahead candidate.
@@ -70,8 +68,9 @@
 #          meaning the CCF-slope changes smoothly across lags.
 #
 #   - Exploiting CCF inertia proceeds in four steps:
-#       i)   Setting beta > 0 imposes CCF(1) - CCF(0) = beta > 0, introducing
-#            an upward kick in the CCF slope at the initial lags.
+#       i)   Setting beta > 0 in the Type IV constraint imposes 
+#               CCF(1) - CCF(0) = beta > 0, 
+#            introducing an upward `kick' in the CCF slope at the initial lags.
 #       ii)  For k > 12, the DGP structure forces CCF(k+1) = a1 * CCF(k) < CCF(k)
 #            (assuming positivity), so the CCF must eventually decay exponentially
 #            regardless of the constraint imposed at lag k = 1.
@@ -124,7 +123,7 @@
 #     shift rightward as beta increases. Retaining only one constraint leaves
 #     12 degrees of freedom available for target-correlation maximisation.
 #
-#   Exercise 3 — Analyses the boundary case in which all 13 independent
+#   Exercise 3 — Analyses the boundary case in which 13 independent
 #     constraints of the rank-13 system are imposed simultaneously (i.e. the
 #     constraint system is fully exhausted), leaving no room for optimisation
 #     beyond the choice of sign.
@@ -315,7 +314,8 @@ ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
 # One-year-ahead forecast horizon.
 h      <- 12
 # Larger horizon retained for benchmarking purposes: htilde > h does not shift 
-# the CCF peak further to the right: the MSE predictor is "stuck at horizon 12".
+# the CCF peak further to the right: the MSE predictor is "stuck at horizon 12" 
+# and the MSE paradigm cannot shift the CCF peak to the right of k = 4.
 htilde <- 24
 
 
@@ -519,18 +519,20 @@ box()
 #     exercise 3 below). However, the constant-slope Type I constraints strongly 
 #     conflict with the DGP structure and are therefore misspecified. As a 
 #     result, the filter profiles are irregular and difficult to interpret. 
-#   - Most weight is assigned to lagged data. 
+#   - Most weight is assigned to lagged data (similar to time reversion). 
 #
 # CCFs (right panel):
+#   - MSE(12) and MSE(24) have identical (overlapping) CCFs peaking at k = 4. 
+#     The MSE paradigm cannot shift the peak-CCF further to the right.
 #   - A linearly increasing CCF (positive beta) from k=0 to k=12 is only 
 #     achievable through sign inversion of the filter, causing the target 
 #     correlation CCF(h) to turn negative and rendering the predictor unusable 
 #     (cyan to violet color tones).
 #   - The DGP structure fundamentally conflicts with a linearly increasing
 #     CCF constraint: the Type I problem is therefore misspecified for this
-#     ARMA(1,1) DGP.
-#   - Due to the ARMA(1,1) structure, the CCF decays exponentially beyond
-#     the forecast horizon: for k > 0,
+#     DGP.
+#   - Due to the convolution of MA(12) and ARMA(1,1) (yearly growth), the CCF 
+#     decays exponentially beyond the forecast horizon h = 12: for k > 0,
 #           CCF(12 + k) = a1^k * CCF(12),
 #     irrespective of the choice of predictor b. This exponential decay is
 #     an intrinsic property of the DGP and cannot be overcome by any linear
@@ -646,8 +648,8 @@ colnames(b_mat) <- paste0("Closed-form PCS, beta=", round(beta_vec, 7))
 apply(b_mat, 2, sum)
 
 # ── Check 3: Positive Target Covariance ──────────────────────────────────────
-# In contrast to exercise 1, the target correlations remain positive for all 
-# selected beta >  0 (no misspecification).
+# In contrast to exercise 1, the target correlations (covariances) remain 
+# positive for all selected beta >  0 (no misspecification).
 t(b_mat) %*% gammah
 
 # Assemble all filters (nowcast, MSE references, and closed-form PCS variants)

@@ -4,6 +4,9 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+# This tutorial is still under construction (26-May-2026).
+
+
 # ── BACKGROUND: DFP AND PCS FORECASTING ───────────────────────────────────────
 
 # The Decouple From Present (DFP) and Peak Correlation Shifting (PCS) approaches
@@ -1983,8 +1986,8 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # 2. Perturbing the DGP expands the column space of the PCS constraint system,
 #    resolving at least partially the rank deficiency.
 #
-# 3. While the magnitude of the perturbation is irrelevant
-#    (it can be scaled arbitrarily through delta), its type and shape are consequential:
+# 3. While the magnitude (scaling) of the perturbation is irrelevant, its type 
+#    and shape are consequential:
 #      - Single-lag vs. multi-lag perturbations induce different constraint structures.
 #      - AR(1) vs. AR(2) perturbations yield qualitatively different decoupling
 #        directions V2, and hence different look-ahead profiles.
@@ -1996,9 +1999,8 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 #          exercise 2.
 #      ii. AR(1)-type (all lags): the perturbation spreads across all lags
 #          according to a slightly modified AR(1) parameter, see exercise 3.
-#      iii.AR(2)-type (all lags, periodic): unlike perturbations (i) and (ii),
-#          this perturbation differs from the original DGP not only in
-#          magnitude but also in shape (periodicity), introducing a more severe
+#      iii.AR(2)-type (all lags, periodic): this perturbation differs from the 
+#          original AR(1) DGP in shape (periodicity), introducing a more severe
 #          misspecification, see exercise 4.
 #
 # 5. In all cases considered, the rank of the constraint system increases from
