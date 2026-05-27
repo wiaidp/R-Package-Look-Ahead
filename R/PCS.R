@@ -188,10 +188,14 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   #    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
   #    provided the system is feasible.
   gamma_sol <- gammah + lambda * slope * d_delta[1, ]
+  sum_d_delta<-d_delta[1, ]
   if (length(Delta) > 1&!Type_III)
   {
     for (i in 2:length(Delta))
+    {
       gamma_sol <- gamma_sol + lambda * slope * d_delta[i, ]
+      sum_d_delta<-sum_d_delta+d_delta[i, ]
+    }
   }
   
   # c. Solve M %*% b = gamma_sol for the PCS filter coefficient vector b.
@@ -304,7 +308,7 @@ PCS_func <- function(h,Delta, gamma_pcs, L, beta, lambda,Type_III=F,scaled_const
   
   
   
-  return(list(b = b, d_delta = d_delta,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,beta_vec=beta_vec))
+  return(list(b = b, d_delta = d_delta,M=M,N=N,gamma_sol=gamma_sol,gammah=gammah,beta_vec=beta_vec,sum_d_delta=sum_d_delta))
   
 }
 

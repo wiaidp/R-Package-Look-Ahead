@@ -448,7 +448,7 @@ gamma_pcs <- xi
 Delta <- 1:h
 
 # Regularisation weight (penalty on constraint deviation): strong regularisation.
-lambda <- 10000
+lambda <- 1000000
 
 # Constraint slope parameter (negative here to probe the impossible regime).
 beta <- -0.0001
@@ -524,7 +524,8 @@ ts.plot(N[, 1], main = "Leading eigenvector of N (rank-one structure)")
 # Note: the eigenvector orderings of M and N may differ, so the following need not vanish.
 max(abs(V - eigenN$vectors))
 
-# Inspect eigenvalues of M and its leading eigenvector.
+# Inspect eigenvalues of M and its leading eigenvector. 
+# Note: the sign of V is arbitrary since the diagonalization is quadratic in V.
 eigenM$values
 ts.plot(V[, 1], main = "Leading eigenvector of M")
 
@@ -604,6 +605,12 @@ b[2:L] / b[1:(L - 1)]
 # Wold decomposition. Provided gamma_0 enters the PCS constraint system,
 # this expands the rank of the constraint system from 1 to 2 (otherwise the rank 
 # is stuck at one).
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises the
+# empirical framework (process specification, filter length, forecast horizon,
+# and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -755,13 +762,16 @@ summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 # Regularisation weight (strong regularisation regime).
 lambda <- 5000000
 
+if (F)
+{
 # Construct a manual grid of beta values that spans the two limiting directions
 # and resolves the transition region near the tipping point.
 #
 # The values are scaled by 1/lambda so that the effective perturbation
 # beta * lambda remains on a meaningful scale.
 #
-beta_vec <- c(-5.000e+05, 0, 2, 2.5, 2.7, 2.8, 2.9, 3, 4, 5) / lambda
+  beta_vec <- c(-5.000e+05, 0, 2, 2.5, 2.7, 2.8, 2.9, 3, 4, 5) / lambda
+}
 
 # Alternatively, PCS_func() can generate a beta grid automatically for a given
 # lambda, concentrating points near the tipping point where the PCS design is
@@ -1010,6 +1020,12 @@ colo<-plot_func()
 # for any PCS constraint type, without requiring gamma_0 itself to appear
 # explicitly in the constraint system. (In Exercise 2, the lag-0 perturbation
 # had no effect unless gamma_0 entered the constraints directly.)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises the
+# empirical framework (process specification, filter length, forecast horizon,
+# and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1571,6 +1587,13 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # component whose weight can be made arbitrarily small, rendering its
 # effect on the DGP imperceptible.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises the
+# empirical framework (process specification, filter length, forecast horizon,
+# and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.1 Perturbation: AR(2) Type
@@ -1972,6 +1995,338 @@ ccf(mplot_ccf[,1],mplot_ccf[,2],main=colnames(mplot_ccf)[2])
 ccf(mplot_ccf[,1],mplot_ccf[,3],main=colnames(mplot_ccf)[3])
 ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 5: PARAMETER INTERPLAY   (under construction)
+# ADVANCED ANALYSIS BASED ON PERTURBATION OF EXERCISE 2. 
+# ════════════════════════════════════════════════════════════════════
+
+# We analyse here the complex interplay between three key parameters:
+#   - delta:  the perturbation size 
+#   - lambda: the regularization weight (denoted nu in Eq. 49 of Wildi (2026))
+#   - beta:   the slope constraint weight
+#
+# The relationship between lambda and beta is governed by Eq. 49 in Wildi (2026).
+# Two important notational points regarding that formula:
+#   (i)  The regularization weight is denoted nu in Eq. 49, corresponding to lambda here.
+#   (ii) lambda (i.e. nu) appears in two distinct roles: as a multiplicative weight on the
+#        slope term AND as a constituent of the regularized matrix M^{-1} = (I + lambda * N)^{-1}.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Note: Exercise 1 must be run before this exercise, as it initialises the
+# empirical framework (process specification, filter length, forecast horizon,
+# and MA coefficient vector) required by all subsequent exercises.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.1 Replicate the Framework of Exercise 2  
+#───────────────────────────────────────────────────────────────────────────────
+
+# Forecast horizon.
+h <- 12
+
+# Construct the perturbation vector: delta times the first unit vector e_1,
+# so that only the lag-0 coefficient of xi is modified.
+e1                <- c(1, rep(0, length(xi) - 1))
+delta             <- 0.0001
+perturbation_vec  <- delta * e1
+xi_perturbated    <- xi + perturbation_vec
+
+# Perturbed target vector for PCS.
+gamma_pcs_perturbated <- xi_perturbated
+
+# Extract the perturbed h-step predictor coefficient vectors.
+gamma0_perturbated <- xi_perturbated[1:L]
+gamma1_perturbated <- xi_perturbated[1 + 1:L]
+gamma2_perturbated <- xi_perturbated[2 + 1:L]
+
+# The perturbation affects only lag 0 of gamma0
+gamma0_perturbated[2:L]/gamma0_perturbated[1:(L-1)]
+# gamma1 or any gammah, h>0, is not affected:
+gamma1_perturbated[2:L] / gamma1_perturbated[1:(L - 1)]
+
+# The first two PCS constraints involve the differences:
+#   delta_1 = gamma_0 - gamma_1   (affected by the perturbation at lag 0)
+#   delta_2 = gamma_1 - gamma_2   (unaffected; both are pure AR(1))
+delta1 <- gamma0_perturbated - gamma1_perturbated
+delta2 <- gamma1_perturbated - gamma2_perturbated
+
+# For k > 2, delta_k = gamma_{k-1} - gamma_k is proportional to delta_{k-1},
+# since the perturbation affects only the lag-0 coefficient of xi.
+
+# delta1 lies in the span of {gamma_0, perturbation_vec}: both components
+# are statistically significant and the residual vanishes.
+gamma0 <- xi[1:L]
+summary(lm(delta1 ~ gamma0 + perturbation_vec[1:L] - 1))
+
+# delta_2 lies in the span of {gamma_0} alone: the perturbation has no
+# effect on delta_2 or any delta_k, k>1.
+summary(lm(delta2 ~ gamma0 - 1))
+
+# Type I PCS: constrain all lags from k=1 to k=h (most restrictive type).
+Delta <- 1:h
+
+# Regularisation weight: very strong regularization.
+lambda <- 10000000
+
+# Constraint slope parameter.
+beta <- -0.0001
+
+# Compute the Type I PCS predictor for the perturbed system.
+PCS_obj <- PCS_func(h, Delta, gamma_pcs_perturbated, L, beta, lambda)
+
+b         <- PCS_obj$b
+d_delta   <- PCS_obj$d_delta
+b_mat     <- cbind(b_mat, b)
+M         <- PCS_obj$M
+N         <- PCS_obj$N
+gamma_sol <- PCS_obj$gamma_sol
+beta_vec  <- PCS_obj$beta_vec
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.2 Set-Up and Dependence on Perturbation Size (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.2.1 Set-Up (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# Extract core quantities from the PCS object
+d_delta     <- PCS_obj$d_delta       # Constraint system
+M           <- PCS_obj$M             # Inversion matrix
+sum_d_delta <- PCS_obj$sum_d_delta   # Cumulated PCS type-I constraint vector
+
+gamma_sol <- PCS_obj$gamma_sol  # Target used in the regularized criterion
+gammah    <- PCS_obj$gammah     # MSE h-step predictor
+
+# Compute the filter coefficient vector b via the regularized normal equations
+# (see Equation 49 in Wildi (2026)):  b = M^{-1} * gamma_sol
+b_formula <- solve(M) %*% gamma_sol
+
+# Verify consistency: the difference between b_formula and b should be negligible
+max(abs(b_formula - b))
+
+par(mfrow = c(1, 1))
+# Plot b: note that, unlike the pure AR(1) case, b no longer has an AR(1) structure
+ts.plot(b)
+
+# Compute the eigenvectors and eigenvalues of M and N = M - I
+V   <- eigen(M)$vectors   # Eigenvectors of M (columns)
+eta <- eigen(N)$values    # Eigenvalues of N
+# Note: M = I + lambda * N, see Wildi Appendix D.
+
+# Verify that M is correctly diagonalized: max deviation should vanish
+max(abs(M - V %*% diag(eigen(M)$values) %*% t(V)))
+
+# Verify rank-2 structure of perturbated system: only the first two entries of 
+# t(V) %*% gammah are non-vanishing (without perturbation only the first entry 
+# is non-vanishing: the second entry is of order O(delta))
+t(V) %*% gammah
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.2.2 Dependence on Perturbation Size (delta) (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# Ratio of the first two eigenvalues of N is of order O(1/delta^2)
+eta[1]/eta[2]
+# Multiplied by delta^2: O(1)
+delta^2*eta[1]/eta[2]
+# Multiplying by delta^2 yields an O(1) quantity, confirming the scaling
+
+# Explanation:
+# - N is a sum of outer products of first differences of the ACF:
+#       N = sum_{k in Delta} (gamma_k - gamma_{k-1}) %*% t(gamma_k - gamma_{k-1}).
+# - Each outer product (gamma_k - gamma_{k-1}) %*% t(gamma_k - gamma_{k-1}) is an L x L
+#   (rank-1) matrix, so N is an L x L matrix (of rank at most |Delta|).
+# - In the absence of perturbation, (gamma_k - gamma_{k-1}) %*% t(gamma_k - gamma_{k-1}) 
+#   are proportional, i.e., the rank of N is one.
+# - In the presence of a perturbation:
+#   - The column rank of N equals 2 if 1 in Delta (since gamma_1 - gamma_{0} and the
+#     remaining differences gamma_k - gamma_{k-1}, k>1, are linearly independent in that case)
+#   - The column rank of N equals 1 otherwise.
+# - Because N is built from squared (outer-product) expressions in the perturbation
+#   magnitude delta, its non-zero eigenvalues are O(1) and O(delta^2).
+# - Specifically: eta[1] = O(1), eta[2] = O(delta^2), and eta[k] = 0 for k >= 3,
+#   which implies eta[1] / eta[2] = O(1/delta^2).
+
+# V1 (first eigenvector) is nearly AR(1): consecutive ratios deviate from a
+# constant by O(delta) only
+V[2:L, 1] / V[1:(L-1), 1]
+
+# Because V2 is orthogonal to V1 and V1 nearly aligns with gammah, V2 is nearly
+# orthogonal to gammah: the inner product t(V2) %*% gammah is O(delta).
+# Dividing by delta yields an O(1) quantity, confirming the scaling
+V[, 2] %*% gammah / delta
+
+# Equivalently, using the second row of t(V) (denoted tV2 below)
+t(V)[2, ] %*% gammah / delta
+
+# Similarly, tV2 %*% sum_d_delta is O(delta):
+#   sum_d_delta = O(1) * gammah + perturbation
+#   tV2 %*% gammah   = O(delta)  (shown above)
+#   tV2 %*% perturbation = O(delta)  (since perturbation = O(delta))
+t(V)[2, ] %*% sum_d_delta / delta
+# Note: sum_d_delta = sum_{k in Delta} (gamma_k - gamma_{k-1}) encodes the
+#    cumulated PCS type-I constraints, see Wildi (2026), Appendix D.
+
+#───────────────────────────────────────────────────────────────────────────────
+# Summary of delta-scalings (tVi denotes the i-th row of t(V))
+#   tV2 %*% gammah        = O(delta)
+#   eta_2                 = O(delta^2)  [second non-zero eigenvalue of N]
+#   tV2 %*% sum_d_delta   = O(delta)
+#───────────────────────────────────────────────────────────────────────────────
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.3 Analysis: Background (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# I) Solution formula
+#    b = M^{-1} %*% (gammah + lambda * beta * sum_d_delta)
+#    where gammah is the ideal target ACF and
+#    sum_d_delta = sum_{k in Delta} (gamma_k - gamma_{k-1}) encodes the
+#    cumulated PCS type-I constraints.
+
+# II) Rank-2 structure
+#    For an AR(1) process with a single perturbation, both gammah and the
+#    difference vector (gamma_k - gamma_{k-1}) span a rank-2 space.
+#    N shares this rank-2 column space and the two leading eigenvectors
+#    V1 = V[,1] and V2 = V[,2] lie in this space, while V[,k] for k = 3,...,L
+#    are orthogonal to it. Since M = I + lambda * N, M has full rank 
+#    (assuming positive regularization weight lambda > 0). Moroever, M and N have 
+#    identical eigenvectors.  As a symmetric matrix, M admits the diagonalization
+#    M = V %*% D %*% t(V).
+
+# III) Eigendecomposition of the solution b in I):
+#    b = V %*% (1/D) %*% t(V) %*% (gammah + lambda * beta * sum_d_delta)
+#    where 1/D has diagonal entries 1 / (1 + lambda * eta_i), with
+#    eta_1 = O(1),  eta_2 = O(delta^2),  eta_3 = ... = eta_L = 0, the eigenvalues 
+#    of N (noting that the eigenvalues of M are 1 + lambda * eta_i which invert 
+#    through M^{-1}).
+#
+#    Defining the projected vectors:
+#      G1 = (tV1 %*% gammah,     tV2 %*% gammah,     0, ..., 0)  
+#      G2 = (tV1 %*% sum_d_delta, tV2 %*% sum_d_delta, 0, ..., 0)
+#    the solution decomposes as  b = V %*% (1/D) %*% (G1 + lambda * beta * G2).
+#    The zero entries in G1, G2 are due to orthogonality of the eigenvectors V3,...,VL with 
+#    gammah and sum_d_delta).
+
+# IV) Expanded form of b
+#    b =   V1 * (tV1 %*% gammah     / (1 + lambda * eta_1))
+#        + V2 * (tV2 %*% gammah     / (1 + lambda * eta_2))
+#        + lambda * beta *
+#          [ V1 * (tV1 %*% sum_d_delta / (1 + lambda * eta_1))
+#          + V2 * (tV2 %*% sum_d_delta / (1 + lambda * eta_2)) ]
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.4 Analysis: Case Studies (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# Recall that 
+#   tV2 %*% gammah        = O(delta)
+#   eta_2                 = O(delta^2)  [second non-zero eigenvalue of N]
+#   tV2 %*% sum_d_delta   = O(delta)
+# See exercise 5.2.2.
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.4.1 Case A: Vanishing Slope (beta = 0) (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+
+# With beta = 0 the G2 term drops out, leaving:
+#   b = V1 * (tV1 %*% gammah / (1 + lambda * eta_1))
+#     + V2 * (tV2 %*% gammah / (1 + lambda * eta_2))
+
+# A.1) lambda = O(1),  delta ~ 0  (very small perturbation)
+#   eta_2 = O(delta^2) => 1 / (1 + lambda * eta_2) ~ 1
+#   tV2 %*% gammah = O(delta) => the V2 term vanishes
+#   => b ~ V1 * (tV1 %*% gammah / (1 + lambda * eta_1)) = O(1) * gammah
+#      (V1 aligns with gammah as delta -> 0)
+
+# A.2) lambda = O(1/delta^2)  (very large regularization)
+#   1 / (1 + lambda * eta_1) = O(delta^2),   1 / (1 + lambda * eta_2) = O(1)
+#   tV1 %*% gammah = O(1),                   tV2 %*% gammah = O(delta)
+#   => V1 term = O(delta^2),                 V2 term = O(delta)
+#   => b ~ V2 * O(delta)  (b aligns with V2 and shrinks to zero with delta)
+#   Note that even stronger regularization (larger lambda) will keep the same 
+#   direction but shrink b even stronger to zero.
+
+# A.3) lambda = O(1/delta)  (large regularization but not as large as in A.2)
+#   1 / (1 + lambda * eta_1) = O(delta),     1 / (1 + lambda * eta_2) = O(1)
+#   tV1 %*% gammah = O(1),                   tV2 %*% gammah = O(delta)
+#   => V1 term = O(delta),                   V2 term = O(delta)
+#   => b is an O(delta) linear combination of V1 and V2
+
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.4.2 Case B: Non-Vanishing Slope (beta != 0) (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# With beta != 0 the additional G2 contribution must be considered:
+#   lambda * beta * [ V1 * (tV1 %*% sum_d_delta / (1 + lambda * eta_1))
+#                   + V2 * (tV2 %*% sum_d_delta / (1 + lambda * eta_2)) ]
+# Note: sum_d_delta = O(1) * gammah + perturbation, with perturbation = O(delta),
+# so G2 has the same order structure as G1.
+
+# B.1) lambda * beta ~ 0
+#   The G2 contribution vanishes; the analysis reduces to Case A.
+
+# B.2) lambda * beta = O(1)
+#
+#   B.2.1) lambda ~ 0,  beta very large
+#     G1 part (from A.1): b_G1 ~ O(1) * gammah
+#     G2 part: tV2 %*% sum_d_delta / (1 + lambda * eta_2) = O(delta), negligible
+#     => b aligns with V1 ~ gammah
+#
+#   B.2.2) lambda = O(1/delta^2),  beta = O(delta^2)
+#     G1 part (from A.2): b_G1 ~ V2 * O(delta)
+#     G2 part: same order structure as G1 => also aligns with V2
+#     => b = O(delta) * V2  (shrinks to zero with delta)
+#
+#   B.2.3) lambda = O(1)
+#     Similar to A.1: b proportional to V1 ~ O(1) * gammah
+#
+#   B.2.4) lambda = O(delta),  beta = O(1/delta)
+#     Similar to A.3: b = V1 * O(delta) + V2 * O(delta)  (shrinks to zero with delta)
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.4.3 Case C: Very Large Slope (beta >> 1) (under construction)
+#───────────────────────────────────────────────────────────────────────────────
+
+# C.1) lambda such that lambda * beta = O(1)  =>  see Case B.2
+# C.2) lambda = O(1)                          =>  see Case A.1
+# C.3) lambda = O(1/delta)                    =>  see Case A.3
+# C.4) lambda = O(1/delta^2)                  =>  see Case A.2
+
+
+#───────────────────────────────────────────────────────────────────────────────
+# 5.5 Summary
+#───────────────────────────────────────────────────────────────────────────────
+
+# The interplay of delta, lambda, and beta is complex. However, a unifying structural
+# insight is that the PCS predictor b can always be expressed as a linear combination
+# of just two vectors: gammah and the perturbation vector (or, equivalently, V1 and V2).
+# This follows directly from the rank-2 structure of the equation system (matrix N) 
+# established above.
+#
+# The coefficients of this linear combination are determined jointly by delta, lambda,
+# and beta. Importantly, not all coefficient pairs are attainable: the feasible set is
+# restricted to solutions that are optimal with respect to the regularized criterion
+# (Eq. 49 in Wildi (2026)), so the reachable region within the (V1, V2)-plane is
+# constrained accordingly.
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 6: CLOSED-FORM PERTURBATION SOLUTION 
+# ════════════════════════════════════════════════════════════════════
 
 
 
