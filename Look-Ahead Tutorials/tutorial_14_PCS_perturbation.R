@@ -2183,8 +2183,15 @@ t(V)[2, ] %*% sum_d_delta / delta
 
 
 #───────────────────────────────────────────────────────────────────────────────
-# 5.3 Analysis: Background (under construction)
+# 5.3 Analysis: Interplay of Hyperparameters delta, lambda and beta
 #───────────────────────────────────────────────────────────────────────────────
+
+# Recall that 
+#   tV2 %*% gammah        = O(delta)
+#   eta_2                 = O(delta^2)  [second non-zero eigenvalue of N]
+#   tV2 %*% sum_d_delta   = O(delta)
+# See exercise 5.2.2.
+
 
 # I) Solution formula
 #    b = M^{-1} %*% (gammah + lambda * beta * sum_d_delta)
@@ -2192,36 +2199,157 @@ t(V)[2, ] %*% sum_d_delta / delta
 #    sum_d_delta = sum_{k in Delta} (gamma_k - gamma_{k-1}) encodes the
 #    cumulated PCS type-I constraints.
 
-# II) Rank-2 structure
-#    For an AR(1) process with a single perturbation, both gammah and the
-#    difference vector (gamma_k - gamma_{k-1}) span a rank-2 space.
-#    N shares this rank-2 column space and the two leading eigenvectors
-#    V1 = V[,1] and V2 = V[,2] lie in this space, while V[,k] for k = 3,...,L
-#    are orthogonal to it. Since M = I + lambda * N, M has full rank 
-#    (assuming positive regularization weight lambda > 0). Moroever, M and N have 
-#    identical eigenvectors.  As a symmetric matrix, M admits the diagonalization
-#    M = V %*% D %*% t(V).
-
-# III) Eigendecomposition of the solution b in I):
-#    b = V %*% (1/D) %*% t(V) %*% (gammah + lambda * beta * sum_d_delta)
-#    where 1/D has diagonal entries 1 / (1 + lambda * eta_i), with
-#    eta_1 = O(1),  eta_2 = O(delta^2),  eta_3 = ... = eta_L = 0, the eigenvalues 
-#    of N (noting that the eigenvalues of M are 1 + lambda * eta_i which invert 
-#    through M^{-1}).
+# II) Rank-2 Structure
+#     For an AR(1) process with a single perturbation, both gamma_h and the
+#     difference vectors (gamma_k - gamma_{k-1}), k = 1, ..., L, span a
+#     rank-2 subspace. The matrix N shares this rank-2 column space, with
+#     two non-zero eigenvalues eta_1 and eta_2 and corresponding leading
+#     eigenvectors V1 = V[, 1] and V2 = V[, 2] lying in this subspace,
+#     while V[, k] for k = 3, ..., L are orthogonal to it.
 #
-#    Defining the projected vectors:
-#      G1 = (tV1 %*% gammah,     tV2 %*% gammah,     0, ..., 0)  
-#      G2 = (tV1 %*% sum_d_delta, tV2 %*% sum_d_delta, 0, ..., 0)
-#    the solution decomposes as  b = V %*% (1/D) %*% (G1 + lambda * beta * G2).
-#    The zero entries in G1, G2 are due to orthogonality of the eigenvectors V3,...,VL with 
-#    gammah and sum_d_delta).
+#     Since M = I + lambda * N, M has full rank for any positive
+#     regularization weight lambda > 0. Moreover, M and N share the same
+#     eigenvectors. As a symmetric matrix, M admits the eigendecomposition
+#
+#       M = V %*% D %*% t(V),
+#
+#     where D is diagonal with entries
+#
+#       (1 + lambda * eta_1, 1 + lambda * eta_2, 1, ..., 1)  [length L],
+#
+#     and the inverse is given by
+#
+#       M^{-1} = V %*% diag(1/diag(D)) %*% t(V),
+#
+#     with reciprocal diagonal entries. If delta is small, the leading
+#     eigenvector satisfies V1 ≈ gamma_h / ||gamma_h||, i.e., it is
+#     approximately equal to the normalized gamma_h.
 
-# IV) Expanded form of b
-#    b =   V1 * (tV1 %*% gammah     / (1 + lambda * eta_1))
-#        + V2 * (tV2 %*% gammah     / (1 + lambda * eta_2))
-#        + lambda * beta *
-#          [ V1 * (tV1 %*% sum_d_delta / (1 + lambda * eta_1))
-#          + V2 * (tV2 %*% sum_d_delta / (1 + lambda * eta_2)) ]
+# III) Eigendecomposition of the Solution b from I)
+#
+#      The solution can be written as:
+#
+#        b = V %*% (1/D) %*% t(V) %*% (gamma_h + lambda * beta * sum_d_delta),
+#
+#      where 1/D has diagonal entries 1 / (1 + lambda * eta_i), and the
+#      eigenvalues of N are ordered as:
+#
+#        eta_1 = O(1),  eta_2 = O(delta^2),  eta_3 = ... = eta_L = 0.
+#
+#      Note that the eigenvalues of M = I + lambda * N are 1 + lambda * eta_i,
+#      which invert to 1 / (1 + lambda * eta_i) under M^{-1}.
+#
+#      Defining the coordinate vectors of the projections onto the eigenbasis:
+#
+#        G1 = (t(V1) %*% gamma_h,      t(V2) %*% gamma_h,      0, ..., 0),
+#        G2 = (t(V1) %*% sum_d_delta,  t(V2) %*% sum_d_delta,  0, ..., 0),
+#
+#      the solution decomposes as:
+#
+#        b = V %*% (1/D) %*% (G1 + lambda * beta * G2).
+#
+#      The trailing zero entries in G1 and G2 follow from the orthogonality of
+#      the eigenvectors V[, 3], ..., V[, L] to both gamma_h and sum_d_delta.
+
+# IV) Expanded Form of b
+#
+#      Expanding the eigendecomposition explicitly, the solution b reads:
+#
+#        b =   V1 * (t(V1) %*% gamma_h      / (1 + lambda * eta_1))
+#            + V2 * (t(V2) %*% gamma_h      / (1 + lambda * eta_2))
+#            + lambda * beta
+#            * (  V1 * (t(V1) %*% sum_d_delta / (1 + lambda * eta_1))
+#               + V2 * (t(V2) %*% sum_d_delta / (1 + lambda * eta_2)) ).
+#
+#      That is, b is expressed as a weighted sum of the two leading eigenvectors
+#      V1 and V2, with weights determined by their inner products with gamma_h
+#      and sum_d_delta, respectively, scaled by the inverse eigenvalue factors.
+
+
+# V)  Simplification and the Effect of delta
+#
+#     When delta is small, V1 ≈ gamma_h / ||gamma_h||, and hence:
+#
+#       V1 * (t(V1) %*% gamma_h) ≈ gamma_h.
+#
+#     Note that the sign of V1 is arbitrary (eigenvector signs are
+#     undetermined), so it cancels in this product. Additionally,
+#
+#       V2 * (t(V2) %*% gamma_h) = O(delta) * V2.
+#
+#     Moreover, sum_d_delta = O(1) * gamma_h + perturbation_vec, so that:
+#
+#       V1 * (t(V1) %*% sum_d_delta) ≈ O(1) * V1,
+#
+#     assuming perturbation_vec is of small size O(delta). Finally,
+#
+#       V2 * (t(V2) %*% sum_d_delta) = O(delta) * V2,
+#
+#     since both t(V2) %*% gamma_h = O(delta) and
+#     t(V2) %*% perturbation_vec = O(delta).
+
+# VI) Approximate Form of b (combining IV and V)
+#
+#     Substituting the approximations from V) into the expanded form IV),
+#     the solution simplifies to:
+#
+#       b ≈   [1 / (1 + lambda * eta_1)        ] * V1
+#           + [1 / (1 + lambda * eta_2) * O(delta)] * V2
+#           + lambda * beta
+#           * (  [1 / (1 + lambda * eta_1) * O(1)    ] * V1
+#              + [1 / (1 + lambda * eta_2) * O(delta)] * V2 )
+#
+#         =: F1 + lambda * beta * F2,
+
+# VII) Interplay of lambda and beta
+#
+#      Effect of beta * lambda:
+#
+#        - beta = 0:                 b ≈ F1.
+#        - lambda * beta = O(1):     b ≈ F1 + lambda * beta * F2.
+#        - lambda * beta >> 1:       b ≈ lambda * beta * F2.
+#
+#      Summary: the product lambda * beta controls the relative weight between
+#      F1 and F2. As shown next in VIII), the internal compositions of F1 and
+#      F2 themselves depend on lambda and delta: both F1 and F2 interpolate
+#      (in different ways) between V1 and V2 as these parameters vary.
+
+# VIII) Interplay of lambda and delta
+#
+#      Effect of lambda on the eigenvalue scaling factors:
+#
+#        - lambda = O(1):         1 / (1 + lambda * eta_1) = O(1),
+#                                 1 / (1 + lambda * eta_2) ≈ 1.
+#
+#        - lambda = O(1/delta):   1 / (1 + lambda * eta_1) = O(delta),
+#                                 1 / (1 + lambda * eta_2) ≈ 1.
+#
+#        - lambda = O(1/delta^2): 1 / (1 + lambda * eta_1) = O(delta^2),
+#                                 1 / (1 + lambda * eta_2) = O(1).
+#
+#      Implied structure of F1, F2, and b:
+#
+#        - lambda = O(1):
+#            F1 ≈ O(1) * V1,
+#            F2 ≈ O(1) * V1,
+#            => b ∝ V1 ∝ gamma_h,  i.e., b aligns with the original AR(1) direction.
+#
+#        - lambda = O(1/delta) (large lambda):
+#            F1 = O(delta) * V1 + O(delta) * V2,
+#            F2 = O(delta) * V1 + O(delta) * V2,
+#            => b = O(delta) * V1 + O(delta) * V2,  i.e., b is an intermediate
+#               weighted combination of V1 (original AR(1)) and V2 (full decoupling).
+#
+#        - lambda = O(1/delta^2) (very large lambda):
+#            F1 = O(delta^2) * V1 + O(delta) * V2,
+#            F2 = O(delta^2) * V1 + O(delta) * V2,
+#            => b ∝ V2,  i.e., b aligns with the full decoupling direction.
+#
+#      Summary: lambda governs the interpolation of b between the original AR(1)
+#      direction V1 and the full decoupling direction V2. As lambda increases
+#      through the regimes O(1) -> O(1/delta) -> O(1/delta^2), the solution b
+#      transitions from aligning with gamma_h (pure AR(1)) to aligning with V2
+#      (full decoupling), with an intermediate mixed regime at lambda = O(1/delta).
 
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -2255,7 +2383,8 @@ t(V)[2, ] %*% sum_d_delta / delta
 #   => V1 term = O(delta^2),                 V2 term = O(delta)
 #   => b ~ V2 * O(delta)  (b aligns with V2 and shrinks to zero with delta)
 #   Note that even stronger regularization (larger lambda) will keep the same 
-#   direction but shrink b even stronger to zero.
+#   direction but shrink b even stronger to zero (recall that the constraint 
+#   imposed by beta = 0 is a misspecification).
 
 # A.3) lambda = O(1/delta)  (large regularization but not as large as in A.2)
 #   1 / (1 + lambda * eta_1) = O(delta),     1 / (1 + lambda * eta_2) = O(1)
@@ -2288,7 +2417,9 @@ t(V)[2, ] %*% sum_d_delta / delta
 #   B.2.2) lambda = O(1/delta^2),  beta = O(delta^2)
 #     G1 part (from A.2): b_G1 ~ V2 * O(delta)
 #     G2 part: same order structure as G1 => also aligns with V2
-#     => b = O(delta) * V2  (shrinks to zero with delta)
+#     => b = O((1+beta * lambda) * delta) * V2 = O(delta+beta/delta) * V2 = 
+#     O(delta) * V2.  
+#     - Shrinks to zero since beta = O(delta^2) when lambda * beta = O(1). 
 #
 #   B.2.3) lambda = O(1)
 #     Similar to A.1: b proportional to V1 ~ O(1) * gammah

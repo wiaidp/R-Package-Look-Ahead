@@ -1,14 +1,18 @@
-M-SSA Tutorial — GitHub Project
+Look Ahead DFP and PCS Tutorial — GitHub Project
+
+
+
+DFP: Decouple From Present; PCS: Peak Correlation Shift.
 
 
 
 Overview:
 
-M-SSA (Multivariate Smooth Sign Accuracy) provides a unified framework for solving general prediction problems while simultaneously accommodating specific, practically relevant research priorities and objectives.
+DFP and PCS provide generic frameworks for solving prediction problems while simultaneously accommodating specific, practically relevant research priorities and objectives.
 
 
 
-The M-SSA Tutorial is an R-based project comprising a collection of exercises and case studies designed to introduce users to — and provide hands-on experience with — the M-SSA framework.
+The Look Ahead Tutorial is an R-based project comprising a collection of exercises and case studies designed to introduce users to — and provide hands-on experience with — the DFP and PCS frameworks.
 
 
 
@@ -18,11 +22,11 @@ Author: Marc Wildi — https://marcwildi.com
 
 
 
-Repository: https://github.com/wiaidp/R-package-SSA-Predictor
+Repository: https://github.com/wiaidp/R-Package-Look-Ahead
 
 
 
-Background (references \& links): https://github.com/wiaidp/R-package-SSA-Predictor/about
+Background (references \& links): https://github.com/wiaidp/R-Package-Look-Ahead/about
 
 
 
@@ -38,13 +42,13 @@ The project directory is organized into sub-folders:
 
 1.Data
 
-2.M-SSA Tutorials
+2.Look-Ahead Tutorials
 
 3.Papers
 
-4.R (repository of SSA, I-SSA and M-SSA optimization)
+4.R (repository of DFP and PCS optimization)
 
-5.R utility functions 
+5.R utility functions
 
 6.Results
 
@@ -54,7 +58,7 @@ The project directory is organized into sub-folders:
 
 
 
-Getting started: Open the R project by clicking the project icon located in the main repository. This will launch the project in RStudio. From there, load any tutorial file from the `M-SSA Tutorials' sub-folder and run the code. Tutorials are arranged in order of increasing complexity.
+Getting started: Open the R project by clicking the project icon located in the main repository. This will launch the project in RStudio. From there, load any tutorial file from the `Look-Ahead Tutorials' sub-folder and run the code. Tutorials are separated into DFP and PCS and arranged in order of increasing complexity.
 
 
 
@@ -68,7 +72,7 @@ Background:
 
 
 
-M-SSA is built to address the prediction ATS Trilemma. Forecasting inherently involves three partly competing goals:
+DFP and PCS are built to address the prediction ATS Trilemma. Forecasting inherently involves three partly competing goals:
 
 
 
@@ -94,61 +98,47 @@ Together, these constitute the ATS Trilemma.
 
 Optimization Principles:
 
-M-SSA addresses each dimension of the trilemma as follows:
+DFP and PCS address the dimensions of the trilemma as follows:
 
 
 
-Accuracy: optimized via sign accuracy and MSE (mean-squared error).
+Accuracy: optimized via target correlation and MSE (mean-squared error).
 
 
 
-Smoothness: enforced by imposing a constraint on the mean duration between consecutive sign changes in the predictor (less sign changes means smoother).
+Smoothness: this component is not addressed explicitly (M-SSA and MDFA address smoothness).
 
 
 
-Timeliness: can be incorporated as an additional consideration through the choice of forecast horizon, though it remains secondary to the core optimization framework.
+Timeliness: addressed explicitly in various forms (decoupling, time-shift at frequency zero, location of peak of Cross Correlation Function (CCF)).
 
 
 
-M-SSA is Specialized to the AS-Dilemma (with possible extension to the ATS Trilemma, discussed in the tutorials).
+DFP and PCS are specialized to the AT-Dilemma (extensions to include the Smoothness part are under investigation: link with M-SSA).
 
 
 
 \####
 
-Why Zero-Crossings (Sign Changes) Matter:
-
-In many applications, zero-crossings serve as markers of significant events, triggering decisions or interventions by analysts, decision-makers, or market participants.
+Looking Ahead
 
 
 
-a. Algorithmic trading
-
-Automated strategies frequently rely on zero-crossings of filtered financial time series to trigger market orders (buy low, sell high)
+In many applications, the classic MSE paradigm is stuck at the present: most weight is assigned to the last observation, the predictor merely tracks the current data point, and increasing the forecast horizon does not improve the lead. That is, the MSE predictor cannot effectively look ahead and anticipate future dynamics.
 
 
 
-b. Recession indicators
-
-Turning-point detection often hinges on zero-crossings of a filtered macroeconomic series or composite aggregate, marking the onset or end of a recessionary episode.
+DFP addresses this limitation by decoupling the predictor from the last observation, allowing it to look ahead — albeit at the cost of increased MSE at the forecast horizon. The DFP minimises this loss subject to a prescribed decoupling constraint. Notably, decoupling can be linked to a natural measure of lead: the time-shift at frequency zero. In this sense, DFP maximises the forecast lead at horizon h subject to a given time-shift at frequency zero.
 
 
 
-c. Business cycle analysis (BCA)
-
-BCA identifies a broadly regular, recurrent economic cycle alternating between expansion and contraction phases. Phase transitions — and thus the timing of anti-cyclical policy responses — occur precisely at zero-crossings of the cycle.
+The time-shift at frequency zero, tau, quantifies the lead of the DFP predictor over the classic MSE predictor as follows: a linear trend is left-shifted by tau time units relative to the MSE benchmark. In practice, this left-shift typically — though not always — extends to adjacent frequencies by continuity. For example, low-frequency business-cycle components may also experience a left-shift, but generally to a lesser degree than tau: the lead achieved at frequency zero carries over to business-cycle frequencies, albeit attenuated.
 
 
 
-d. Industrial process control
-
-Monitoring problems are often framed as a filter exceeding a threshold and readily recast as a zero-crossing problem.
 
 
-
-Note:
-
-In contrast to methods that depend exclusively on the sign of observations (e.g., logit), M-SSA utilizes fully observed interval-scaled data to address signs, resulting in greater efficiency (see a corresponding tutorial).
+PCS addresses an aggregate lead measure that accounts for the time-shift across the entire frequency band, rather than only locally at frequency zero. The stuck at the present problem of the classic MSE predictor manifests in the cross-correlation function (CCF): the CCF of the MSE predictor with the target series peaks at lag k = 0, whereas the CCF of an ideal forward-looking predictor would peak at the forecast horizon h. PCS aims precisely at shifting this peak from 0 to h. The CCF thus serves as an aggregate measure of lead (advancement, left-shift) or lag (retardation, right-shift), summarising the cumulative effect of the time-shift of the PCS predictor across the full frequency band.
 
 
 
@@ -156,43 +146,47 @@ In contrast to methods that depend exclusively on the sign of observations (e.g.
 
 Efficient Frontier and Pareto Optimality:
 
-In an M-SSA-optimized predictor, any gain in sign accuracy inevitably incurs a higher rate of zero-crossings — and vice versa. There is no free lunch.
+In a DFP (or PCS) optimized predictor, any gain in lead inevitably incurs a loss in target correlation or MSE at the forecast horizon h. There is no free lunch.
 
 
 
-This trade-off is a direct consequence of M-SSA residing on the efficient frontier of the Accuracy-Smoothness (AS) Dilemma (Pareto optimality):
+This trade-off is a direct consequence of DFP (and PCS) residing on the efficient frontier of the Accuracy-Timeliness (AT) Dilemma (Pareto optimality):
 
 
 
-Classical Max-Likelihood predictors represent a single point on this frontier.
+Classical Max-Likelihood (MSE) predictors represent a single point on this frontier.
 
 
 
-M-SSA extends the solution space to the full frontier, offering a richer and more flexible set of forecasting solutions.
+DFP and PCS extend the solution space to the full frontier, offering a richer and more flexible set of forecasting solutions.
 
 
 
 \####
 
-What Makes M-SSA Distinctive:
+What Makes DFP/PCS Distinctive
 
 
 
-A. Generality: classical linear forecasting methods emerge as special cases, which can then be refined within M-SSA to reflect specific research priorities and objectives (customization). The tutorial proposes customization of Hodrick-Prescott, Hamilton, Christiano-Fitzgerald, refined Beveridge-Nelson filter designs as well as of ARMA/VARMA forecasting.
+A. Generality and Customisation
+
+Classical linear forecasting methods emerge as special cases of DFP/PCS, which can then be refined to reflect specific research priorities and objectives. The tutorial demonstrates this customisation for two canonical problems: classic ARMA forecasting and business-cycle filtering. Particular emphasis is placed on difficult forecasting problems in which the MSE predictor is stuck at the present — settings where a right-shift of the CCF is difficult or even impossible to achieve.
 
 
 
-B. Interpretability: optimization criteria are grounded in clear, fundamental principles, yielding solutions that are uniquely determined and straightforward to communicate.
+B. Interpretability
+
+The optimisation criteria are grounded in clear, fundamental principles, yielding closed-form solutions that are uniquely determined and straightforward to interpret and communicate.
 
 
 
-C. Transparency: unlike black-box methods, M-SSA provides a direct window into the forecasting mechanism. Optimization is fast, numerically stable, and leads to unique solutions.
+C. Transparency
+
+Unlike black-box methods, DFP/PCS provide direct insight into the forecasting mechanism: optimisation is performed in closed form and leads to unique, fully traceable solutions.
 
 
 
-These qualities make M-SSA especially well-suited for settings where opacity is either prohibited — such as compliance-driven or regulatory environments — or simply undesirable, such as when a deeper understanding of the underlying forecasting logic is required.
-
-
+Together, these qualities make DFP/PCS especially well-suited for settings where opacity is either prohibited — such as compliance-driven or regulatory environments — or simply undesirable, such as when a deeper understanding of the underlying forecasting logic is required.
 
 
 
@@ -208,7 +202,7 @@ The author proposes the following complementary R-based prediction frameworks (h
 
 
 
-2\. Look-Ahead DFP/PCS: tutorial in preparation. DFP/PCS specializes in the Accuracy-Timeliness trade-off, targeting applications where the cost of delay is particularly significant.
+2\. M-SSA: https://github.com/wiaidp/R-package-SSA-Predictor. The M-SSA specializes in the Accuracy-Smoothness trade-off, targeting applications where the cost of spurious false alarms is prohibitive.
 
 
 
