@@ -30,7 +30,7 @@ Repository: https://github.com/wiaidp/R-Package-Look-Ahead
 
 
 
-Background (references \& links): https://github.com/wiaidp/R-Package-Look-Ahead/about.md
+Background (references \& links): https://github.com/wiaidp/R-Package-Look-Ahead/blob/main/about.md
 
 
 
