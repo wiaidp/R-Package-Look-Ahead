@@ -2517,9 +2517,9 @@ t(V)[2, ] %*% sum_d_delta / delta
 #    different perturbations and aggregated into a combined look ahead design.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Note: In principle, a closed-form analogue to the strongly regularized
+# Note: A closed-form analogue to the strongly regularized
 # perturbed PCS function PCS_perturbation_func() could be derived. However,
-# this extension is not provided yet and is left as an open challenge exercise.
+# this extension is not provided yet and is left as an open challenge.
 
 
 
