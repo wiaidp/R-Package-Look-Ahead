@@ -6,7 +6,11 @@ DFP: Decouple From Present; PCS: Peak Correlation Shift.
 
 
 
+\####
+
 Overview:
+
+
 
 DFP and PCS provide generic frameworks for solving prediction problems while simultaneously accommodating specific, practically relevant research priorities and objectives.
 
@@ -49,8 +53,6 @@ The project directory is organized into sub-folders:
 4.R (repository of DFP and PCS optimization)
 
 5.R utility functions
-
-6.Results
 
 
 
