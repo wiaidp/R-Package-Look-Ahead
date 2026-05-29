@@ -281,7 +281,13 @@
 #             kept small to moderate: excessively large lambda assigns
 #             disproportionate weight to the misspecified constraints, compared 
 #             to the proper forecast target, hence risking unusable predictors.
-
+#
+# Example 5 — Parameter Interplay:
+#             Analyses and formalites the complex entanglement and interaction 
+#             of the hyperparameters:
+#               - lambda : regularisation weight,
+#               - beta   : CCF slope appearing in the constraints,
+#               - delta  : size of the perturbation.
 
 ################################################################################
 # Main Take-Aways:
@@ -527,9 +533,9 @@ max(abs(V - eigenN$vectors))
 # Inspect eigenvalues of M and its leading eigenvector. 
 # Note: the sign of V is arbitrary since the diagonalization is quadratic in V.
 eigenM$values
-ts.plot(V[, 1], main = "Leading eigenvector of M")
+ts.plot(V[,1], main = "Leading eigenvector of M")
 
-# Since V is orthogonal and gamma_sol is proportional to V[,1], all projections
+# Since V is orthogonal and gamma_sol is proportional to V1:=V1, all projections
 # t(V[,k]) %*% gamma_sol vanish for k > 1.
 
 # Verify: the projection onto V[,k] for k > 1 should vanish.
@@ -541,14 +547,14 @@ t(V)[k, ] %*% gamma_sol     # Equivalent formulation.
 t(V) %*% gamma_sol
 
 # Intermediate vector g = diag(1/d) %*% t(V) %*% gamma_sol:
-# only its first element is non-zero, so b = V %*% g = g[1] * V[,1].
+# only its first element is non-zero, so b = V %*% g = g[1] * V1.
 g <- diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 g
 
-# Verify: V %*% g equals g[1] * V[,1] up to numerical precision.
-max(abs(V %*% g - g[1] * V[, 1]))
+# Verify: V %*% g equals g[1] * V1 up to numerical precision.
+max(abs(V %*% g - g[1] * V[,1]))
 
-# Conclusion: b = solve(M) %*% gamma_sol is proportional to V[,1], the leading
+# Conclusion: b = solve(M) %*% gamma_sol is proportional to V1, the leading
 # eigenvector of M, which itself has an AR(1) (geometrically decaying) profile.
 b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 
@@ -584,8 +590,8 @@ b[2:L] / b[1:(L - 1)]
 # It is impossible to shift the CCF peak to k > 0 for the AR(1) DGP.
 #
 # The self-similarity of the AR(1) process (rank-one constraint system) implies
-# that gamma_sol is proportional to V[,1], the leading eigenvector of M. As a
-# result, b = solve(M) %*% gamma_sol is proportional to V[,1], which is itself
+# that gamma_sol is proportional to V1, the leading eigenvector of M. As a
+# result, b = solve(M) %*% gamma_sol is proportional to V1, which is itself
 # AR(1). This holds irrespective of the choice of lambda > 0 and beta can only 
 # trigger the sign of b. 
 #
@@ -722,11 +728,11 @@ t(V) %*% gamma_sol
 g <- diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 g
 
-# Consequently, b = V %*% g = g[1]*V[,1] + g[2]*V[,2].
+# Consequently, b = V %*% g = g[1]*V1 + g[2]*V2.
 # Verify: the residual should vanish.
-max(abs(V %*% g - g[1] * V[, 1] - g[2] * V[, 2]))
+max(abs(V %*% g - g[1] * V[,1] - g[2] * V[,2]))
 
-# The PCS predictor b is a linear combination of V[,1] and V[,2], or
+# The PCS predictor b is a linear combination of V1 and V2, or
 # equivalently, of gamma_0 and perturbation_vec.
 b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 
@@ -740,65 +746,59 @@ b[2:L] / b[1:(L - 1)]
 summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 
 
+# We now explore the Rank-Two System under various regularization settings.
+
 #───────────────────────────────────────────────────────────────────────────────
-# 2.3 Exploring the Rank-Two System Under Strong Regularisation
+# 2.3  VERY STRONG Regularisation
 #───────────────────────────────────────────────────────────────────────────────
-# The PCS predictor lies in the span of V[,1] and V[,2], with coefficients
-# governed by beta and lambda. As beta varies, the predictor traces a path
-# between two limiting directions:
+# The PCS predictor lies in the span of V1 and V2, with coefficients
+# governed by lambda, beta and delta. 
 #
-#   beta → -∞ :  predictor aligns with  -V[,2]  (for large lambda)
-#   beta → +∞ :  predictor aligns with  +V[,2]  (for large lambda)
+# - The behaviour of the regularised perturbated solution depends on the 
+#   interplay between the hyperparameters: 
+#     - the regularisation weight lambda, 
+#     - the perturbation size delta, and 
+#     - the slope beta; 
+#   see Exercise 5 (more precisely Exercise 5.3, VIII) for theoretical background 
+#   on the various regularisation regimes.
 #
-# For small lambda (which does not apply here), the limiting directions are
-# determined by -V[,1] and +V[,1] instead.
-#
-# The role of lambda can be understood as a trade-off:
-#   - Large lambda: heavy weight on the PCS constraints, which require the
-#     full decoupling direction V[,2] to be activated.
-#   - Small lambda: heavy weight on the MSE target gamma_h, pulling the
-#     predictor toward the direction V[,1].
+# - Here we set lambda = 1/delta^2, corresponding to a very strong regularisation
+#   regime, see  case [c] in Exercise 5.3, VIII. In principle, any lambda of this 
+#   very large order or larger (assuming delta is small) emphasises the perturbation and the full decoupling
+#   direction V2:=V2 (which is determined by and depends on the perturbation). 
+#   However, special values of beta allow for alternative combinations of V1 
+#   and V2, including the special case b = O(delta^2) * V1 (subject to very strong 
+#   shrinkage O(delta^2)), see  case [c] in Exercise 5.3, VIII.
 
-# Regularisation weight (strong regularisation regime).
-lambda <- 5000000
+# Very strong regularisation, see case [c] in Exercise 5.3, VIII.
+lambda <- 1/delta^2
 
-if (F)
-{
-# Construct a manual grid of beta values that spans the two limiting directions
-# and resolves the transition region near the tipping point.
+# Compute a grid of 'interesting' beta values for the given lambda.
 #
-# The values are scaled by 1/lambda so that the effective perturbation
-# beta * lambda remains on a meaningful scale.
+# PCS_func() automatically generates a grid of beta values that concentrates
+# points near the tipping point — the region where the PCS design is most
+# sensitive to changes in beta and may become near-singular. Adequate resolution
+# in this region is important, since small changes in beta can produce large
+# changes in the predictor there.
 #
-  beta_vec <- c(-5.000e+05, 0, 2, 2.5, 2.7, 2.8, 2.9, 3, 4, 5) / lambda
-}
+# The grid depends only on lambda, not on beta. We therefore call PCS_func()
+# with an arbitrary beta value solely to retrieve the grid.
 
-# Alternatively, PCS_func() can generate a beta grid automatically for a given
-# lambda, concentrating points near the tipping point where the PCS design is
-# most sensitive to beta (and may become near-singular). Near singularity,
-# arbitrarily small changes in beta can produce large changes in the predictor,
-# so adequate resolution in this region is important.
-#
-# The automatic grid depends only on lambda, not on beta itself. We therefore
-# call PCS_func() with an arbitrary beta value solely to extract the grid.
-
-# Arbitrary beta used only to trigger the grid computation (value is irrelevant).
+# The beta value passed here is arbitrary; only the resulting grid is used.
 beta <- 0
 
-# Call PCS_func() to obtain the automatically generated beta grid.
+# Call PCS_func() to generate the beta grid for the specified lambda.
 PCS_obj <- PCS_func(h, Delta, gamma_pcs_perturbated, L, beta, lambda)
 
-# Extract the beta grid from the PCS object.
-beta_vec <- PCS_obj$beta_vec
+# Extract the generated beta grid from the returned object.
+beta_vec_automatic <- PCS_obj$beta_vec
+# Slightly refine the grid at the right boundary to emphasize special cases
+beta_vec<-c(beta_vec_automatic[1:(length(beta_vec_automatic)-1)],2.768514e-08,2.775e-08,2.777e-08,2.78e-08,beta_vec_automatic[length(beta_vec_automatic)])
 
-# Either the manual grid defined above or the automatic grid extracted here
-# may be used in subsequent computations (the manually computed has slightly 
-# better resolution).
-
-
+# Type I) PCS: impose constraints from lags k=1 to h:
 Delta <- 1:h
-b_mat <- NULL
 
+b_mat <- NULL
 # Compute PCS predictors for given lambda and beta in beta_vec
 for (i in 1:length(beta_vec)) {
   beta    <- beta_vec[i]
@@ -811,13 +811,24 @@ filter_mat           <- b_mat
 colnames(filter_mat) <- paste("lambda =", round(lambda, 2),
                               ", beta*lambda =", round(beta_vec*lambda, 8))
 
-
 #───────────────────────────────────────────────────────────────────────────────
 # 2.4 Plots
 #───────────────────────────────────────────────────────────────────────────────
 
-# The following function displays predictors and CCFs.
-  
+# The following function displays predictors and cross-correlation functions (CCFs)
+# across four panels:
+#
+#   Panel 1 (top left):     Predictor profiles. All predictors are scaled to unit
+#                           length to facilitate visual comparison.
+#   Panel 2 (top right):    CCF of the predictor against xi, the original AR(1) process.
+#   Panel 3 (bottom left):  CCF of the predictor against V1, the perturbed AR(1)
+#                           direction (approximately equal to the original AR(1)).
+#                           For small delta, Panels 2 and 3 are visually nearly
+#                           indistinguishable, differing only by an arbitrary sign
+#                           (the sign of V1 is not identified) and the small
+#                           delta-perturbation, which is too subtle to be visible.
+#   Panel 4 (bottom right): CCF of the predictor against V2, the full decoupling
+#                           direction.
 
 colo<-plot_func()
 
@@ -827,94 +838,91 @@ colo<-plot_func()
 # The predictor profiles displayed in Panel 1 illustrate the effect of the
 # single-lag perturbation at lag 0. Because the perturbation affects only the
 # lag-0 coefficient of xi, the PCS predictor b follows the standard AR(1)
-# decay profile for all lags k >= 1, up to possible sign inversion. 
-# The perturbation provides a single degree
-# of freedom — a fine-tuning adjustment at lag 0 only — without altering the
-# structure of the predictor at any other lag (eventually up to sign).
+# decay profile for all lags k >= 1, up to a possible sign inversion.
+# The perturbation introduces a single degree of freedom — a fine-tuning
+# adjustment at lag 0 only — leaving the predictor structure at all other
+# lags unchanged (again, up to sign).
 #
-# This limited flexibility is the key limitation of the single-lag perturbation:
-# it expands the rank from 1 to 2, but the additional degree of freedom is
-# confined entirely to lag 0. As a result, the look-ahead behaviour along the 
-# full decoupling direction V2 (Panel 4) can shift the peak from k=0 to k=1, at 
-# most. This effect is relatively modest compared to multi-lag perturbations, which
-# reshape the predictor profile across all lags and thereby generate a richer
-# decoupling effect, generating strong peak-shifts along their full decoupling 
-# directions V2, see exercises 3 and 4 below.
+# This limited flexibility is the defining constraint of the single-lag
+# perturbation: it expands the rank from 1 to 2, but the additional degree of
+# freedom is confined entirely to lag 0. Consequently, the look-ahead behaviour
+# along the full decoupling direction V2 (Panel 4) can shift the predictor
+# peak from k = 0 to k = 1 at most — a relatively modest effect. By contrast,
+# multi-lag perturbations reshape the predictor profile across all lags,
+# generating richer decoupling effects and more pronounced peak shifts along
+# their full decoupling directions V2; see Exercises 3 and 4 below.
 #
-# Under strong regularisation, the PCS predictors transition smoothly from -V2
-# to +V2 as beta increases. The two extremes, ±V2, reflect configurations where
-# the constraint is driven entirely by the decoupling direction V2, with V1
-# (the target gamma_h direction) receiving zero weight. V2 is the primary
-# enabler of the PCS constraints and is therefore emphasized when lambda is 
-# large (as is the case here): for sufficiently large positive or negative beta, 
-# the predictor collapses onto ±V2 and the contribution of V1 vanishes.
+# Under very strong regularisation, i.e., lambda = O(1/delta^2), the full
+# decoupling direction V2 is emphasised; though V1 can be recovered from 
+# particular beta values, see Exercise 5.3 VIII, case [c] for background.
 #
-# Between these two extremes, the predictor traces a continuum of optimal linear
-# combinations of V1 and V2, with the weights determined by the
-# interplay between the target correlation (governed by V1) and the constraint
-# satisfaction (governed by V2) for the specified values of lambda and beta.
 #
 # Notes
-#  1. The coefficient vector b can be reparametrised as:
-#        b = lambda1 * V[,1] + lambda2 * V[,2],
-#     where lambda1 and lambda2 are determined by lambda and beta. Crucially,
-#     not all combinations of lambda1 and lambda2 are admissible: optimising
-#     the PCS criterion imposes constraints on their joint values.
-#  2. The signs of V[,1] and V[,2] are arbitrary (as is typical for
-#     eigenvectors); this is compensated by the signs of lambda1 and lambda2,
-#     which adjust the orientation of b accordingly. 
+#  1. The coefficient vector b admits the reparametrisation:
+#
+#        b = lambda1 * V1 + lambda2 * V2,
+#
+#     where lambda1 and lambda2 are determined by lambda and beta (for given 
+#     delta). Crucially, not all combinations of (lambda1, lambda2) are 
+#     admissible: optimising the PCS criterion imposes constraints on their 
+#     joint values.
+#
+#  2. Under very strong regularisation, lambda = O(1/delta^2), the full
+#     decoupling direction V2 typically dominates V1. In particular, for 
+#     large |beta| (asymptotically) the PCS predictor aligns with +/- V2. 
+#     However, specific values of beta can unlock V1, allowing combinations of 
+#     V1 and V2 — including V1 alone as a special case (violet lines in
+#     Panel 1: beta * lambda ≈ 2.777). Such combinations are subject to
+#     stronger shrinkage; see Exercise 5.3 VIII, case [c]. Note that the 
+#     predictors in the first panel are scaled to unit-length (so shrinkage is 
+#     not rendered).
+#
+#  3. The signs of V1 and V2 are arbitrary, as is standard for
+#     eigenvectors. This is compensated by the signs of lambda1 and lambda2,
+#     which adjust the orientation of b accordingly.
 
 # ── Interpretation of CCF Panels ──────────────────────────────────────────────
 #
-# The PCS predictor b is a linear combination of V[,1] and V[,2], and therefore
+# The PCS predictor b is a linear combination of V1 and V2, and therefore
 # also of gamma_0 and perturbation_vec.
 #
-# Since V[,1] and V[,2] are orthogonal, the total CCF decomposes additively:
+# Since V1 and V2 are orthogonal, the total CCF decomposes additively:
 #
-#   CCF(b, xi) = CCF(b, V[,1]) + CCF(b, V[,2]).
+#   CCF(b, xi) = CCF(b, V1) + CCF(b, V2).
 #
 # Panel 3 — CCF against V1:
 #   Isolates the gamma_0 contribution to the CCF. This reflects the immutable,
-#   fixed AR(1) profile: it is identical across all predictors b, regardless of
-#   the choice of hyperparameters beta and lambda. It coincides with the CCF
-#   profile in Panel 2 (CCF against xi), up to a possible (arbitrary) sign change 
-#   due to arbitrary sign of the eigenvector V[,1]. 
+#   fixed AR(1) profile (up to the delta perturbation which is invisible when 
+#   delta is small). It coincides with the CCF profile in Panel 2 (CCF against 
+#   xi), up to an invisible delta-effect and a possible sign change due to 
+#   arbitrary sign of the eigenvector V1.  
 #
 # Panel 4 — CCF against V2:
 #   Isolates the `full decoupling' direction (V2) introduced by the perturbation.
 #   This component captures the idiosyncratic look-ahead effect that arises
 #   exclusively from the extraneous perturbation. Unlike the V1 component, it
-#   varies with the hyperparameters and depends directly on the type and
-#   direction of the perturbation chosen. Different perturbations yield different
-#   V2 vectors and therefore different look-ahead profiles in this panel, see 
-#   exercises 3 and 4 below.
+#   depends directly on the type of the perturbation chosen. Different 
+#   perturbations yield different V2 vectors and therefore different look-ahead 
+#   profiles in this panel, see exercises 3 and 4 below.
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.5 Medium Regularization
+# 2.5 STRONG Regularization
 # ─────────────────────────────────────────────────────────────────────
 
-# Same as Exercise 2.3 but with a medium-sized lambda:
-# Medium regularization
-lambda<-5
-# Tipping points: the two extremes are -V[,1] and +V[,1]
-# Note: in exercises 3 and 4, the new function PCS_perturbation_func() will 
-# generate automatically a grid of relevant beta values.
-beta_vec<-c(0.900000, 0.902000, 0.902500, 0.902750, 0.902850, 0.902940, 0.902945, 0.902975, 0.903000, 0.903050, 0.903250, 0.905500)/lambda
+# Same as Exercise 2.3 but with strong regularisation, lambda = O(1/delta); see
+# Exercise 5.3, VIII, case [b] for background.
+#
+# In contrast to Exercise 2.3 (very strong regularisation, lambda = O(1/delta^2)),
+# a mixture of V[,1] and V[,2] is the natural outcome here: both directions
+# contribute with similar importance. Pure V[,1] or pure V[,2] directions are
+# possible only for special values of beta.
+#
+# As |beta| -> Inf, b remains a mixture of V[,1] and V[,2], unlike the very
+# strong regularisation setting of Exercise 2.3, where b aligns asymptotically
+# with +/- V[,2].
 
-# Note:
-# The PCS design exhibits marked sensitivity to the choice of beta: small
-# changes in beta drive the transition from -V1 to +V1. This sensitivity
-# reflects the near-singularity of the design as delta (the perturbation) shrinks toward zero —
-# a fundamental trade-off inherent to the interpretability of the
-# parameterisation. Specifically, as delta -> 0, V1 converges to gamma0 (the
-# direction associated with the AR(1) process), while V2 aligns with the fully
-# decoupling direction induced by the perturbation, rendering the design
-# geometrically interpretable. Conversely, larger values of delta alleviate
-# the near-singularity — reducing sensitivity to beta — but at the cost of
-# a less structured and less interpretable geometry. This trade-off is
-# deliberate: interpretability is here prioritised over numerical regularity.
-
+lambda<-1/delta
 
 # Instead of manually adjusting beta (which can be tedious) we can 
 # rely on grid computed by PCS_func():
@@ -954,15 +962,85 @@ colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta*lambda=",round(bet
 
 colo<-plot_func()
 
-# ── Interpretation of Predictors (Medium Regularisation) ──────────────────────
+# ── Interpretation of Predictors (Strong Regularisation) ──────────────────────
 #
-# The key difference relative to the strong regularisation case in Section 2.4
-# is that the extremal predictors now align with +V1 and -V1 rather than ±V2.
-# Under medium regularisation, the PCS constraints carry less weight relative
-# to the target correlation objective. As a result, the target correlation
-# component — represented by V1 ≈ gamma_h — dominates, and the solution space
-# morphs smoothly between -V1 and +V1 as beta varies. The decoupling direction
-# V2 still contributes intermediate solutions but no longer defines the extremes.
+# The key differences relative to the very strong regularisation case in
+# Section 2.4 are:
+# - For very large |beta|, the solution is now an intermediate mix of V1 and
+#   V2, rather than being dominated by V2 alone. 
+# - The blend of V1 and V2 arises naturally, and shrinkage is generally less
+#   pronounced (note that predictors are scaled to unit length in the first 
+#   panel, so shrinkage effects are not directly visible).
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.7 MILD Regularization
+# ─────────────────────────────────────────────────────────────────────
+
+# Same as Exercise 2.3 but with mild regularisation (lambda = 1); see
+# Exercise 5.3 VIII case [a] for background. The natural solution aligns with
+# V1, although mixtures of V1 and V2 are also possible. A pure V2 direction
+# remains attainable, but is subject to strong shrinkage. Asymptotically, as
+# |beta| -> Inf, b aligns with V1, in contrast to the very strong and strong
+# regularisation cases discussed above.
+
+# Medium regularization
+lambda<-1
+
+
+# Instead of manually adjusting beta (which can be tedious) we can 
+# rely on grid computed by PCS_func():
+
+# Arbitrary beta used only to trigger the grid computation (value is irrelevant).
+beta <- 0
+
+# Call PCS_func() to obtain the automatically generated beta grid.
+PCS_obj <- PCS_func(h, Delta, gamma_pcs_perturbated, L, beta, lambda)
+
+# Extract the beta grid from the PCS object.
+beta_vec_automatic <- PCS_obj$beta_vec
+# Add two extreme values at the boundaries
+beta_vec<-c(0,beta_vec_automatic,10)
+# Either the manual grid defined above or the automatic grid extracted here
+# may be used in subsequent computations (the manually computed has slightly 
+# better resolution).
+
+
+b_mat<-NULL
+for (i in 1:length(beta_vec))
+{
+  
+  beta<-beta_vec[i]
+  PCS_obj<-PCS_func(h,Delta, gamma_pcs_perturbated, L, beta, lambda)
+  
+  b       <- PCS_obj$b
+  b_mat<-cbind(b_mat,b)
+}
+
+filter_mat<-b_mat
+colnames(filter_mat)<-paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,5))
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.8 Plots
+# ─────────────────────────────────────────────────────────────────────
+
+colo<-plot_func()
+
+# ── Interpretation of Predictors (Strong Regularisation) ──────────────────────
+#
+# Compared to the very strong (lambda = 1/delta^2) and strong (lambda = 1/delta)
+# regularisation cases, the key differences are:
+#
+# - For very large |beta|, the solution aligns with +/- V1 rather than a mix
+#   of V1 and V2 (under strong regularization), or the pure V2 direction (under 
+#   very strong regularization).
+#
+# - V1 emerges as the natural solution direction, although mixtures of V1 and V2
+#   remain possible. The pure V2 direction is also attainable, but the
+#   corresponding PCS is subject to strong shrinkage in that case;
+#   see Exercise 5.3 VIII, case [a]. Note that predictors are scaled to unit
+#   length in the first panel, so shrinkage effects are not directly visible.
+
 #
 # Notes:
 #
@@ -975,18 +1053,10 @@ colo<-plot_func()
 #    a valid PCS solution: the PCS criterion additionally requires maximisation
 #    of the target correlation subject to the penalty on constraint deviation.
 #    The weights lambda1 and lambda2 are therefore implicitly determined by the
-#    hyperparameters lambda and beta via the penalised criterion, and should not
+#    hyperparameters lambda, delta and beta via the penalised criterion, and should not
 #    be set independently.
 #
-# 2. Invariance to the perturbation size delta:
-#    The PCS solution space is invariant to the magnitude of the perturbation
-#    delta: the same family of predictors is obtained for any delta > 0 (or <0). 
-#    A change in delta shifts the implicit mapping between (lambda, beta) and 
-#    the weights (lambda1, lambda2), requiring recalibration of the 
-#    hyperparameters, but leaves the geometric structure of the solution space 
-#    unchanged.
-#
-# 3. Extending to Higher Rank via Additional Perturbations:
+# 2. Extending to Higher Rank via Additional Perturbations:
 #    The rank of the constraint system can be increased beyond two by introducing
 #    additional linearly independent perturbations of the form delta_i * e_i,
 #    where e_i is the i-th unit vector and delta_i != 0 are small scaling
@@ -1140,7 +1210,7 @@ ts.plot(eigenN$vectors[, 1:2],
 # Visualise the two leading eigenvectors of M.
 ts.plot(V[, 1:2], main = "Leading eigenvectors of M",lty=1:2)
 
-# Confirm that V[,1] decays geometrically (AR(1) direction) if delta is small.
+# Confirm that V1 decays geometrically (AR(1) direction) if delta is small.
 V[2:L, 1] / V[1:(L - 1), 1]
 
 # Since gamma_sol lies in the column space of V[,1:2], all projections
@@ -1152,10 +1222,10 @@ t(V) %*% gamma_sol
 g <- diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 g
 
-# Verify: b = V %*% g = g[1]*V[,1] + g[2]*V[,2]. Residual should vanish.
-max(abs(V %*% g - g[1] * V[, 1] - g[2] * V[, 2]))
+# Verify: b = V %*% g = g[1]*V1 + g[2]*V2. Residual should vanish.
+max(abs(V %*% g - g[1] * V[,1] - g[2] * V[,2]))
 
-# The PCS predictor b lies in the plane spanned by V[,1] and V[,2], or
+# The PCS predictor b lies in the plane spanned by V1 and V2, or
 # equivalently, by xi[1:L] and xi_a1_perturbate[1:L].
 b <- V %*% diag(1 / eigenM$values) %*% t(V) %*% gamma_sol
 
@@ -1173,23 +1243,39 @@ b[2:L] / b[1:(L - 1)]
 # 3.3 Exploring the Rank-Two System: Strong Regularisation
 #----------------------------------------------------------------------------------
 # Under strong regularisation, the PCS predictor transitions smoothly between
-# the two extremes ±V[,2] as beta varies, passing through -V[,1] at the
-# tipping point where the V[,2] contribution vanishes.
-# The weights on V[,1] and V[,2] are governed by lambda and beta.
+# the two extremes ±V2 as beta varies, passing through -V1 at the
+# tipping point where the V2 contribution vanishes.
+# The weights on V1 and V2 are governed by lambda and beta. A complete analysis 
+# is provided in Exercise 5.3 VIII case [c].
 
 # Strong regularisation weight.
 lambda <- 5000000
 
-# Note: the design exhibits marked sensitivity to beta — small perturbations
-# in beta can induce substantial changes in the PCS solution — a consequence
-# of the near-singularity of the PCS criterion as delta shrinks toward zero.
+# Notes:
+# - In contrast to Exercise 2, which emphasised very strong (lambda = 1/delta^2),
+#   strong (lambda = 1/delta), and mild (lambda = 1) regularisation, here we
+#   focus on strong (lambda = 5,000,000; see above) and medium (lambda = 5;
+#   see Exercise 3.6 below) regularisation, not directly connected to delta.
+# - We do not attempt to cover the full interplay between lambda, beta, and
+#   delta, which is analysed comprehensively in Exercise 5.3 VIII.
+# - Instead, we demonstrate that meaningful look-ahead behaviour can be
+#   obtained under strong and medium regularisation, without requiring an
+#   exhaustive analysis of the complex hyperparameter interactions arising
+#   from the Full-lag AR(1) perturbation considered here.
+
+# Remark:
+# The design exhibits marked sensitivity to beta: small perturbations in beta
+# can induce substantial changes in the PCS solution. This is a consequence of
+# the near-singularity of the PCS criterion as delta shrinks toward zero.
 # This singularity is not merely a numerical inconvenience; it is intimately
-# tied to interpretability: as delta -> 0, the first eigenvector V1 converges
-# to gamma0 (the AR(1) autocovariance direction), while V2 aligns with the
-# full decoupling direction induced by the perturbation. Small delta thus
-# sharpens the geometric separation between these two directions, at the cost
-# of an increasingly ill-conditioned optimisation landscape. This trade-off is
-# deliberate: interpretability is here prioritised over numerical stability.
+# tied to interpretability. Specifically, as delta -> 0:
+#   - The first eigenvector V1 converges to gamma0 (the AR(1) DGP or nowcast).
+#   - The second eigenvector V2 aligns with the full decoupling direction
+#     induced by the perturbation.
+# Small delta therefore sharpens the geometric interpretation of these two
+# directions, but at the cost of an increasingly ill-conditioned optimisation
+# landscape. This trade-off is deliberate: interpretability is here prioritised
+# over numerical stability.
 
 if (F)
 {
@@ -1197,22 +1283,12 @@ if (F)
   beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
 }
 
-# Instead of cumbersome manual tuning of beta as in exercise 2, PCS_perturbation_func()
-# automatically returns a grid of beta values centred on the tipping point
-# — where the sensitivity of the PCS solution with respect to beta is
-# highest. Any initial beta may be supplied; the function locates the
-# tipping point internally and constructs a symmetric grid around it.
+# PCS_perturbation_func() automatically returns a grid of beta values centred on 
+# the tipping point of beta — where the sensitivity of the PCS solution with 
+# respect to beta is highest. 
 #
-# The asymptotic behaviour of the grid tails depends on lambda:
-#   - Large lambda: the perturbed constraint system dominates, and the
-#     left and right tails converge to -V[,2] and +V[,2] respectively,
-#     since V2 is determined by the perturbation.
-#   - Small lambda: the constraints are effectively down-weighted and the
-#     target correlation dominates, causing the tails to converge to
-#     -V[,1] and +V[,1] respectively, since V1 aligns with the MSE
-#     predictor direction gamma_h.
-
-# The grid is independent of beta: any value can be supplied
+# Note: the automatic grid generated by PCS_perturbation_func is independent of 
+# beta: any value can be supplied:
 beta<-0.
 
 PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_perturbate)
@@ -1221,6 +1297,18 @@ PCS_obj<-PCS_perturbation_func(h,Delta, gamma_pcs, L, beta, lambda,gammah_mat_pe
 beta_vec_automatic<-PCS_obj$beta_vec
 # Add some intermediary values for better resolution:
 beta_vec<-c(beta_vec_automatic[1:10],1.86e-07,1.88e-07,1.90e-07,beta_vec_automatic[11:length(beta_vec_automatic)])
+
+# Note:
+# The asymptotic behaviour of the grid tails — i.e. as |beta| -> infinity —
+# depends on the interplay between beta, lambda, and delta (see Exercise 5.3 VIII
+# and Exercise 2 above). Depending on the particular combination of these
+# hyperparameters, the PCS predictor b aligns with one of the following
+# directions as |beta| increases:
+#   - V1 alone,
+#   - a mixture of V1 and V2, or
+#   - V2 alone.
+
+
 
 Delta <- 1:h
 b_mat <- NULL
@@ -1240,7 +1328,6 @@ colnames(filter_mat) <- c("MSE",
                           paste("lambda =", round(lambda, 2),
                                 ", beta*lambda =", round(beta_vec*lambda, 8)))
 
-head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 3.4 Plots
 # ─────────────────────────────────────────────────────────────────────
@@ -1252,9 +1339,10 @@ colo<-plot_func()
 # In contrast to Exercise 2, where the perturbation was confined to lag 0, the
 # full-lag AR(1) perturbation affects every coefficient of the PCS predictor b.
 # This richer perturbation structure expands the solution space more broadly,
-# enabling, among other things, a seemingly cyclical coefficient profile — a
-# notably non-trivial outcome in an inherently aperiodic framework where the
-# underlying Wold coefficients decay monotonically.
+# enabling, among other things, a non-monotonic seemingly cyclical coefficient 
+# profile (violet tones, larger beta values) — a notably non-trivial outcome in an 
+# inherently aperiodic framework where the underlying Wold coefficients of original 
+# and perturbated systems decay monotonically.
 #
 # Under strong regularisation, the PCS predictors transition smoothly from -V2
 # to +V2 as beta increases. The two extremes, ±V2, correspond to configurations
@@ -1268,14 +1356,9 @@ colo<-plot_func()
 # combinations of V1 and V2, with the relative weights determined by the
 # interplay between target correlation maximisation (governed by V1) and
 # constraint satisfaction (governed by V2), for the specified values of lambda
-# and beta.
+# and beta, see Exercise 5.3 VIII for a detailed analysis.
 #
-# The PCS design exhibits sensitivity to the choice of beta when delta is small. 
-# Small delta allow a better geometric interpretation. 
-# Specifically, as delta -> 0, V1 converges to gamma0 (the direction
-# associated with the AR(1) process), while V2 aligns with the fully decoupling
-# direction. For larger delta, the design becomes less singular (less sensitive 
-# to beta) but also less interpretable.
+
 
 #
 # ── Interpretation of CCF: Full-Lag AR(1) Perturbation ────────────────────────
@@ -1290,11 +1373,13 @@ colo<-plot_func()
 
 # Notes:
 # 1. At lag 0, the CCF of the MSE predictor vanishes in panel 4:
-#    CCF_MSE(0) = 0. This is a consequence of full decoupling along V2:
-#    the MSE predictor has no instantaneous correlation with the target
-#    at lag 0 in this direction.
+#    CCF_MSE(0) = 0. This is a consequence of full decoupling along V2, i.e.,
+#    the MSE predictor stands orthogonal to V2.
 # 2. The left-shift of the CCF peak of the PCS predictors along the decoupling 
 #    direction V2 can exceed the forecast horizon h. 
+#
+# We now explore look ahead behaviour of the perturbated PCS approach.
+
 # ─────────────────────────────────────────────────────────────────────
 # 3.5 Apply and Compare Predictors
 # ─────────────────────────────────────────────────────────────────────
@@ -1317,7 +1402,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 #   - Smaller beta values produce lagging predictors (relative to the MSE).
 #   - Larger beta values produce increasingly leading predictors.
 #   - As the degree of lead increases, predictors tend toward sign inversion,
-#     reflecting the fundamental difficulty of the AR(1) forecasting problem.
+#     reflecting phase inversion.
 #   - We select the leading predictors as well as the MSE benchmark predictor.
 #   - All series are standardized to simplify visual inspection.
 select_pcs<-11:ncol(y_out_mat)
@@ -1373,6 +1458,9 @@ for (i in 1:ncol(mplot))
 
 
 # ── Empirical CCF:  ───────────────────────────────────────────────────────────
+# Note: the true (expected) CCF was shown in exercise 3.4. In contrast we here 
+# compute the empirical CCF based on the sample correlations of the filtered series. 
+
 # Compute the empirical cross-correlation function (CCF) between the MSE
 # predictor output (column 1) and the selected (leading) PCS predictor output.
 #
@@ -1380,7 +1468,8 @@ for (i in 1:ncol(mplot))
 #   - As beta increases, the empirical CCF becomes increasingly right-skewed,
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
-#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#   - The right tail of the CCF (lag > 0) is immutable and always follows the 
+#     AR(1) decay:
 #     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
@@ -1388,13 +1477,13 @@ for (i in 1:ncol(mplot))
 #   - Consequently, shifting the CCF peak strictly to the right of lag 0 is
 #     impossible under the AR(1) DGP (see Exercise 1).
 #
-#   - Only the left tail of the CCF is amenable to modification in the AR1) case. 
-#     Whereas the MSE
-#     predictor (first panel) yields a symmetric CCF, the PCS predictor becomes
-#     progressively more asymmetric as beta increases. Effective look-ahead 
-#     behaviour (illustrated in the predictor plot above) is thus achieved by 
-#     skewing the CCF rightward — that is, by down-weighting the contribution 
-#     of negative lags.
+#   - Only the left tail of the CCF (lags < 0) is amenable to modification in 
+#     the AR1) case. 
+#     Whereas the MSE predictor (first panel) yields a symmetric CCF, the PCS 
+#     predictor becomes progressively more asymmetric as beta increases. 
+#     Effective look-ahead behaviour (illustrated in the predictor plot above) 
+#     is thus achieved by skewing the CCF rightward — that is, by down-weighting 
+#     or inverting the contribution of negative lags.
 
 mplot_ccf           <- scale(na.exclude(y_out_mat[, select_vec]))
 colnames(mplot_ccf) <- colnames(y_out_mat)[select_vec]
@@ -1416,16 +1505,9 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 
 lambda<-5
 
-# Note: the design exhibits marked sensitivity to beta when delta is small.
-if (F)
-{
-  # Manual grid
-  beta_vec<-c(4.25,4.251,4.2513,4.2516,4.2518,4.252,4.2521,4.2522,4.2523,4.2524,4.2525,4.253,4.26,4.27)/lambda
-}
 
-# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
-# automatically returns a grid of beta values centred on the tipping point
-# — where the sensitivity of the PCS solution with respect to beta is
+# PCS_perturbation_func() automatically returns a grid of beta values centred on 
+# the tipping point — where the sensitivity of the PCS solution with respect to beta is
 # highest. 
 
 # The grid is independent of beta: any value can be supplied
@@ -1451,13 +1533,13 @@ for (i in 1:length(beta_vec))
 filter_mat<-cbind(gamma0,b_mat)
 colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",round(beta_vec*lambda,8)))
 
-head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 3.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 # The PCS predictor transitions smoothly between the two boundary solutions
-# -V1 and +V1, passing through V2 at an intermediate tipping point.
+# -V1 and +V1, passing through V2 at an intermediate tipping point, see Exercise 
+# 5.3 VIII case [a].
 
 # The CCF in the fourth panel illustrates look ahead behaviour: the CCF peak 
 # is shifted rightwards along the fully decoupled V2 direction. However, 
@@ -1551,7 +1633,7 @@ for (i in 1:ncol(mplot))
 #   - As beta increases, the empirical CCF becomes increasingly right-skewed,
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
-#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#   - The right tail of the CCF (lag > 0) is immutable and always follows the AR(1) decay:
 #     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
@@ -1716,11 +1798,11 @@ g
 
 # Since b = solve(M) %*% gamma_sol = V %*% diag(1/eigenM$values) %*% t(V) %*% gamma_sol,
 # and g has only two non-zero elements, it follows that:
-#   b = V %*% g = g[1] * V[,1] + g[2] * V[,2]
+#   b = V %*% g = g[1] * V1 + g[2] * V2
 # Verification: the following maximum absolute deviation should be (near) zero
-abs(max(V %*% g - g[1] * V[, 1] - g[2] * V[, 2]))
+abs(max(V %*% g - g[1] * V[,1] - g[2] * V[,2]))
 
-# Conclusion: the PCS predictor b lies in the space spanned by V[,1] and V[,2]
+# Conclusion: the PCS predictor b lies in the space spanned by V1 and V2
 # (equivalently, by xi[1:L] and the perturbed AR(2) direction).
 # It is therefore a linear combination of these two eigenvectors,
 # irrespective of the choice of lambda.
@@ -1739,16 +1821,12 @@ b[2:L] / b[1:(L - 1)]
 #
 # Lambda is fixed at a very large value (strong regularization) and beta
 # is varied across a grid. The two boundary values of beta correspond to
-# -V[,2] and +V[,2], with intermediate solutions of the form
-# -V[,1] + lambda1 * V[,2], where lambda1 depends continuously on beta.
-
-# In this example, the minus sign -V[,1] on V1 is due to the large lambda: emphasizing strongly 
-# an increasing CCF(k), from k=0,...,h, through the constraints, is only possible 
-# through sign inversion of gamma_0, i.e., -V1.
+# -V2 and +V2, with intermediate solutions mixing V1 and  V2, see 
+# Exercise 5.3 VIII case [c] for details.
 
 # When the perturbation conditions the constraints into a misspecified design 
 # (here AR(2) instead of AR(1)), emphasizing the constraints at the detriment of 
-# the target correlation through a large lambda might be problematic.
+# the target correlation through a large lambda might cause troubles.
 # ─────────────────────────────────────────────────────────────────────
 
 # Strong regularization
@@ -1794,24 +1872,16 @@ colnames(filter_mat) <- c("MSE",
                           paste("lambda =", round(lambda, 2),
                                 ", beta*lambda =", round(lambda*beta_vec, 8)))
 
-head(scale(filter_mat))
 # ─────────────────────────────────────────────────────────────────────
 # 4.4 Plots
 # ─────────────────────────────────────────────────────────────────────
 
 # The PCS predictor transitions smoothly between the two boundary solutions
-# -V2 and +V2, passing through -V1 at an intermediate tipping point.
+# -V2 and +V2, passing through mixes of V1 and V2, see Exercise 5.3 VIII case [c]. 
 #
-# Note: V1 (corresponding to beta*lambda around 2.78 in the first panel below) 
-# appears with an inverted sign -V1 because the monotonically increasing
-# CCF required by the constraints cannot be achieved without reversing the
-# sign of the DGP direction encoded in V1. The very large lambda selected
-# here amplifies this effect, driving the solution toward the sign-inverted
-# direction as the constraint penalty dominates the optimisation objective.
-#
-# However, in contrast to Exercise 3, the CCF against xi (second panel)
+# In contrast to Exercise 3, the CCF against xi (second panel)
 # is either near zero or negative throughout. This indicates that placing
-# excessive weight on the perturbed AR(2) constraints via large lambda
+# excessive weight on the (misspecified) perturbed AR(2) constraints via large lambda
 # induces misspecification in this example: the predictor loses meaningful 
 # correlation with the target. A more balanced strategy is to employ small to
 # moderate values of lambda, so that target correlation remains a
@@ -1841,23 +1911,16 @@ colo<-plot_func()
 # ─────────────────────────────────────────────────────────────────────
 
 # We fix lambda to a medium regularization
-# We then vary beta: the two extreme beta values correspond to plus and minus the 
-# first eigenvector V[,1] with combinations V[,2]+lambda1*V[,1] in between, where 
-# lambda1 depends on beta.
+# We then vary beta: the two extreme beta values correspond to +/-V1 with mixes 
+# of V1 and V2 in between, see exercise 5.3 VIII, case [a] for details.
 
 
 
 # Medium regularization
 lambda<-5
 
-# Note: the design exhibits marked sensitivity to beta when delta is small.
-if (F)
-{
-  # Manual grid
-  beta_vec<-c(0.9,0.9026,0.9027,0.90275,0.9028,0.90282,0.90285,0.90286,0.90288,0.9029,0.90292,0.90295,0.903,0.904,0.905)/lambda
-}
 
-# Instead of cumbersome manual tuning of beta, PCS_perturbation_func()
+# PCS_perturbation_func()
 # automatically returns a grid of beta values centred on the tipping point
 # — where the sensitivity of the PCS solution with respect to beta is
 # highest. 
@@ -1887,17 +1950,16 @@ for (i in 1:length(beta_vec))
 filter_mat<-cbind(gamma0,b_mat)
 colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",round(lambda*beta_vec,8)))
 
-head(scale(filter_mat))
 
 
 # ─────────────────────────────────────────────────────────────────────
 # 4.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
-# In contrast to Section 4.4 (strong regularization, large lambda), a weak
+# In contrast to Exercise 4.4 (strong regularization, large lambda), a weak
 # or moderate regularization (small to medium lambda) assigns meaningful
-# weight to the target correlation objective, thereby avoiding the overt
-# misspecification induced by the AR(2) perturbation — provided beta does
+# weight to the AR(1) target correlation objective, thereby avoiding the overt
+# misspecification induced by the misspecified AR(2) perturbation — provided beta does
 # not become too large. Excessively large beta places disproportionate
 # emphasis on the constraints, eventually driving the predictor into sign-
 # inversion territory, as evidenced by the negative CCF against xi
@@ -1940,7 +2002,7 @@ colnames(y_out_mat) <- colnames(filter_mat)
 anf<-280
 enf<-400
 
-# Select PCS designs that do not exhibit sign inversion (columns 1:5): all
+# Select PCS designs that do not exhibit sign inversion: all
 # of these maintain a positive CCF against xi (second panel in the plot
 # above). For completeness, the first sign-inverting design (column 6) is 
 # also included to illustrate the onset of sign inversion.
@@ -1972,7 +2034,7 @@ for (i in 1:ncol(mplot))
 #   - As beta increases, the empirical CCF becomes increasingly right-skewed,
 #     reflecting a growing lead of the PCS predictor relative to the MSE predictor.
 #
-#   - The right tail of the CCF (lag > 0) always follows the AR(1) decay:
+#   - The right tail of the CCF (lag > 0) is immutable and always follows the AR(1) decay:
 #     b %*% gamma_h ∝ a1^h, since gamma_h = a1^h * gamma_0. This is a structural
 #     consequence of the Yule-Walker equations and holds for any linear predictor b.
 #     No non-zero predictor can alter this decay shape.
@@ -2161,18 +2223,19 @@ V[2:L, 1] / V[1:(L-1), 1]
 # Because V2 is orthogonal to V1 and V1 nearly aligns with gammah, V2 is nearly
 # orthogonal to gammah: the inner product t(V2) %*% gammah is O(delta).
 # Dividing by delta yields an O(1) quantity, confirming the scaling
-V[, 2] %*% gammah / delta
+V[,2] %*% gammah / delta
 
 # Equivalently, using the second row of t(V) (denoted tV2 below)
 t(V)[2, ] %*% gammah / delta
 
 # Similarly, tV2 %*% sum_d_delta is O(delta):
-#   sum_d_delta = O(1) * gammah + perturbation
+#   sum_d_delta = O(1) * gammah + perturbation 
 #   tV2 %*% gammah   = O(delta)  (shown above)
 #   tV2 %*% perturbation = O(delta)  (since perturbation = O(delta))
 t(V)[2, ] %*% sum_d_delta / delta
 # Note: sum_d_delta = sum_{k in Delta} (gamma_k - gamma_{k-1}) encodes the
-#    cumulated PCS type-I constraints, see Wildi (2026), Appendix D.
+#    cumulated PCS type-I constraints, see Wildi (2026), Appendix D. 
+#    
 
 #───────────────────────────────────────────────────────────────────────────────
 # Summary of delta-scalings (tVi denotes the i-th row of t(V))
@@ -2183,32 +2246,38 @@ t(V)[2, ] %*% sum_d_delta / delta
 
 
 #───────────────────────────────────────────────────────────────────────────────
-# 5.3 Analysis: Interplay of Hyperparameters delta, lambda and beta
+# 5.3 Analysis: Interplay of Hyperparameters delta, lambda, and beta
 #───────────────────────────────────────────────────────────────────────────────
 
-# Recall that 
-#   tV2 %*% gammah        = O(delta)
-#   eta_2                 = O(delta^2)  [second non-zero eigenvalue of N]
-#   tV2 %*% sum_d_delta   = O(delta)
-# See exercise 5.2.2.
+# Recall that:
+#   t(V2) %*% gamma_h       = O(delta)
+#   eta_2                   = O(delta^2)   [second non-zero eigenvalue of N]
+#   t(V2) %*% sum_d_delta   = O(delta)
+# See Exercise 5.2.2.
 
-
-# I) Solution formula
-#    b = M^{-1} %*% (gammah + lambda * beta * sum_d_delta)
-#    where gammah is the ideal target ACF and
+# I) Solution Formula
+#
+#    The regularised solution is:
+#
+#      b = M^{-1} %*% (gamma_h + lambda * beta * sum_d_delta),
+#
+#    where gamma_h is the ideal target ACF vector and
 #    sum_d_delta = sum_{k in Delta} (gamma_k - gamma_{k-1}) encodes the
-#    cumulated PCS type-I constraints.
+#    cumulated PCS type-I constraints. Since k = 1 lies in Delta, the 
+#    perturbation enters sum_d_delta through the term involving gamma_0.
+
 
 # II) Rank-2 Structure
+#
 #     For an AR(1) process with a single perturbation, both gamma_h and the
 #     difference vectors (gamma_k - gamma_{k-1}), k = 1, ..., L, span a
 #     rank-2 subspace. The matrix N shares this rank-2 column space, with
 #     two non-zero eigenvalues eta_1 and eta_2 and corresponding leading
-#     eigenvectors V1 = V[, 1] and V2 = V[, 2] lying in this subspace,
+#     eigenvectors V1 = V1 and V2 = V2 lying in this subspace,
 #     while V[, k] for k = 3, ..., L are orthogonal to it.
 #
 #     Since M = I + lambda * N, M has full rank for any positive
-#     regularization weight lambda > 0. Moreover, M and N share the same
+#     regularisation weight lambda > 0. Moreover, M and N share the same
 #     eigenvectors. As a symmetric matrix, M admits the eigendecomposition
 #
 #       M = V %*% D %*% t(V),
@@ -2221,11 +2290,11 @@ t(V)[2, ] %*% sum_d_delta / delta
 #
 #       M^{-1} = V %*% diag(1/diag(D)) %*% t(V),
 #
-#     with reciprocal diagonal entries. If delta is small, the leading
+#     with reciprocal diagonal entries. When delta is small, the leading
 #     eigenvector satisfies V1 ≈ gamma_h / ||gamma_h||, i.e., it is
-#     approximately equal to the normalized gamma_h.
+#     approximately equal to the normalised gamma_h.
 
-# III) Eigendecomposition of the Solution b from I)
+# III) Eigendecomposition of the Solution b (from I)
 #
 #      The solution can be written as:
 #
@@ -2265,7 +2334,6 @@ t(V)[2, ] %*% sum_d_delta / delta
 #      V1 and V2, with weights determined by their inner products with gamma_h
 #      and sum_d_delta, respectively, scaled by the inverse eigenvalue factors.
 
-
 # V)  Simplification and the Effect of delta
 #
 #     When delta is small, V1 ≈ gamma_h / ||gamma_h||, and hence:
@@ -2277,7 +2345,7 @@ t(V)[2, ] %*% sum_d_delta / delta
 #
 #       V2 * (t(V2) %*% gamma_h) = O(delta) * V2.
 #
-#     Moreover, sum_d_delta = O(1) * gamma_h + perturbation_vec, so that:
+#     Moreover, sum_d_delta = O(1) * gamma_h - perturbation_vec, so that:
 #
 #       V1 * (t(V1) %*% sum_d_delta) ≈ O(1) * V1,
 #
@@ -2293,30 +2361,36 @@ t(V)[2, ] %*% sum_d_delta / delta
 #     Substituting the approximations from V) into the expanded form IV),
 #     the solution simplifies to:
 #
-#       b ≈   [1 / (1 + lambda * eta_1)        ] * V1
+#       b =   [1 / (1 + lambda * eta_1) * O(1)    ] * V1
 #           + [1 / (1 + lambda * eta_2) * O(delta)] * V2
 #           + lambda * beta
 #           * (  [1 / (1 + lambda * eta_1) * O(1)    ] * V1
 #              + [1 / (1 + lambda * eta_2) * O(delta)] * V2 )
 #
 #         =: F1 + lambda * beta * F2,
+#
+#     where F1 captures the unpenalised direction (approximately aligned with
+#     V1) and F2 captures the penalised perturbation direction. Note that in general 
+#     F1 and F2 are not collinear, i.e., they point in different directions in the 
+#     plane spanned by V1 and V2.
 
 # VII) Interplay of lambda and beta
 #
-#      Effect of beta * lambda:
+#      Effect of the product lambda * beta on the decomposition b = F1 + lambda * beta * F2:
 #
-#        - beta = 0:                 b ≈ F1.
-#        - lambda * beta = O(1):     b ≈ F1 + lambda * beta * F2.
-#        - lambda * beta >> 1:       b ≈ lambda * beta * F2.
+#        - beta = 0:               b = F1.
+#        - lambda * beta = O(1):   b = F1 + O(1) * F2.
+#        - lambda * beta >> 1:     b ≈ lambda * beta * F2.
 #
 #      Summary: the product lambda * beta controls the relative weight between
-#      F1 and F2. As shown next in VIII), the internal compositions of F1 and
-#      F2 themselves depend on lambda and delta: both F1 and F2 interpolate
+#      the directions F1 and F2. As shown next in VIII), the internal compositions 
+#      of F1 and F2 themselves depend on lambda and delta: both F1 and F2 interpolate
 #      (in different ways) between V1 and V2 as these parameters vary.
 
-# VIII) Interplay of lambda and delta
+# VIII) Interplay of lambda, beta and delta
 #
-#      Effect of lambda on the eigenvalue scaling factors:
+#      Effect of lambda on the eigenvalue scaling factors
+#      1 / (1 + lambda * eta_i):
 #
 #        - lambda = O(1):         1 / (1 + lambda * eta_1) = O(1),
 #                                 1 / (1 + lambda * eta_2) ≈ 1.
@@ -2327,29 +2401,101 @@ t(V)[2, ] %*% sum_d_delta / delta
 #        - lambda = O(1/delta^2): 1 / (1 + lambda * eta_1) = O(delta^2),
 #                                 1 / (1 + lambda * eta_2) = O(1).
 #
-#      Implied structure of F1, F2, and b:
+#      Implied structure of F1, F2, and b across regimes:
 #
-#        - lambda = O(1):
-#            F1 ≈ O(1) * V1,
-#            F2 ≈ O(1) * V1,
-#            => b ∝ V1 ∝ gamma_h,  i.e., b aligns with the original AR(1) direction.
+#      [a] lambda = O(1)  —  moderate regularisation:
 #
-#        - lambda = O(1/delta) (large lambda):
+#            F1 ≈ O(1) * V1 + O(delta) * V2,
+#            F2 ≈ O(1) * V1 + O(delta) * V2.
+#
+#          Both F1 and F2 are dominated by V1 (the original AR(1) direction).
+#
+#          - If lambda * beta = O(1): b = F1 + O(1) * F2. If beta is chosen
+#            such that the dominating V1 components of F1 and F2 cancel exactly, then
+#            b = O(delta) * V2 (full decoupling direction) and b is subject to 
+#            strong zero-shrinkage. Otherwise, b is a mix of
+#            V1 and V2 (and subject to less or none zero-shrinkage).
+#
+#          - If lambda * beta >> 1: b ≈ lambda * beta * F2 ≈ O(beta) * V1.
+#
+#          - If beta = o(1):        b ≈ F1 ≈ O(1) * V1 (≈ O(1) * gamma_h)
+#         
+#          - Asymptotically, as |beta| -> Inf, b is proportional to F2 ≈ O(1) * V1.
+#
+#      [b] lambda = O(1/delta)  —  large regularisation:
+#
 #            F1 = O(delta) * V1 + O(delta) * V2,
-#            F2 = O(delta) * V1 + O(delta) * V2,
-#            => b = O(delta) * V1 + O(delta) * V2,  i.e., b is an intermediate
-#               weighted combination of V1 (original AR(1)) and V2 (full decoupling).
+#            F2 = O(delta) * V1 + O(delta) * V2.
 #
-#        - lambda = O(1/delta^2) (very large lambda):
+#          Both F1 and F2 are of order O(delta), representing an intermediate
+#          mix of V1 and V2. 
+
+#          - The product lambda * beta modulates between F1 and F2 directions. 
+#
+#          - For beta = O(delta), beta * lambda = O(1) and 
+#             b = F1 + lambda * beta * F2 
+#            remains an O(delta)-weighted combination of V1 and V2, implying that 
+#            b is subject to strong zero-shrinkage. 
+#
+#          - Larger or smaller beta affect this shrinkage as well as the relative 
+#            weight assigned to F2 (relative to F1).
+#
+#          - Asymptotically, as |beta| -> Inf, b is proportional to F2, a mix 
+#            of V1 and V2. 
+#
+#          - Pure V1 or V2 solutions arise for special cases of beta (not 
+#            asymptotically |beta| -> Inf).
+
+#
+#      [c] lambda = O(1/delta^2)  —  very strong regularisation:
+#
 #            F1 = O(delta^2) * V1 + O(delta) * V2,
-#            F2 = O(delta^2) * V1 + O(delta) * V2,
-#            => b ∝ V2,  i.e., b aligns with the full decoupling direction.
+#            F2 = O(delta^2) * V1 + O(delta) * V2.
 #
-#      Summary: lambda governs the interpolation of b between the original AR(1)
-#      direction V1 and the full decoupling direction V2. As lambda increases
-#      through the regimes O(1) -> O(1/delta) -> O(1/delta^2), the solution b
-#      transitions from aligning with gamma_h (pure AR(1)) to aligning with V2
-#      (full decoupling), with an intermediate mixed regime at lambda = O(1/delta).
+#          Both F1 and F2 are dominated by V2 (the full decoupling direction),
+#          with all components subject to strong or very strong shrinkage towards zero.
+#
+#          - If beta = O(delta^2), so that lambda * beta = O(1):
+#            b = F1 + O(1) * F2. If beta is chosen such that the dominant V2
+#            components of F1 and F2 (each of order O(delta)) cancel exactly, then
+#
+#               b = O(delta^2) * V1,
+#
+#            i.e., b aligns with the AR(1) direction, though subject to very
+#            strong shrinkage towards zero.
+#
+#          - If the V2 components do not cancel exactly: b is a mixture of
+#            V1 and V2, still subject to strong or very strong shrinkage.
+#
+#          - If lambda * beta >> 1: b ≈ lambda * beta * F2 ∝ V2, with the
+#            magnitude of b controlled by lambda * beta.
+#
+#          - If lambda * beta = o(1): b ≈ F1 = O(delta) * V2, i.e., b is
+#            dominated by V2 and subject to large (but not necessarily very 
+#            large) shrinkage.
+#
+#          - Asymptotically, as |beta| -> Inf, b is proportional to +/- V2.
+#
+#          - Mixtures of V1 and V2, including the pure V1 direction, arise when 
+#            beta = O(delta^2) is very small in absolute value.  
+#
+#
+#      Summary of cases [a], [b] and [c]: as lambda increases through the regimes
+#
+#        O(1)  ->  O(1/delta)  ->  O(1/delta^2),
+#
+#      the weights assigned to V1 and V2 within F1 and F2 transition as:
+#
+#        O(1)*V1 + O(delta)*V2  ->  O(delta)*V1 + O(delta)*V2  ->  O(delta^2)*V1 + O(delta)*V2.
+#
+#      While either V1 or V2 may dominate in F1 and F2, depending on lambda, the 
+#      slope parameter beta can always be tuned to cancel the dominant term, so that
+#      b ultimately aligns with either V1, or V2, or any (PCS-optimal) 
+#      intermediate combination.
+#      Throughout, the product lambda * beta governs the relative weight
+#      between the F1 and F2 directions in the expression for b.
+
+
 
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -2469,8 +2615,7 @@ t(V)[2, ] %*% sum_d_delta / delta
 # 2. Perturbing the DGP expands the column space of the PCS constraint system,
 #    resolving at least partially the rank deficiency.
 #
-# 3. While the magnitude (scaling) of the perturbation is irrelevant, its type 
-#    and shape are consequential:
+# 3. Type and shape of the perturbation are main determinants of look-ahead behaviour:
 #      - Single-lag vs. multi-lag perturbations induce different constraint structures.
 #      - AR(1) vs. AR(2) perturbations yield qualitatively different decoupling
 #        directions V2, and hence different look-ahead profiles.
@@ -2494,7 +2639,7 @@ t(V)[2, ] %*% sum_d_delta / delta
 #    the unit vector e1 (delta-type; exercise 2), the modified AR(1) vector 
 #    (exercise 3), or the AR(2) vector (exercise 4).
 #
-# 6. When the perturbation is mildly misspecified (as in Exercise 3),
+# 6. When the perturbation is weakly misspecified (as in Exercise 3),
 #    meaningful look-ahead PCS predictors can be obtained across a wide
 #    range of regularization weights lambda — both large (strong) and
 #    small (weak). When the misspecification is more severe (as in
