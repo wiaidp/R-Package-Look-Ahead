@@ -130,7 +130,7 @@ In many applications, the classic MSE paradigm is stuck at the present: most wei
 
 
 
-DFP addresses this limitation by decoupling the predictor from the last observation, allowing it to look ahead — albeit at the cost of increased MSE at the forecast horizon. The DFP minimises this loss subject to a prescribed decoupling constraint. Notably, decoupling can be linked to a natural measure of lead: the time-shift at frequency zero. In this sense, DFP maximises the forecast lead at horizon h subject to a given time-shift at frequency zero.
+DFP addresses this limitation by decoupling the predictor from the last observation, allowing it to look ahead — albeit at the cost of increased MSE at the forecast horizon. The DFP minimises this loss subject to a prescribed decoupling constraint. Notably, decoupling can be linked to a natural measure of lead: the time-shift at frequency zero. In this sense, DFP maximises tracking accuracy at horizon h subject to a given time-shift at frequency zero: a controlled lead or left-shift against the classic MSE predictor.
 
 
 
