@@ -329,7 +329,7 @@
 #     MSE predictor yields a symmetric CCF, the PCS predictor becomes
 #     progressively more asymmetric as beta increases. Effective look-ahead
 #     behaviour is thus achieved by skewing the CCF rightward -- that is, by
-#     suppressing the contribution of negative lags.
+#     suppressing (or inverting) the contribution of negative lags.
 #
 # By introducing suitable perturbations to the original DGP -- which may be
 # made arbitrarily small -- the left tail can be shaped to induce look-ahead
@@ -341,7 +341,8 @@
 # Perturbation-based approaches are, however, just one instance of a broader
 # strategy: modifying the left tail of the CCF is a general and flexible
 # pathway to look-ahead behaviour whenever the right tail is structurally
-# immutable or too rigid to admit meaningful modification.
+# immutable or too rigid to admit meaningful modification. However, we here do 
+# not explore alternative directions for affecting the left CCF tail. 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
