@@ -4,7 +4,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-# This tutorial is still under construction (26-May-2026).
+# Parts of this tutorial in Exercise 5 are still under construction (26-May-2026).
 
 
 # ── BACKGROUND: DFP AND PCS FORECASTING ───────────────────────────────────────
@@ -610,8 +610,24 @@ b[2:L] / b[1:(L - 1)]
 # ════════════════════════════════════════════════════════════════════
 # A single perturbation of magnitude delta is introduced at lag 0 of the
 # Wold decomposition. Provided gamma_0 enters the PCS constraint system,
-# this expands the rank of the constraint system from 1 to 2 (otherwise the rank 
-# is stuck at one).
+# this expands the rank of the constraint system from 1 to 2 (otherwise
+# the rank remains stuck at 1).
+
+# Notes:
+# - A single perturbation at lag 0 is equivalent to adding white noise to
+#   the original AR(1), yielding an ARMA(1,1) process.
+# - When the white noise term is small (standard deviation of order delta^2,
+#   with delta a small number), the perturbed AR(1) — i.e. the ARMA(1,1) —
+#   is nearly indistinguishable from the original AR(1): the MSE predictor
+#   remains stuck at present (no look ahead behaviour).
+# - However, the PCS (or DFP) can exploit the perturbation regardless of
+#   the magnitude of delta.
+# - A white noise perturbation constitutes a relatively severe misspecification
+#   when the AR(1) parameter a1 is `large' in absolute value (long memory).
+# - For this reason, this type of perturbation is not recommended for the
+#   case analysed in this exercise, but it is nonetheless instructive as an
+#   illustrative example.
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises the
@@ -765,8 +781,9 @@ summary(lm(b ~ gamma0 + perturbation_vec[1:L] - 1))
 #
 # - Here we set lambda = 1/delta^2, corresponding to a very strong regularisation
 #   regime, see  case [c] in Exercise 5.3, VIII. In principle, any lambda of this 
-#   very large order or larger (assuming delta is small) emphasises the perturbation and the full decoupling
-#   direction V2:=V2 (which is determined by and depends on the perturbation). 
+#   very large order or larger (assuming delta is small) emphasises the perturbation 
+#   and the full decoupling direction V2:=V2 (which is determined by and depends 
+#   on the perturbation). So V2 is the privileged direction for the PCS predictor b.
 #   However, special values of beta allow for alternative combinations of V1 
 #   and V2, including the special case b = O(delta^2) * V1 (subject to very strong 
 #   shrinkage O(delta^2)), see  case [c] in Exercise 5.3, VIII.
@@ -793,7 +810,7 @@ PCS_obj <- PCS_func(h, Delta, gamma_pcs_perturbated, L, beta, lambda)
 
 # Extract the generated beta grid from the returned object.
 beta_vec_automatic <- PCS_obj$beta_vec
-# Slightly refine the grid at the right boundary to emphasize special cases
+# Slightly refine the grid at the upper boundary to emphasize special cases
 beta_vec<-c(beta_vec_automatic[1:(length(beta_vec_automatic)-1)],2.768514e-08,2.775e-08,2.777e-08,2.78e-08,beta_vec_automatic[length(beta_vec_automatic)])
 
 # Type I) PCS: impose constraints from lags k=1 to h:
@@ -915,13 +932,13 @@ colo<-plot_func()
 # Exercise 5.3, VIII, case [b] for background.
 #
 # In contrast to Exercise 2.3 (very strong regularisation, lambda = O(1/delta^2)),
-# a mixture of V[,1] and V[,2] is the natural outcome here: both directions
-# contribute with similar importance. Pure V[,1] or pure V[,2] directions are
+# a mixture of V1 and V2 is the natural outcome here: both directions
+# contribute with similar importance. Pure V1 or pure V2 directions are
 # possible only for special values of beta.
 #
-# As |beta| -> Inf, b remains a mixture of V[,1] and V[,2], unlike the very
+# As |beta| -> Inf, b remains a mixture of V1 and V2, unlike the very
 # strong regularisation setting of Exercise 2.3, where b aligns asymptotically
-# with +/- V[,2].
+# with +/- V2.
 
 lambda<-1/delta
 
@@ -1085,13 +1102,34 @@ colo<-plot_func()
 # EXERCISE 3: FULL-LAG PERTURBATION — THE AR(1) CASE
 # ════════════════════════════════════════════════════════════════════
 
-# In contrast to Exercise 2, the perturbation introduced here affects all lags
-# of the Wold decomposition simultaneously, rather than a single lag only.
-# This guarantees that the rank of the constraint system is expanded from 1 to 2
-# for any PCS constraint type, without requiring gamma_0 itself to appear
-# explicitly in the constraint system. (In Exercise 2, the lag-0 perturbation
-# had no effect unless gamma_0 entered the constraints directly.)
-
+# Differences relative to Exercise 2:
+#
+# 1. Unlike Exercise 2, the perturbation introduced here affects all lags of
+#    the Wold decomposition simultaneously, rather than a single lag only.
+#    This guarantees that the rank of the constraint system is expanded from
+#    1 to 2 for ANY PCS constraint type, without requiring gamma_0 to appear
+#    explicitly in the constraint system. (In Exercise 2, the lag-0
+#    perturbation had no effect unless gamma_0 entered the constraints
+#    directly.)
+#
+# 2. The perturbation corresponds to an AR(1) process with perturbed parameter
+#    a1_perturbed = a1 + delta_1, where delta_1 is a small number. This
+#    perturbed AR(1) is scaled by delta_2 and added to the original AR(1):
+#
+#       AR(1)_perturbed = AR(a1) + delta_2 * AR(a1 + delta_1).
+#
+#    Consequently, the perturbation is only marginally misspecified: the DGP
+#    (ACF, CCF) remains close to the original process even as delta_2
+#    increases. Note that we set delta_1 = delta_2 = delta throughout this
+#    exercise.
+#
+# 3. A `nearly un-misspecified' perturbation (as is the case here) enables 
+#    meaningful look-ahead behaviour across a broader range of regularisation 
+#    weights. In particular, even strongly regularised designs remain performant 
+#    — in contrast to Exercise 1 above and Exercise 4 below, both of which are
+#    based on more substantial misspecifications, i.e., white noise in exercise 2 
+#    and AR(2) in exercise 4.
+# 
 # ─────────────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises the
 # empirical framework (process specification, filter length, forecast horizon,
@@ -1100,7 +1138,7 @@ colo<-plot_func()
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 3.1 Full-Lag AR(1) Perturbation
+# 3.1 Full-Lag `Nearly Un-Misspecified' AR(1) Perturbation
 # ─────────────────────────────────────────────────────────────────────
 
 # Construct the MSE predictor coefficient vectors gamma_i used to form the
@@ -1172,8 +1210,9 @@ N         <- PCS_obj$N
 gamma_sol <- PCS_obj$gamma_sol
 
 
+# ─────────────────────────────────────────────────────────────────────
 # 3.2 Linear Algebra of the Rank-Two System
-#----------------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
 # The closed-form PCS solution is: b = solve(M) %*% gamma_sol.
 #   - M depends on lambda but not on beta.
 #   - gamma_sol depends on both lambda and beta (via lambda * beta).
@@ -1241,10 +1280,11 @@ b[2:L] / b[1:(L - 1)]
 # departure of b from the original AR(1) profile.
 
 
+# ─────────────────────────────────────────────────────────────────────
 # 3.3 Exploring the Rank-Two System: Strong Regularisation
-#----------------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────
 # Under strong regularisation, the PCS predictor transitions smoothly between
-# the two extremes ±V2 as beta varies, passing through -V1 at the
+# the two extremes(asymptotes) ±V2 as beta varies, passing through -V1 at the
 # tipping point where the V2 contribution vanishes.
 # The weights on V1 and V2 are governed by lambda and beta. A complete analysis 
 # is provided in Exercise 5.3 VIII case [c].
@@ -1258,11 +1298,12 @@ lambda <- 5000000
 #   focus on strong (lambda = 5,000,000; see above) and medium (lambda = 5;
 #   see Exercise 3.6 below) regularisation, not directly connected to delta.
 # - We do not attempt to cover the full interplay between lambda, beta, and
-#   delta, which is analysed comprehensively in Exercise 5.3 VIII.
+#   delta, as we did in exercise 2, and which is analysed comprehensively in 
+#   Exercise 5.3 VIII.
 # - Instead, we demonstrate that meaningful look-ahead behaviour can be
 #   obtained under strong and medium regularisation, without requiring an
 #   exhaustive analysis of the complex hyperparameter interactions arising
-#   from the Full-lag AR(1) perturbation considered here.
+#   from the Full-lag `nearly un-misspecified' AR(1) perturbation considered here.
 
 # Remark:
 # The design exhibits marked sensitivity to beta: small perturbations in beta
@@ -1278,11 +1319,6 @@ lambda <- 5000000
 # landscape. This trade-off is deliberate: interpretability is here prioritised
 # over numerical stability.
 
-if (F)
-{
-# Manual grid
-  beta_vec <- c(0 ,0.5,0.8,0.83,0.85,0.87,0.88,0.9,0.95,0.97,1,1.1,10) / lambda
-}
 
 # PCS_perturbation_func() automatically returns a grid of beta values centred on 
 # the tipping point of beta — where the sensitivity of the PCS solution with 
@@ -1308,10 +1344,13 @@ beta_vec<-c(beta_vec_automatic[1:10],1.86e-07,1.88e-07,1.90e-07,beta_vec_automat
 #   - V1 alone,
 #   - a mixture of V1 and V2, or
 #   - V2 alone.
+# Here, the asymptotes ( |beta| -> infinity) correspond to +/-V2 since lambda is 
+# very large (see exercise 5.3 VIII, case [c]).
 
 
-
+# PCS Type I constraint:
 Delta <- 1:h
+
 b_mat <- NULL
 
 for (i in 1:length(beta_vec)) {
@@ -1351,7 +1390,8 @@ colo<-plot_func()
 # V2, with V1 (the gamma_0 component) receiving zero weight. V2 is the primary
 # enabler of the PCS constraints and is therefore emphasised when lambda is
 # large: the optimiser allocates most of its budget to satisfying the constraints
-# via V2, at the expense of the target correlation carried by V1.
+# via V2, at the expense of the target correlation carried by V1, see exercise 
+# 5.3 VIII case [c].
 #
 # Between the two extremes, the predictor traces a continuum of optimal linear
 # combinations of V1 and V2, with the relative weights determined by the
@@ -1364,11 +1404,11 @@ colo<-plot_func()
 #
 # ── Interpretation of CCF: Full-Lag AR(1) Perturbation ────────────────────────
 #
-# In contrast to Exercise 2, the CCF in Panel 4 (CCF against V2) now exhibits
-# genuine look-ahead behaviour: as beta increases, the peak of the CCF shifts
-# progressively to the right. This right-shifting of the CCF peak reflects the 
-# increasing weight placed on the full decoupling direction V2 by increasing 
-# beta, which — unlike the lag-0 perturbation in Exercise 2 — reshapes
+# In contrast to Exercise 2, the CCF in Panel 4 of the above plot (CCF against V2) 
+# now exhibits genuine look-ahead behaviour: as beta increases, the peak of the 
+# CCF shifts progressively to the right. This right-shifting of the CCF peak 
+# reflects the increasing weight placed on the full decoupling direction V2 by 
+# increasing beta, which — unlike the lag-0 perturbation in Exercise 2 — reshapes
 # the predictor across all lags and thereby induces a meaningful lead or 
 # left-shift as demonstrated in the predictor plots in the next exercise 3.5.
 
@@ -1376,7 +1416,7 @@ colo<-plot_func()
 # 1. At lag 0, the CCF of the MSE predictor vanishes in panel 4:
 #    CCF_MSE(0) = 0. This is a consequence of full decoupling along V2, i.e.,
 #    the MSE predictor stands orthogonal to V2.
-# 2. The left-shift of the CCF peak of the PCS predictors along the decoupling 
+# 2. The right-shift of the CCF peak of the PCS predictors along the decoupling 
 #    direction V2 can exceed the forecast horizon h. 
 #
 # We now explore look ahead behaviour of the perturbated PCS approach.
@@ -1667,8 +1707,11 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 # In analogy to Exercise 3, we propose a perturbation acting across all lags.
 # Here, however, the perturbation takes the form of an AR(2) modification:
 # the original AR(1) autocovariance structure is overlaid with an AR(2)
-# component whose weight can be made arbitrarily small, rendering its
-# effect on the DGP imperceptible.
+# component whose weight can be made arbitrarily small, rendering its effect
+# on the DGP imperceptible. However, the sizeable misspecification leads to
+# unusable PCS predictors under very strong regularisation, which grossly
+# overemphasises the misspecification.
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Note: Exercise 1 must be run before this exercise, as it initialises the
@@ -1915,6 +1958,9 @@ colo<-plot_func()
 # We then vary beta: the two extreme beta values correspond to +/-V1 with mixes 
 # of V1 and V2 in between, see exercise 5.3 VIII, case [a] for details.
 
+# Note: A medium regularisation avoids magnification of the misspecification and
+# allows the PCS predictor to look ahead effectively, despite the AR(2)
+# perturbation misspecification.
 
 
 # Medium regularization
@@ -1957,6 +2003,8 @@ colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",r
 # 4.7 Plots
 # ─────────────────────────────────────────────────────────────────────
 
+colo<-plot_func()
+
 # In contrast to Exercise 4.4 (strong regularization, large lambda), a weak
 # or moderate regularization (small to medium lambda) assigns meaningful
 # weight to the AR(1) target correlation objective, thereby avoiding the overt
@@ -1973,7 +2021,6 @@ colnames(filter_mat)<-c("MSE",paste("lambda=",round(lambda,2),", beta*lambda=",r
 # The predictor comparisons presented below are restricted to PCS designs
 # that do not exhibit sign inversion.
 
-colo<-plot_func()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -2062,7 +2109,7 @@ ccf(mplot_ccf[,1],mplot_ccf[,4],main=colnames(mplot_ccf)[4])
 
 
 # ════════════════════════════════════════════════════════════════════
-# EXERCISE 5: PARAMETER INTERPLAY   (under construction)
+# EXERCISE 5: PARAMETER INTERPLAY 
 # ADVANCED ANALYSIS BASED ON PERTURBATION OF EXERCISE 2. 
 # ════════════════════════════════════════════════════════════════════
 
@@ -2151,11 +2198,11 @@ beta_vec  <- PCS_obj$beta_vec
 
 
 #───────────────────────────────────────────────────────────────────────────────
-# 5.2 Set-Up and Dependence on Perturbation Size (under construction)
+# 5.2 Set-Up and Dependence on Perturbation Size 
 #───────────────────────────────────────────────────────────────────────────────
 
 #───────────────────────────────────────────────────────────────────────────────
-# 5.2.1 Set-Up (under construction)
+# 5.2.1 Set-Up 
 #───────────────────────────────────────────────────────────────────────────────
 
 # Extract core quantities from the PCS object
@@ -2192,7 +2239,7 @@ t(V) %*% gammah
 
 
 #───────────────────────────────────────────────────────────────────────────────
-# 5.2.2 Dependence on Perturbation Size (delta) (under construction)
+# 5.2.2 Dependence on Perturbation Size (delta) 
 #───────────────────────────────────────────────────────────────────────────────
 
 # Ratio of the first two eigenvalues of N is of order O(1/delta^2)
