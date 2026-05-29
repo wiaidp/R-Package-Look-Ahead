@@ -202,9 +202,9 @@ The author proposes the following complementary R-based prediction frameworks (h
 
 1. MDFA: https://github.com/wiaidp/MDFA-tutorial. MDFA is a generic prediction approach addressing the full ATS trilemma in the frequency domain. Accuracy, smoothness, and timeliness are derived from and defined on the amplitude and phase characteristics of the predictor filter.
 
+2. M-SSA: https://github.com/wiaidp/R-package-SSA-Predictor. The M-SSA specializes in the Accuracy-Smoothness trade-off, targeting applications where the cost of spurious false alarms is prohibitive.
 
 
-2\. M-SSA: https://github.com/wiaidp/R-package-SSA-Predictor. The M-SSA specializes in the Accuracy-Smoothness trade-off, targeting applications where the cost of spurious false alarms is prohibitive.
 
 
 
