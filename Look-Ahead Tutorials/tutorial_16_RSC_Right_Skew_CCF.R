@@ -1,10 +1,9 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# TUTORIAL 14 — HANDLING IMPOSSIBILITY THROUHG PERTURBATION: 
+# TUTORIAL 16 — RSC : RIGHT SKEWING THE CCF: 
 #               APPLICATION TO THE HARDEST LOOK AHEAD FORECAST PROBLEM
 # ══════════════════════════════════════════════════════════════════════════════
 
-
-# Parts of this tutorial (in Exercise 5) are still under construction (26-May-2026).
+# Fo reference see Tutorial 14.
 
 
 # ── BACKGROUND: DFP AND PCS FORECASTING ───────────────────────────────────────
