@@ -326,7 +326,7 @@ abline(h = 0)
 # vector. This serves as a natural upper bound for alpha0: if the DFP constraint
 # enforces a stronger decoupling (a smaller alpha0), the leading indicator will 
 # look further ahead (left-shift/advancement).
-# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b (PCS) from gamma_constraint — but it serves as a useful practical proxy.
 mse_coup <- as.double(gammah %*% gamma_constraint)

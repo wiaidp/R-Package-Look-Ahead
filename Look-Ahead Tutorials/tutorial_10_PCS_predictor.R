@@ -430,7 +430,7 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Sequence of decoupling levels alpha0, each strictly smaller than mse_coup.
 # Smaller (more negative) values enforce a progressively steeper CCF slope
 # at lag h, shifting the peak to the right towards k = h = 1.
-# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b from gamma_constraint — but it serves as a useful practical proxy.
 alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)

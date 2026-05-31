@@ -446,8 +446,11 @@ h <- 12
 gamma_pcs <- xi
 # Nowcast
 gamma0 <- xi[1:L]
-# Forecast
+# MSE forecast
 gammah <- xi[h+1:L]
+# Identity forecast: this is faster than gammah but noisier:
+# It is used as an additional benchmark.
+gamma_I<-c(1,rep(0,L-1))
 
 
 
@@ -710,7 +713,7 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 # ─────────────────────────────────────────────────────────────────────
 
 # Lag support: negative lags from k=0 to k=-l0
-l0<-10
+l0<-h
 # Integrator
 Sigma<-matrix(rep(0,L^2),ncol=L)
 for (i in 1:l0)
@@ -727,6 +730,25 @@ ts.plot(gamma_constraint,
         sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
 abline(h = 0)
 
+# Technical note:
+# - The constraint vector gamma_constraint exhibits a strong, albeit partly
+#   unintended, link to Tutorial 12, Exercise 1.4, and in particular to the
+#   convolved target gamma used in this exercise.
+# - The main idea in Tutorial 12 was to expand the rank of the constraint system
+#   by applying an equally weighted MA(12) (i.e., a sum or integrator of length 12)
+#   to the original ARMA(1,1) process.
+# - In contrast, here we rely on the integrator Sigma to affect the left tail of
+#   the cross-covariance function (CCF), thereby producing a right-skewed CCF.
+# - While the concepts and ideas are reminiscent, and to some extent intriguing, 
+#   there is also a notable difference:
+#   in Tutorial 12, Exercise 1.4, the target is the convolved (integrated from 
+#   original monthly to yearly-growth) DGP, whereas here the target remains the 
+#   original (un-convolved) AR(1) process.
+
+
+
+
+
 # Baseline coupling: inner product of gammah with gamma_constraint under the
 # unconstrained MSE predictor gammah.
 # Purpose: mse_coup serves as a natural upper bound for the DFP constraint,
@@ -734,12 +756,12 @@ abline(h = 0)
 mse_coup <- as.double(gammah %*% gamma_constraint)
 
 # Sequence of decoupling levels alpha0, each strictly smaller than mse_coup.
-# Smaller (more negative) values enforce a progressively steeper CCF slope
-# at lag h, shifting the peak to the right towards k = h = 1.
-# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# Smaller (more negative) values enforce a progressively stronger right skewing 
+# of  the CCF.  
+# Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b from gamma_constraint — but it serves as a useful practical proxy.
-alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-4,-8)
 
 # Display alpha0_vec: the last (negative) entry indicates that the DFP
 # constraint enforces stronger decoupling than the MSE predictor gammah,
@@ -748,7 +770,7 @@ alpha0_vec
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2.2 PCS Type II) Optimisation over the Decoupling Grid
+# 2.2 Decoupling over the alpha0-Grid
 # ─────────────────────────────────────────────────────────────────────
 # For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
 # Proposition 1 (Wildi 2026):
@@ -794,7 +816,7 @@ rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 # 2.3 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
-# ── Check 1: PCS constraint ──────
+# ── Check 1: Decoupling constraint ──────
 
 # Verification: the constraint b %*% gamma_constraint = alpha0 should hold
 # exactly for every column of b_mat (residuals should be numerically zero).
@@ -810,8 +832,8 @@ t(b_mat)%*%gammah
 
 
 # Collect all filters (nowcast, MSE, and PCS variants) into a single matrix
-filter_mat <- cbind(gamma0, gammah,  b_mat)
-colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),
+filter_mat <- cbind(gamma0, gammah, gamma_I, b_mat)
+colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),"Identity",
                           paste0("PCS ", round(alpha0_vec, 2)))
 
 
@@ -821,7 +843,7 @@ colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
-colo  <- c("black","green", rainbow(ncol(b_mat)))
+colo  <- c("black","green","darkgreen", rainbow(ncol(b_mat)))
 
 # ── Left panel: filter coefficients ──────────────────────────────────
 # Truncate to the first q+1 lags where the MA process has support.
@@ -830,7 +852,7 @@ mplot <- filter_mat
 plot(mplot[, 1], main = "Filter coefficients: MSE and PCS variants",
      axes = FALSE, type = "l", xlab = "Lag", ylab = "",
      col = colo[1], lwd = 1,
-     ylim = c(min(0,min(mplot)), max(mplot)))
+     ylim = c(min(0,min(mplot)), 0.4))
 for (i in 2:ncol(mplot))
   lines(mplot[, i], col = colo[i])
 for (i in 1:ncol(filter_mat))
@@ -906,7 +928,7 @@ for (i in 1:ncol(filter_mat))
                      filter(eps, filter_mat[, i], sides = 1))
 colnames(y_out_mat) <- colnames(filter_mat)
 
-colo <- c("black", "green", rainbow(ncol(b_mat)))
+colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
 
 # Plot a short excerpt to visually compare the temporal alignment of each predictor
 anf <- 390
@@ -932,7 +954,7 @@ for (i in 1:ncol(filter_mat))
 # confirm that the population peak shift observed in Section 1.5 is
 # reproduced in finite-sample data.
 
-par(mfrow = c(2, 2))
+par(mfrow = c(3, 2))
 
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, 2]),
@@ -949,9 +971,19 @@ ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, k]),
     lag.max = 10, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
-k<-ncol(y_out_mat)
+k<-9
 ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    na.exclude(y_out_mat[, k]),
+    lag.max = 10, plot = TRUE,
+    main = paste(colnames(y_out_mat)[k],sep=""))
+k<-11
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[,k]),
+    lag.max = 10, plot = TRUE,
+    main = paste(colnames(y_out_mat)[k],sep=""))
+k<-13
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, k]),
     lag.max = 10, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 

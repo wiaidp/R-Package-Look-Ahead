@@ -524,6 +524,15 @@ htilde <- 24
 #   - Averaging over a full year reduces noise and amplifies the relevant
 #     business-cycle dynamics.
 
+# Technical note: 
+# - The yearly-growth setting, based on the equally-weighted MA(12), exhibits a 
+#   strong, albeit partly unintended, link to Tutorial 16, which introduces a 
+#   modification of PCS/DFP called Right-Skewing the CCF (RSC).
+# - RSC is a natural extension or modification for difficult or infeasible
+#   forecast problems, where the CCF peak cannot be shifted to the forecast 
+#   horizon h.
+
+
 # Define the equally weighted yearly MA target filter.
 gamma_target <- rep(1/12, 12)
 
@@ -539,6 +548,13 @@ ts.plot(gamma, main = "Wold Decomposition: Yearly Growth  (post-1990)")
 # not emerge until lags k > 12, reflecting the structure introduced by the
 # yearly aggregation. This richer lag structure enlarges the solution space
 # available for imposing PCS constraints.
+
+# Technical note:
+# - The convolved target gamma exhibits a strong, albeit partly unintended, link
+#   to Tutorial 16, which introduces a modification of PCS/DFP called
+#   Right-Skewing the CCF (RSC).
+# - RSC is a natural extension or modification for difficult or infeasible
+#   forecast problems, where the CCF peak cannot be shifted to the forecast horizon h.
 
 # Set nowcast and h = 12-step-ahead MSE predictors under the yearly target.
 gamma0    <- gamma[1:L]
