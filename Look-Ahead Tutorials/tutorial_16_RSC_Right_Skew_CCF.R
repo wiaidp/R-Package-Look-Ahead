@@ -702,8 +702,259 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 2. RSC (Right-Skewing CCF)
+# 2. RSC (Right-Skewing CCF): Relying on the DFP Framework
 # ─────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.1 Set-Up RSC 
+# ─────────────────────────────────────────────────────────────────────
+
+# Lag support: negative lags from k=0 to k=-l0
+l0<-10
+# Integrator
+Sigma<-matrix(rep(0,L^2),ncol=L)
+for (i in 1:l0)
+  Sigma[i,1:i]<-1
+
+gamma_constraint<-(Sigma%*%gamma0)
+
+
+
+par(mfrow=c(1,1))
+ts.plot(gamma_constraint,
+        main = expression(gamma[constraint] == Sigma * gamma[0]),
+        xlab = "Lag", ylab = "",
+        sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
+abline(h = 0)
+
+# Baseline coupling: inner product of gammah with gamma_constraint under the
+# unconstrained MSE predictor gammah.
+# Purpose: mse_coup serves as a natural upper bound for the DFP constraint,
+# i.e., any effective decoupling should enforce a coupling strictly below this.
+mse_coup <- as.double(gammah %*% gamma_constraint)
+
+# Sequence of decoupling levels alpha0, each strictly smaller than mse_coup.
+# Smaller (more negative) values enforce a progressively steeper CCF slope
+# at lag h, shifting the peak to the right towards k = h = 1.
+# Note: since the predictors are not normalized (||b|| != ||gammah||), the
+# rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
+# of b from gamma_constraint — but it serves as a useful practical proxy.
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.1)
+
+# Display alpha0_vec: the last (negative) entry indicates that the DFP
+# constraint enforces stronger decoupling than the MSE predictor gammah,
+# which should shift the CCF peak to the right from k = 0 to k = h = 1.
+alpha0_vec
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.2 PCS Type II) Optimisation over the Decoupling Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
+# Proposition 1 (Wildi 2026):
+#
+#   b = gammah + lambda * gamma_constraint,
+#   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
+#
+# This closed-form solution minimises the MSE subject to the modified
+# decoupling constraint b %*% gamma_constraint = alpha0.
+
+b_mat       <- NULL    # filter coefficients, one column per alpha0
+cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
+
+# CCF values at lags 0 and h for each alpha0 (for tabular summary)
+cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
+
+# Number of leads on either side of lag 0 to include in the CCF (does not affect 
+# optimization)
+max_lag <- 1
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Compute MSE-PCS predictor with modified constraint vector
+  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  b_mat <- cbind(b_mat, b)
+  
+  # Compute the population CCF of b against the process over lags [-max_lag, h]
+  cor_vec <- compute_acf_at_lags_zero_delta_func(
+    max_lag, h, as.vector(b), xi)$cor_vec
+  cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
+  cor_vec_1[i, 1] <- cor_vec[1]         # CCF at lag 0 (coupling with present)
+  cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
+}
+
+colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
+colnames(cor_vec_1) <- c("Lag 0", paste0("h=", h))
+rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.3 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: PCS constraint ──────
+
+# Verification: the constraint b %*% gamma_constraint = alpha0 should hold
+# exactly for every column of b_mat (residuals should be numerically zero).
+t(b_mat) %*% gamma_constraint - alpha0_vec
+
+# ── Check 2: sign / orientation preservation ──────────────────────────────
+# A strictly positive sum of filter coefficients confirms that none of the
+# PCS filters inverts the direction of a trend or level shift in the data.
+apply(b_mat, 2, sum)
+
+# CHECK 3 — Positive Target Covariance
+t(b_mat)%*%gammah
+
+
+# Collect all filters (nowcast, MSE, and PCS variants) into a single matrix
+filter_mat <- cbind(gamma0, gammah,  b_mat)
+colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),
+                          paste0("PCS ", round(alpha0_vec, 2)))
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.4 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo  <- c("black","green", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+# Truncate to the first q+1 lags where the MA process has support.
+mplot <- filter_mat
+
+plot(mplot[, 1], main = "Filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i],line = -i, col = colo[i])
+abline(h = 0)
+abline(v =   1,     lty = 1)   # lag 0
+abline(v =   h+1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-l0
+ccf_mat<-NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat<-cbind(ccf_mat,compute_acf_at_lags_zero_delta_func(
+    max_lag, h, filter_mat[,i], xi)$cor_vec)
+mplot   <- ccf_mat
+
+plot(mplot[, 1], main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1,     lty = 1)   # lag 0
+abline(v = max_lag + 1 + h, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Outcomes ─────────────────────────────────────────────────────────
+# Left panel (filter coefficients):
+#   - Unlike the MSE predictor, the PCS/DFP filters assign non-zero weight
+#     to the farthest lag k = q.
+#   - Stronger decoupling (smaller alpha0) progressively shifts weight away
+#     from recent observations toward the oldest lag. This is counter-intuitive
+#     but is a direct consequence of enforcing the CCF slope constraint.
+#
+# Right panel (CCFs):
+#   - The MSE predictors maximize the CCF at their respective forecast horizons.
+#   - Enforcing the slope constraint via decoupling works as intended: as
+#     alpha0 decreases, the slope between lags 0 and h=1 flattens and eventually
+#     inverts, confirming a peak shift toward lag h=1 (violet line).
+#   - Increasing the forecast horizon (any admissible htilde<=9) does not 
+#     shift the peak of the CCF of the MSE predictor.
+#   - The loss in target correlation at lag h=1 is minimised subject to the
+#     modified decoupling constraint (efficient frontier).
+
+# Tabular summary: CCF at lag 0 and lag h for each decoupling level
+round(cor_vec_1, 2)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 2.5 Applying the Filters to Simulated Data
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 2.5.1 Forecast Comparison ────────────────────────────────────────
+
+
+# Generate a long white-noise series for a reliable empirical evaluation
+set.seed(17)
+len <- 10000
+eps <- rnorm(len)
+
+# Apply each filter to eps via causal (one-sided) convolution.
+# filter(..., sides = 1) computes the linear filter sum_{k=0}^{L-1} b_k * eps_{t-k}.
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat,
+                     filter(eps, filter_mat[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+colo <- c("black", "green", rainbow(ncol(b_mat)))
+
+# Plot a short excerpt to visually compare the temporal alignment of each predictor
+anf <- 390
+enf <- 430
+
+par(mfrow = c(1, 1))
+ts.plot(scale(y_out_mat[anf:enf, ]),
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], col = colo[i], line = -i)
+
+# Outcome:
+#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
+#   output shifts progressively to the left (looks further ahead) relative to
+#   the MSE predictor. This visual lead is confirmed quantitatively by the
+#   empirical CCFs below.
+
+
+# ── 2.5.2 Empirical CCF Comparison ───────────────────────────────────
+# Compute empirical CCFs between the nowcast (x_t) and each predictor to
+# confirm that the population peak shift observed in Section 1.5 is
+# reproduced in finite-sample data.
+
+par(mfrow = c(2, 2))
+
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, 2]),
+    lag.max = 10, plot = TRUE,
+    main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
+
+k<-4
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, k]),
+    lag.max = 10, plot = TRUE,
+    main = paste(colnames(y_out_mat)[k],sep=""))
+k<-7
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, k]),
+    lag.max = 10, plot = TRUE,
+    main = paste(colnames(y_out_mat)[k],sep=""))
+k<-ncol(y_out_mat)
+ccf(na.exclude(y_out_mat[, 1]),
+    na.exclude(y_out_mat[, ncol(y_out_mat)]),
+    lag.max = 10, plot = TRUE,
+    main = paste(colnames(y_out_mat)[k],sep=""))
+
 
 
 

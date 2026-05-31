@@ -725,7 +725,7 @@ for (i in 1:length(lead_vec))
   
   b_mat<-cbind(b_mat,b)
   lambda_vec<-c(lambda_vec,lambda0)
-  alpha_vec<-c(alpha_vec,compute_alpha_0_func(gamma0,gammah,lambda0)$alpha0)
+  alpha_vec<-c(alpha_vec,compute_alpha_0_func(gamma0,gammah,lambda0,b)$alpha0)
   # Compute the CCF of the current DFP predictor output with x_t
   cor_vec       <- compute_acf_at_lags_zero_delta_func(
     max_lag, h, b_mat[, ncol(b_mat)], gamma0)$cor_vec

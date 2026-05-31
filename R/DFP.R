@@ -26,6 +26,17 @@
 
 unitary_DFP_func <- function(gamma0, gammah, alpha0)
 {
+  # Some checks:  
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
   # Guard: if gamma0 and gammah are nearly collinear, the DFP problem is
   # degenerate (the constraint and objective are essentially the same vector)
   # and no meaningful solution exists.
@@ -141,8 +152,20 @@ unitary_DFP_func <- function(gamma0, gammah, alpha0)
 #   alpha0 : DFP constraint
 # ────────────────────────────────────────────────────────────────────
 
-compute_alpha_0_func <- function(gamma0, gammah, lambda0)
+compute_alpha_0_func <- function(gamma0, gammah, lambda0,b)
 {
+  # Some checks:  
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
+  
   # Reconstruct b and compute alpha0
   b      <- gammah + lambda0 * gamma0
   alpha0 <- as.double(t(gamma0) %*% b / sqrt(t(b) %*% b))
@@ -179,6 +202,18 @@ compute_alpha_0_func <- function(gamma0, gammah, lambda0)
 
 compute_mse_dfp <- function(alpha0, gamma0, gammah, plot_T = FALSE)
 {
+  # Some checks:  
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
+  
   # Guard: collinear gamma0 and gammah render the DFP problem degenerate.
   if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-10)
   {
@@ -239,6 +274,18 @@ compute_mse_dfp <- function(alpha0, gamma0, gammah, plot_T = FALSE)
 
 mse_dfp_from_tau_func <- function(gamma0, gammah, lead)
 {
+  # Some checks:  
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
+  
   # Guard: collinear predictors render the DFP problem degenerate.
   if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-15)
   {
@@ -360,6 +407,18 @@ mse_dfp_from_tau_func <- function(gamma0, gammah, lead)
 
 mse_dfp_from_alpha0_func <- function(gamma0, gammah, alpha0)
 {
+  
+  # Some checks:  
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
   # Guard: collinear predictors render the DFP problem degenerate.
   if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-10)
   {
