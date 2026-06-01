@@ -174,7 +174,8 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
   }
   
   par(mfrow=c(1,1))
-  plot(abs(mean_shift_adjusted_vec),col="blue",main="Min-tau adjusted shift",axes=F,type="l", xlab="Lead/lag",ylab="")
+  main_title<-paste("Min-tau adjusted shift: ", colnames(filter_mat)[1]," vs. ",colnames(filter_mat)[2],sep="")
+  plot(abs(mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="")
   abline(v=max_lead)
   at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
   axis(1,at=at_vec,labels=at_vec-max_lead)

@@ -713,7 +713,7 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 # ─────────────────────────────────────────────────────────────────────
 
 # Lag support: negative lags from k=0 to k=-l0
-l0<-h
+l0<-10
 # Integrator
 Sigma<-matrix(rep(0,L^2),ncol=L)
 for (i in 1:l0)
@@ -761,7 +761,7 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b from gamma_constraint — but it serves as a useful practical proxy.
-alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-4,-8)
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-4)
 
 # Display alpha0_vec: the last (negative) entry indicates that the DFP
 # constraint enforces stronger decoupling than the MSE predictor gammah,
@@ -834,7 +834,7 @@ t(b_mat)%*%gammah
 # Collect all filters (nowcast, MSE, and PCS variants) into a single matrix
 filter_mat <- cbind(gamma0, gammah, gamma_I, b_mat)
 colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),"Identity",
-                          paste0("PCS ", round(alpha0_vec, 2)))
+                          paste0("RSC ", round(alpha0_vec, 2)))
 
 
 
@@ -880,8 +880,8 @@ plot(mplot[, 1], main = "Population CCFs: MSE and PCS variants",
 for (i in 2:ncol(mplot))
   lines(mplot[, i], col = colo[i])
 abline(h = 0)
-abline(v = max_lag + 1,     lty = 1)   # lag 0
 abline(v = max_lag + 1 + h, lty = 2)   # lag h
+abline(v = max_lag + 1 , lty = 1)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
@@ -988,6 +988,33 @@ ccf(na.exclude(y_out_mat[, 1]),
     main = paste(colnames(y_out_mat)[k],sep=""))
 
 
+targeth<-c(y_out_mat[(1+h):len,1],rep(NA,h))
+# Remove NAs
+y_outh<-na.exclude(cbind(targeth,y_out_mat))
+y_out<-y_outh[,2:ncol(y_outh)]
+colnames(y_out)<-colnames(y_out_mat)
+target<-y_outh[,1]
+
+target_cor<-NULL
+for (i in 1:ncol(y_out_mat))
+  target_cor<-c(target_cor,cor(target,y_out[,i]))
+names(target_cor)<-colnames(y_out_mat)
+target_cor
+
+smooth<-NULL
+for (i in 1:ncol(y_out_mat))
+  smooth<-c(smooth,mean(diff(diff(scale(y_out[,i])))^2))
+names(smooth)<-colnames(y_out_mat)
+smooth
+
+max_lead   <- 12
+
+for (i in 2:ncol(y_out))
+{
+  filter_mat <- cbind(y_out[,i],y_out[,"Identity"])
+  colnames(filter_mat)<-c(colnames(y_out)[i],"Identity")
+  tau<-compute_min_tau_func(filter_mat, max_lead)
+}
 
 
 
