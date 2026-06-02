@@ -699,9 +699,9 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 
 
 
-# ─────────────────────────────────────────────────────────────────────
-# 2. RSC (Right-Skewing CCF): Relying on the DFP Framework
-# ─────────────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 2:  RSC (Right-Skewing CCF): Relying on the DFP Framework
+# ════════════════════════════════════════════════════════════════════
 
 # ─────────────────────────────────────────────────────────────────────
 # 2.1 Set-Up RSC 
@@ -1038,13 +1038,7 @@ for (i in select_vec)
 
 if (F)
 {
-  set.seed(234)
-  x<-rnorm(1000)
-  xy_mat<-cbind(x,x)
-  max_lead<-15
-  tau<-compute_min_tau_func(xy_mat, max_lead)
-  
-  
+
   omega<-pi/20
   x<-cos((1:1000)*omega)
   y<-cos((1+1:1000)*omega)
@@ -1059,43 +1053,87 @@ if (F)
 }
 
 
-if (F)
+# Time-Shifts
+
+K<-600
+plot_T<-F
+shift_mat<-NULL
+for (i in select_vec)
 {
-  K<-600
-  plot_T<-F
-  b1<- filter_mat[,2]
-  b2<- filter_mat[,7]
-  as_obj1 <- amp_shift_func(K,b1, plot_T)   # time-shift for lagged filter (b1)
-  as_obj2 <- amp_shift_func(K, b2, plot_T)   # time-shift for reference filter (b2)
   
-  # Plot time-shift functions for both filters across frequencies [0, π]
-  par(mfrow = c(1, 1))
-  colo  <- c("blue", "red")
-  mplot <- cbind(as_obj1$shift, as_obj2$shift)
-  colnames(mplot) <- c("Lagged (b1)", "Unlagged (b2)")
-  
-  plot(mplot[, 1], type = "l", axes = FALSE,
-       xlab = "Frequency", ylab = "Time shift (periods)",
-       main = "Time-shift function: lagged vs. unlagged EWMA filter",
-       ylim = c(min(mplot), max(mplot)), col = colo[1])
-  mtext(colnames(mplot)[1], line = -1, col = colo[1])
-  
-  for (i in 2:ncol(mplot)) {
-    lines(mplot[, i], col = colo[i])
-    mtext(colnames(mplot)[i], col = colo[i], line = -i)
-  }
-  # Label frequency axis from 0 to π in sixths
-  axis(1, at = 1 + 0:6 * K / 6,
-       labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
-  axis(2)
-  box()
-  # We can see that the time-shift difference is consistently one (shift=1) 
-  # at all frequencies.
-  
-  eps<-rnorm(200)
-  ts.plot(cbind(filter(eps,b1,sides=1),filter(eps,b2,sides=1)),col=c("blue","red"))
+  b1<- filter_mat[,i]
+  shift_mat<-cbind(shift_mat,amp_shift_func(K,b1, plot_T)$shift)   # time-shift for lagged filter (b1)
 
 }
+colnames(shift_mat)<-colnames(filter_mat)[select_vec]
+
+par(mfrow = c(2, 2))
+colo  <- rainbow(ncol(shift_mat))
+mplot <- shift_mat
+colnames(mplot) <- colnames(shift_mat)
+
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Time-shift function: Whole frequency interval",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# From 0 to pi/6 
+mplot<-shift_mat[1:K/6,]
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "In interval [0,pi/6]",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/36, 2*pi/36, 3*pi/36, 4*pi/36, 5*pi/36, pi/6))
+axis(2)
+box()
+
+# From 0 to pi/6 and trimmed to [-10,10]
+mplot<-shift_mat[1:K/6,]
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Trimmed to -10,10",
+     ylim = c(-10, 10), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/36, 2*pi/36, 3*pi/36, 4*pi/36, 5*pi/36, pi/6))
+axis(2)
+box()
+
+
+
+
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 3:  Applying RSC to MA(9)
+# ════════════════════════════════════════════════════════════════════
+
+
 
 
 
