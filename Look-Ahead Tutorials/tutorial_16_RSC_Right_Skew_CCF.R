@@ -734,7 +734,7 @@ par(mfrow=c(1,1))
 ts.plot(gamma_constraint,
         main = expression(gamma[constraint] == Sigma * gamma[0]),
         xlab = "Lag", ylab = "",
-        sub = "Algebraic constraint vector encoding the CCF slope condition at lag h")
+        sub = "Algebraic constraint vector for controlling the right-skweness of the CCF")
 abline(h = 0)
 
 # Technical note:
@@ -746,11 +746,13 @@ abline(h = 0)
 #   to the original ARMA(1,1) process.
 # - In contrast, here we rely on the integrator Sigma to affect the left tail of
 #   the cross-covariance function (CCF), thereby producing a right-skewed CCF.
-# - While the concepts and ideas are reminiscent, and to some extent intriguing, 
+# - While the concepts and ideas are reminiscent, and the link intriguing, 
 #   there is also a notable difference:
 #   in Tutorial 12, Exercise 1.4, the target is the convolved (integrated from 
 #   original monthly to yearly-growth) DGP, whereas here the target remains the 
-#   original (un-convolved) AR(1) process.
+#   original (un-convolved) AR(1) process and the constraint vector is built to 
+#   affect the CCF at NEGATIVE lags (the exponentially decaying profile of the CCF 
+#   at positive lags is immutable for the present AR(1): infeasible forecast problem).
 
 
 
@@ -900,24 +902,32 @@ box()
 
 # ── Outcomes ─────────────────────────────────────────────────────────
 # Left panel (filter coefficients):
-#   - Unlike the MSE predictor, the PCS/DFP filters assign non-zero weight
-#     to the farthest lag k = q.
-#   - Stronger decoupling (smaller alpha0) progressively shifts weight away
-#     from recent observations toward the oldest lag. This is counter-intuitive
-#     but is a direct consequence of enforcing the CCF slope constraint.
+#   - Decreasing alpha0 accelerates the decay of the predictor weights, which 
+#     turn negative for sufficiently small alpha0. 
+#   - l_start controls for decay of the coefficients at the start: for lags >= l_start, 
+#     coefficients decay faster.
+#   - l_end controls the steepness of the decay: 
+#       - For l_start=0 and l_end = 1 the constraint vector is AR(1) and thus the 
+#         system is infeasible (constraint and target are collinear)
+#       - For l_start = 0 and l_end = 2 the constraint imposes a single lag (discontinous)
+#         decay: this case includes the IDENTITY filter (which is used as a benchmark: dark green line)
+#         as special case.
+#   - For increasing l_end, the decay of predictor weights operates in the interval [l_start, l_end] 
+#     i.e., the decay is longer, more gradual and smoother.
 #
 # Right panel (CCFs):
-#   - The MSE predictors maximize the CCF at their respective forecast horizons.
-#   - Enforcing the slope constraint via decoupling works as intended: as
-#     alpha0 decreases, the slope between lags 0 and h=1 flattens and eventually
-#     inverts, confirming a peak shift toward lag h=1 (violet line).
-#   - Increasing the forecast horizon (any admissible htilde<=9) does not 
-#     shift the peak of the CCF of the MSE predictor.
-#   - The loss in target correlation at lag h=1 is minimised subject to the
-#     modified decoupling constraint (efficient frontier).
+#   - The MSE predictor maximizes the CCF at the forecast horizon h=12.
+#   - Enforcing righ-skewness works as intended: as alpha0 decreases, the 
+#     left tail of the CCF drops markedly while the right tail is optimized 
+#     for maximal CCF at the forecast horizon h=12. 
+#   - No other linear predictor can increase skewness (as implied by the constraint) 
+#     for given target correlation (efficient frontier).
+#   - l_end controls the lag interval over which the asymmetry of the CCF is imposed : 
+#       - For l_start=0 and l_end = 1 the constraint vector is AR(1) and thus the 
+#         system is infeasible (constraint and target are collinear)
+#       - The CCF asymmetry is obtained by pulling down the CCF on average (through the integrator Sigma) 
+#         in the interval [l_start, l_end]. 
 
-# Tabular summary: CCF at lag 0 and lag h for each decoupling level
-round(cor_vec_1, 2)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -960,11 +970,12 @@ for (i in 1:ncol(filter_mat))
   mtext(colnames(filter_mat)[i], col = colo[i], line = -i)
 
 # Outcome:
-#   As the PCS decoupling weight increases (alpha0 decreases), the predictor
-#   output shifts progressively to the left (looks further ahead) relative to
-#   the MSE predictor. This visual lead is confirmed quantitatively by the
-#   empirical CCFs below.
-
+#   - As alpha0 decreases, the predictor output shifts progressively to the left 
+#     (looks further ahead) relative to the MSE predictor. This visual lead is confirmed quantitatively by the
+#     empirical CCFs below.
+#   - Strong skewing (small alpha0) generally lags the identity, but the latter 
+#       - Is a special of skewing, when l_start = 0 and l_end = 2
+#       - Is much noisier; see below.
 
 # ── 2.5.2 Empirical CCF Comparison ───────────────────────────────────
 # Compute empirical CCFs between the nowcast (x_t) and each predictor to
@@ -973,38 +984,17 @@ for (i in 1:ncol(filter_mat))
 
 par(mfrow = c(3, 2))
 
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, 2]),
-    lag.max = h, plot = TRUE,
-    main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
+select_vec<-c(2,4,7,9,11,13)
 
-k<-4
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, k]),
-    lag.max = h, plot = TRUE,
-    main = paste(colnames(y_out_mat)[k],sep=""))
-k<-7
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, k]),
-    lag.max = h, plot = TRUE,
-    main = paste(colnames(y_out_mat)[k],sep=""))
-k<-9
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, k]),
-    lag.max = h, plot = TRUE,
-    main = paste(colnames(y_out_mat)[k],sep=""))
-k<-11
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[,k]),
-    lag.max = h, plot = TRUE,
-    main = paste(colnames(y_out_mat)[k],sep=""))
-k<-13
-ccf(na.exclude(y_out_mat[, 1]),
-    na.exclude(y_out_mat[, k]),
-    lag.max = h, plot = TRUE,
-    main = paste(colnames(y_out_mat)[k],sep=""))
+for ( i in select_vec)
+{
+  ccf(na.exclude(y_out_mat[, 1]),
+      na.exclude(y_out_mat[, i]),
+      lag.max = h, plot = TRUE,
+      main = paste(colnames(y_out_mat)[i],sep=""))
+}  
 
-
+# Compute target correlations and smoothness
 targeth<-c(y_out_mat[(1+h):len,1],rep(NA,h))
 # Remove NAs
 y_outh<-na.exclude(cbind(targeth,y_out_mat))
@@ -1024,21 +1014,26 @@ for (i in 1:ncol(y_out_mat))
 names(smooth)<-colnames(y_out_mat)
 smooth
 
-max_lead   <- 14
 
-for (i in 2:ncol(y_out))
-{
-  xy_mat <- cbind(y_out[,i],y_out[,"Identity"])
-  colnames(xy_mat)<-c(colnames(y_out)[i],"Identity")
-  tau<-compute_min_tau_func(xy_mat, max_lead)
-}
+# Left-shift of trough: 
+#  -Curve: average distance between zero-crossings
+#  -Trough in curve: lag at which zero-crossings of RSC and MSE(12) are closest 
+#    i.e. at which series are aligned.
+# -lead (negative) or lag (positive) of RSC compared to MSE(12): at trough at -k 
+#   indicates a lead of k time units of RSC over MSE(12).
+# -Increased skewness (smaller alpha0) generates a left-shift (larger lead) of RSC
 
-for (i in 2:ncol(y_out))
+max_lead   <- 8
+par(mfrow = c(3, 2))
+plot_vec<-NULL
+for (i in select_vec)
 {
   xy_mat <- cbind(y_out[,i],y_out[,"MSE(12)"])
   colnames(xy_mat)<-c(colnames(y_out)[i],"MSE(12)")
   tau<-compute_min_tau_func(xy_mat, max_lead)
+  tau$min_tau_plot
 }
+
 
 
 if (F)
