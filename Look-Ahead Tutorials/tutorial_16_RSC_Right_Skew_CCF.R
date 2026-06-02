@@ -401,11 +401,6 @@ source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 # Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
 
-library(xts)
-
-# Load data from FRED via the alfred package (no API key required).
-install.packages("alfred")
-library(alfred)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -712,14 +707,26 @@ ccf(mplot_ccf[,1],mplot_ccf[,7],main=colnames(mplot_ccf)[7])
 # 2.1 Set-Up RSC 
 # ─────────────────────────────────────────────────────────────────────
 
-# Lag support: negative lags from k=0 to k=-l0
-l0<-10
-# Integrator
+# Lag support: 
+# - Consider left tail of CCF from k = -l_start to k = l_end.
+# - Find RSC predictor such CCF(k) is pulled down: right-skewed CCF.
+l_start<-0
+l_end<-h
+if (l_start>l_end)
+{
+  print("l_start must be smaller equal l_end")
+  l_start<-l_end
+}
+# Integrator Sigma
 Sigma<-matrix(rep(0,L^2),ncol=L)
-for (i in 1:l0)
-  Sigma[i,1:i]<-1
-
-gamma_constraint<-(Sigma%*%gamma0)
+for (i in (l_start+1):l_end)
+  Sigma[i,(1+l_start):i]<-1
+if (l_end<L)
+{
+  for (i in (l_end+1):L)
+    Sigma[i,(i-l_end+1):i]<-1
+}
+gamma_constraint<-(Sigma%*%c(rep(0,l_start),gamma0[1:(L-l_start)]))
 
 
 
@@ -761,7 +768,7 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b from gamma_constraint — but it serves as a useful practical proxy.
-alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-4)
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-3,-4)
 
 # Display alpha0_vec: the last (negative) entry indicates that the DFP
 # constraint enforces stronger decoupling than the MSE predictor gammah,
@@ -795,8 +802,11 @@ for (i in seq_along(alpha0_vec)) {
   
   alpha0 <- alpha0_vec[i]
   
-  # Compute MSE-PCS predictor with modified constraint vector
-  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  # Compute MSE-RSC predictor with modified constraint vector
+#  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  b <- mse_dfp_from_alpha0_func(gamma_constraint, gammah, alpha0)$b
+#  b <- regularized_dfp_func(gamma_constraint, gammah, alpha0,lambda)$b
+  
   b_mat <- cbind(b_mat, b)
   
   # Compute the population CCF of b against the process over lags [-max_lag, h]
@@ -866,7 +876,7 @@ box()
 
 # ── Right panel: population CCFs ─────────────────────────────────────
 # Vertical lines mark lag 0 (solid) and lag h (dashed).
-max_lag<-l0
+max_lag<-l_end
 ccf_mat<-NULL
 for (i in 1:ncol(filter_mat))
   ccf_mat<-cbind(ccf_mat,compute_acf_at_lags_zero_delta_func(
@@ -885,6 +895,8 @@ abline(v = max_lag + 1 , lty = 1)   # lag h
 axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
 axis(2)
 box()
+
+
 
 # ── Outcomes ─────────────────────────────────────────────────────────
 # Left panel (filter coefficients):
@@ -916,7 +928,7 @@ round(cor_vec_1, 2)
 
 
 # Generate a long white-noise series for a reliable empirical evaluation
-set.seed(17)
+set.seed(1)
 len <- 10000
 eps <- rnorm(len)
 
@@ -928,11 +940,16 @@ for (i in 1:ncol(filter_mat))
                      filter(eps, filter_mat[, i], sides = 1))
 colnames(y_out_mat) <- colnames(filter_mat)
 
+scale(y_out_mat)[,1:2]
+
 colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
+
 
 # Plot a short excerpt to visually compare the temporal alignment of each predictor
 anf <- 390
 enf <- 430
+anf <- 500
+enf <- 600
 
 par(mfrow = c(1, 1))
 ts.plot(scale(y_out_mat[anf:enf, ]),
@@ -958,33 +975,33 @@ par(mfrow = c(3, 2))
 
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, 2]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste("CCF: MSE(",h,"): Peak at lag k = 0 (no peak-shift)",sep=""))
 
 k<-4
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, k]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 k<-7
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, k]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 k<-9
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, k]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 k<-11
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[,k]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 k<-13
 ccf(na.exclude(y_out_mat[, 1]),
     na.exclude(y_out_mat[, k]),
-    lag.max = 10, plot = TRUE,
+    lag.max = h, plot = TRUE,
     main = paste(colnames(y_out_mat)[k],sep=""))
 
 
@@ -1003,20 +1020,91 @@ target_cor
 
 smooth<-NULL
 for (i in 1:ncol(y_out_mat))
-  smooth<-c(smooth,mean(diff(diff(scale(y_out[,i])))^2))
+  smooth<-c(smooth,sqrt(mean(diff(diff(scale(y_out[,i])))^2)))
 names(smooth)<-colnames(y_out_mat)
 smooth
 
-max_lead   <- 12
+max_lead   <- 14
 
 for (i in 2:ncol(y_out))
 {
-  filter_mat <- cbind(y_out[,i],y_out[,"Identity"])
-  colnames(filter_mat)<-c(colnames(y_out)[i],"Identity")
-  tau<-compute_min_tau_func(filter_mat, max_lead)
+  xy_mat <- cbind(y_out[,i],y_out[,"Identity"])
+  colnames(xy_mat)<-c(colnames(y_out)[i],"Identity")
+  tau<-compute_min_tau_func(xy_mat, max_lead)
+}
+
+for (i in 2:ncol(y_out))
+{
+  xy_mat <- cbind(y_out[,i],y_out[,"MSE(12)"])
+  colnames(xy_mat)<-c(colnames(y_out)[i],"MSE(12)")
+  tau<-compute_min_tau_func(xy_mat, max_lead)
+}
+
+
+if (F)
+{
+  set.seed(234)
+  x<-rnorm(1000)
+  xy_mat<-cbind(x,x)
+  max_lead<-15
+  tau<-compute_min_tau_func(xy_mat, max_lead)
+  
+  
+  omega<-pi/20
+  x<-cos((1:1000)*omega)
+  y<-cos((1+1:1000)*omega)
+  
+  xy_mat<-cbind(x,y)
+  max_lead<-40
+  vicinity=4
+  last_crossing_or_closest_crossing=F
+  outlier_limit=max_lead
+  tau<-compute_min_tau_func(xy_mat, max_lead,vicinity,last_crossing_or_closest_crossing,outlier_limit)
+
+}
+
+
+if (F)
+{
+  K<-600
+  plot_T<-F
+  b1<- filter_mat[,2]
+  b2<- filter_mat[,7]
+  as_obj1 <- amp_shift_func(K,b1, plot_T)   # time-shift for lagged filter (b1)
+  as_obj2 <- amp_shift_func(K, b2, plot_T)   # time-shift for reference filter (b2)
+  
+  # Plot time-shift functions for both filters across frequencies [0, π]
+  par(mfrow = c(1, 1))
+  colo  <- c("blue", "red")
+  mplot <- cbind(as_obj1$shift, as_obj2$shift)
+  colnames(mplot) <- c("Lagged (b1)", "Unlagged (b2)")
+  
+  plot(mplot[, 1], type = "l", axes = FALSE,
+       xlab = "Frequency", ylab = "Time shift (periods)",
+       main = "Time-shift function: lagged vs. unlagged EWMA filter",
+       ylim = c(min(mplot), max(mplot)), col = colo[1])
+  mtext(colnames(mplot)[1], line = -1, col = colo[1])
+  
+  for (i in 2:ncol(mplot)) {
+    lines(mplot[, i], col = colo[i])
+    mtext(colnames(mplot)[i], col = colo[i], line = -i)
+  }
+  # Label frequency axis from 0 to π in sixths
+  axis(1, at = 1 + 0:6 * K / 6,
+       labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+  axis(2)
+  box()
+  # We can see that the time-shift difference is consistently one (shift=1) 
+  # at all frequencies.
+  
+  eps<-rnorm(200)
+  ts.plot(cbind(filter(eps,b1,sides=1),filter(eps,b2,sides=1)),col=c("blue","red"))
+
 }
 
 
 
+
+b_h <- regularized_dfp_func(gamma_constraint, gammah, alpha0,lambda)$b
 
 

@@ -213,6 +213,12 @@ compute_mse_dfp <- function(alpha0, gamma0, gammah, plot_T = FALSE)
     gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
   if (length(gammah)<length(gamma0))
     gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
+  if (gamma0[1]==0)
+  {
+    print("The function compute_mse_dfp() assumes gamma0[1] != 0 for inversion.")
+    print("Please use the function mse_dfp_from_alpha0_func() instead")
+    return()
+  }
   
   # Guard: collinear gamma0 and gammah render the DFP problem degenerate.
   if (abs(abs(gamma0 %*% gammah) - sqrt(sum(gamma0^2) * sum(gammah^2))) < 1e-10)
@@ -438,6 +444,52 @@ mse_dfp_from_alpha0_func <- function(gamma0, gammah, alpha0)
 
 
 
+# Instead of the closed form DFPs above, we here propose a regularized DFP:
+# Instead of the constraint, there is a penalty term, weighted by lambda
+# The penalty term is the squared error (t(b)%*%gamma0 - alpha0)^2.
+# Assigning a large regularization weight lambda to the penalty implies that 
+#  t(b)%*%gamma0 \approx alpha0, if the constraint is feasible, i.e., if gammah 
+# and gamma0 are linearly independent.
+regularized_dfp_func <- function(gamma0, gammah, alpha0,lambda)
+{ 
+  if (is.matrix(gamma0))
+    if (ncol(gamma0)==1)
+      gamma0<-as.vector(gamma0)
+  if (is.matrix(gammah))
+    if (ncol(gammah)==1)
+      gammah<-as.vector(gammah)
+  if (length(gamma0)<length(gammah))
+    gamma0<-c(gamma0,rep(0,length(gammah)-length(gamma0)))
+  if (length(gammah)<length(gamma0))
+    gammah<-c(gammah,rep(0,length(gamma0)-length(gammah)))
+  
+  N <-gamma0 %*% t(gamma0)
+  M <- diag(rep(1, L))+lambda * N
+
+# b. Assemble the right-hand side vector:
+#       gamma_sol = gamma_h + lambda * slope * sum_i d_delta[i,]
+#    The second term encodes the desired target slope into the linear system:
+#    in the limit lambda -> Inf, b' * d_delta[i,] -> slope for every i,
+#    provided the system is feasible.
+  gamma_sol <- gammah + lambda * alpha0 * gamma0
+
+# c. Solve M %*% b = gamma_sol for the PCS filter coefficient vector b.
+#    Because M is symmetric positive definite (by construction), the solution
+#    is unique.
+  b <- solve(M) %*% gamma_sol
+
+
+# --- Feasibility check ---
+# Evaluates the residual | b' * d_delta[i,] - slope | for each constraint i.
+# For a feasible system these residuals converge to zero as lambda -> Inf.
+# Residuals that remain persistently non-zero as lambda grows indicate an
+# infeasible constraint system (e.g., caused by rank deficiency of d_delta,
+# as discussed in the rank diagnostic above).
+  abs(gamma0 %*% b - alpha0)
+  t(b)%*%gammah
+
+  return(list(b=b))
+}
 
 
 

@@ -93,6 +93,7 @@ compute_timeliness_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing
 # The minimum of the fuction (sum of timing-distances) indicates the lad or lag of filter2 relative to filter1 
 compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or_closest_crossing=F,outlier_limit=10)
 {  
+  #filter_mat<-xy_mat
   
   #------------------------------------------------------------
   # Empirical lead/lag at zero-crossings
@@ -100,10 +101,10 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
   skip_larger<-outlier_limit
   # Index of series with more crossings: this is measured against the crossings of the reference series
   con_ind<-2
-  # Index of reference series: this one has less crossings and shift is measured with reference to thse crossings only
+  # Index of reference series: this one has less crossings and shift is measured with reference to these crossings only
   ref_ind<-1
   mean_shift_vec<-mean_shift_adjusted_vec<-NULL
-  for (i in 1:max_lead)
+  for (i in 1:max_lead)#i<-3
   {
     shift_series<-cbind(filter_mat[i:nrow(filter_mat),1],filter_mat[1:(nrow(filter_mat)-i+1),2])
   
@@ -173,10 +174,19 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
     
   }
   
-  par(mfrow=c(1,1))
+  par(mfrow=c(2,1))
   main_title<-paste("Min-tau adjusted shift: ", colnames(filter_mat)[1]," vs. ",colnames(filter_mat)[2],sep="")
-  plot(abs(mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="")
+  plot(abs(mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="",
+       ylim=c(0,max(abs(mean_shift_adjusted_vec))))
   abline(v=max_lead)
+  abline(h=0)
+  at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
+  axis(1,at=at_vec,labels=at_vec-max_lead)
+  axis(2)
+  box()
+  plot((mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="")
+  abline(v=max_lead)
+  abline(h=0)
   at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
   axis(1,at=at_vec,labels=at_vec-max_lead)
   axis(2)
@@ -209,8 +219,10 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
 # In general last_crossing_or_closest_crossing==F will lead to smaller lead-times (closest crossing) than
 #   last_crossing_or_closest_crossing==T (latest crossing in vicinity)
 # In the paper we use last_crossing_or_closest_crossing==F exclusively (closest crossings)
+
 new_lead_at_crossing_func<-function(ref_ind,con_ind,filter_mat,last_crossing_or_closest_crossing,vicinity)
 {
+  #filter_mat<-shift_series
   ref_cross<-which(sign(filter_mat[1:(nrow(filter_mat)-1),ref_ind])!=sign(filter_mat[2:(nrow(filter_mat)),ref_ind]))
   con_cross<-which(sign(filter_mat[1:(nrow(filter_mat)-1),con_ind])!=sign(filter_mat[2:(nrow(filter_mat)),con_ind]))
   if (filter_mat[ref_cross[1],ref_ind]<0)
@@ -240,18 +252,21 @@ new_lead_at_crossing_func<-function(ref_ind,con_ind,filter_mat,last_crossing_or_
     ref_len<-length(ref_cross)#length(con_cross)
     
     # For the j-th zero-crossing of reference
-    for (j in 1:ref_len)#  j=1
+    for (j in 1:ref_len)#  j=301
     {
       if (ref_cross_sign[j]>0)
       {
         # Up-turns      
         if (!last_crossing_or_closest_crossing)
         {    
-          # For upturns of reference: select nearest upturn of contender        
+# For upturns of reference: select nearest upturn of contender        
           min_i<-min(abs(abs(con_cross_sign_plus)-abs(ref_cross[j])))
+# There might be two solutions: one before and one after with the same min distance: in this case length(which_min)>1          
           which_min<-which(abs(abs(con_cross_sign_plus)-abs(ref_cross[j]))==min_i)
+# If length(which_min)==2 we use the larger of the two: max(abs(con_cross_sign_plus[which_min]))
           disc_vec<-c(disc_vec,max(abs(con_cross_sign_plus[which_min]))-abs(ref_cross[j]))
-#          disc_vec<-c(disc_vec,min_i)
+#          disc_vec<-c(disc_vec,mean(abs(con_cross_sign_plus[which_min]))-abs(ref_cross[j]))
+          #          disc_vec<-c(disc_vec,min_i)
         } else
         {
           # For upturns of reference: select latest upturn of contender in vicinity of reference up-turn
@@ -285,14 +300,14 @@ new_lead_at_crossing_func<-function(ref_ind,con_ind,filter_mat,last_crossing_or_
           # Time-difference at down-turn: 
           #   in case of two possible nearest crossings we select the max (because the contrary direction is on at the time point of the crossing of the reference filter)
           disc_vec<-c(disc_vec,max(abs(con_cross_sign_negative[which_min]))-abs(ref_cross[j]))
-#          disc_vec<-c(disc_vec,min_i)
+#          disc_vec<-c(disc_vec,mean(abs(con_cross_sign_negative[which_min]))-abs(ref_cross[j]))
           
         } else
         {
           # For down-turns of reference: select latest down-turn of contender in vicinity of reference down-turn
           # This is closer to real-time application though it is still optimistic because the user doesn't know 
           #   that this will be the last down-turn in practice      
-          # 1 All down-pturns in vicinity of reference down-turn        
+          # 1 All down-turns in vicinity of reference down-turn        
           rert<-which(abs(abs(con_cross_sign_negative)-abs(ref_cross[j]))<vicinity)
           # 2. Select latest one or border of vicinity
           if (length(rert)>0)
@@ -302,7 +317,7 @@ new_lead_at_crossing_func<-function(ref_ind,con_ind,filter_mat,last_crossing_or_
             last_tp<-abs(con_cross_sign_negative[max_rert])
           } else
           {
-            # Otherwise select border of vicinity (one again a bit optimistic)            
+            # Otherwise select border of vicinity (once again a bit optimistic)            
             last_tp<-abs(ref_cross[j])+vicinity
             last_tp<-abs(ref_cross[j])
           }
