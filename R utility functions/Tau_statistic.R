@@ -94,6 +94,11 @@ compute_timeliness_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing
 compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or_closest_crossing=F,outlier_limit=10)
 {  
   #filter_mat<-xy_mat
+  if (as.integer(max_lead/2)*2!=max_lead)
+  {
+    print("max_lead should be an even number: we use max_lead+1")
+    max_lead<-max_lead+1
+  }
   
   #------------------------------------------------------------
   # Empirical lead/lag at zero-crossings
@@ -178,12 +183,12 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
   main_title<-paste("Min-tau adjusted shift: ", colnames(filter_mat)[1]," vs. ",colnames(filter_mat)[2],sep="")
   plot(abs(mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="",
        ylim=c(0,max(abs(mean_shift_adjusted_vec))))
-  abline(v=max_lead,lty=2)
+  abline(v=max_lead,lty=1)
   abline(h=0)
-  abline(v=which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec))))
+  abline(v=which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec))),col="darkgreen",lty=2)
     at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
   mtext(paste(" Minimum at lag ",which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec)))-max_lead,
-              sep=""),line=-3)
+              sep=""),line=-3,at=which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec))),col="darkgreen")
   axis(1,at=at_vec,labels=at_vec-max_lead)
   axis(2)
   box()

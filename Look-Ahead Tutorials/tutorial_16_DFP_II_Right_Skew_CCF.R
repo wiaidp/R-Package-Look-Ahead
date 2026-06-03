@@ -2109,7 +2109,7 @@ for (i in 1:ncol(filter_mat))
 
 par(mfrow = c(3, 2))
 
-select_vec<-c(2,4,6,8,10,12)
+select_vec<-c(2,4,7,10,12,14)
 
 
 for ( i in select_vec)
@@ -2152,7 +2152,8 @@ smooth
 #   of the trough (larger lead) of DFP II, up to some point: for alpha_0 smaller than 0.18 
 #   the lead at zero-crossings has vanished into the noise.
 
-max_lead   <- 6
+
+max_lead   <- h
 vicinity=4
 last_crossing_or_closest_crossing=F
 outlier_limit=40
