@@ -166,6 +166,7 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
     box()
     plot(abs(mean_shift_adjusted_vec),col="blue",main="Min-tau adjusted shift",axes=F,type="l", xlab="Lead/lag",ylab="")
     abline(v=max_lead)
+    abline(v=which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec))))
     at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
     axis(1,at=at_vec,labels=at_vec-max_lead)
     axis(2)
@@ -177,9 +178,12 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
   main_title<-paste("Min-tau adjusted shift: ", colnames(filter_mat)[1]," vs. ",colnames(filter_mat)[2],sep="")
   plot(abs(mean_shift_adjusted_vec),col="blue",main=main_title,axes=F,type="l", xlab="Lead/lag",ylab="",
        ylim=c(0,max(abs(mean_shift_adjusted_vec))))
-  abline(v=max_lead)
+  abline(v=max_lead,lty=2)
   abline(h=0)
-  at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
+  abline(v=which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec))))
+    at_vec<-c(1,max_lead/2,max_lead,3*max_lead/2,2*max_lead-1)
+  mtext(paste(" Minimum at lag ",which(abs(mean_shift_adjusted_vec)==min(abs(mean_shift_adjusted_vec)))-max_lead,
+              sep=""),line=-3)
   axis(1,at=at_vec,labels=at_vec-max_lead)
   axis(2)
   box()
@@ -197,13 +201,7 @@ compute_min_tau_func<-function(filter_mat,max_lead=6,vicinity=4,last_crossing_or
   }
   
   min_tau_plot<-recordPlot()
-  
-  
-  
-  
-  
-  
-  
+
   return(list(mean_shift_vec=mean_shift_vec,mean_shift_adjusted_vec=mean_shift_adjusted_vec,min_tau_plot=min_tau_plot))
   
 }
