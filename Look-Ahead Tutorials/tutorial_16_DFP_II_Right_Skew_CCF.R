@@ -7,6 +7,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+# Decouple from past + maximize target correlation = right-skewed CCF
+# Right-skewed CCF does not imply right-shift of CCF peak (nor control location of CCF peak)
 
 # ── BACKGROUND: DFP AND PCS FORECASTING ───────────────────────────────────────
 
@@ -22,7 +24,7 @@
 #   Type I   PCS: CCF(k) - CCF(k-1) = beta_k >= 0,  for k = 1, ..., h
 #   Type II  PCS: CCF(h) - CCF(h-1) = beta    >= 0
 #   Type III PCS: CCF(h) - CCF(0)   = beta    >= 0
-#   Type IV will be introduced and discussed in Tutorial 15.
+#   Type IV will be introduced and discussed in Tutorial 1
 #
 # For further details, see Tutorial 13.
 #
@@ -180,6 +182,9 @@
 
 rm(list = ls())
 
+library(mFilter)
+
+
 # Load the DFP optimisation routines.
 # Provides DFP_compute_lambda_alpha0_func() and related solvers.
 source(paste(getwd(), "/R/DFP.r", sep = ""))
@@ -192,6 +197,9 @@ source(paste(getwd(), "/R utility functions/Tau_statistic.r", sep = ""))
 
 # Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
 source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+
+# Load HP utilities
+source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
 
 
 
@@ -1860,21 +1868,21 @@ if (h > q )
 # gammah[k] = b_{h+k} for k = 0, …, q-h, and 0 thereafter.
 gammah <- c(b_ma[(h + 1):(q + 1)], rep(0, L - (q - h + 1)))
 gamma0 <- c(b_ma, rep(0, L - (q+1 )))
-
+gamma_I<-c(1,rep(0,L-1))
+xi<-gamma0
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.1 Set-Up DFP II 
+# 5.3 Set-Up DFP II 
 # ─────────────────────────────────────────────────────────────────────
 
 # Lag support: 
-# - Consider left tail of CCF from k = -l_start to k = l_end.
-# - Find DFP II predictor such CCF(k) is pulled down: right-skewed CCF.
-# To illustrate and understand the role of the integrator we here select 
-# particular (not necessarily practically relevant) l_start and 
-# l_end
+# MA(9) has rank q = 9 > 1.
+# Therefore, right-skewing is possible with minimal constraints by constraining 
+#  the CCF at lag k = -1 only. This allows the target correlation CCF(h) to be 
+#  effectively maximized (subject to the mildest constraint)
 
-l_start<-1
-l_end<-h
+l_start<-0
+l_end<-1
 if (l_start>=l_end)
 {
   print("l_start must be smaller than l_end")
@@ -1914,7 +1922,7 @@ mse_coup <- as.double(gammah %*% gamma_constraint)
 # Note: since the predictors are not normalized (||b|| != 1), the
 # rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
 # of b from gamma_constraint — but it serves as a useful practical proxy.
-alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-3,-4)
+alpha0_vec <- c(mse_coup / 1.5^(1:9), 0)
 
 # Display alpha0_vec: the last (negative) entry indicates that the DFP
 # constraint enforces stronger decoupling than the MSE predictor gammah,
@@ -1923,7 +1931,7 @@ alpha0_vec
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.2 Decoupling over the alpha0-Grid
+# 5.4 Decoupling over the alpha0-Grid
 # ─────────────────────────────────────────────────────────────────────
 # For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
 # Proposition 1 (Wildi 2026):
@@ -1969,7 +1977,7 @@ rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.3 Routine Checks
+# 5.5 Routine Checks
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Check 1: Decoupling constraint ──────
@@ -1995,7 +2003,7 @@ colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),"Identity",
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.4 Plots and Performance Summary
+# 5.6 Plots and Performance Summary
 # ─────────────────────────────────────────────────────────────────────
 
 par(mfrow = c(1, 2))
@@ -2057,10 +2065,31 @@ ccf_decouple_check<-ccf_decouple[,which("DFP"==substr(colnames(ccf_decouple),1,3
 apply(ccf_decouple_check,2,sum)-(alpha0_vec/(sqrt(apply(b_mat^2,2,sum))*sqrt(sum(xi^2))))
 
 
+# Main Take-Aways:
+# - Decoupling from the paste while maximizing the target correlation right-skews 
+#   the CCF (DFP II).
+# - The right skew implies that, when feasible, the peak of the CCF will be right-shifted 
+#   assuming sufficient incentive (sufficiently strong decoupling).
+# - In contrast to the PCS, there is no explicit control on the location 
+#   of the CCF peak. 
+# - But this alleged problem is fake:
+#   1. One can always select alpha_0 such that the peak is located at the intended forrcast horizon (when feasible).
+#   2. There (most certainly) exists a closed-form expression for this alpha_0 given h (when feasible).
+# -Conclusion: 
+# A) Two approaches 
+#   A.1 Original DFP or PCS: address the right tail of the CCF.
+#   A.2 DFP II or perturbation: address the left tail of the CCF.
+# A.1 Works only if the problem is feasible (rank of constraint system).
+# A.2 Works always (because b can nearly always accommodate the left tail through the integrator trick )
+# Summary: 
+#  - A.1 better or more direct control on interesting right tail (location of peak). But not always feasible.
+#  - A.2 indirect (though probably closed-form direct possible) control on interesting right tail through 
+#     skewness. Skewness almost always feasible in practice. But peak shifting to the right not always feasible (only skewness feasible).
 
+# Why should we use A.1 then? It is less general/effective and its direct control (when feasible) probably extends to A.2, too.
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.5 Applying the Filters to Simulated Data
+# 5.7 Applying the Filters to Simulated Data
 # ─────────────────────────────────────────────────────────────────────
 
 # ── 5.5.1 Forecast Comparison ────────────────────────────────────────
@@ -2109,7 +2138,8 @@ for (i in 1:ncol(filter_mat))
 
 par(mfrow = c(3, 2))
 
-select_vec<-c(2,4,7,10,12,14)
+select_vec<-c(2,4,7,10,12,ncol(y_out_mat))
+
 
 
 for ( i in select_vec)
@@ -2168,9 +2198,12 @@ for (i in select_vec) #i<-2
 }
 
 
+# Hint: try l_start = 0 and l_end = h and alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.5,-1,-2,-3,-4)
+
+
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.6 Time-Shifts
+# 5.8 Time-Shifts
 # ─────────────────────────────────────────────────────────────────────
 
 # Time-Shifts
@@ -2245,10 +2278,10 @@ axis(2)
 box()
 
 # ─────────────────────────────────────────────────────────────────────
-# 5.7 AR Form
+# 5.9 AR Form
 # ─────────────────────────────────────────────────────────────────────
 
-# ── 5.7.1 AR Inversion ───────────────────────────────────
+# ── 5.9.1 AR Inversion ───────────────────────────────────
 
 # Compute the AR inversion filter (the inverse of the MA polynomial),
 # which transforms the Wold (MA-infinity) representation back into
@@ -2275,7 +2308,7 @@ ts.plot(theta, main = "AR Inversion Filter")
 # predictor (in MA form) to obtain the corresponding AR-form representation.
 
 
-# ── 5.7.2 Derivation of AR Forms ───────────────────────────────────
+# ── 5.9.2 Derivation of AR Forms ───────────────────────────────────
 
 # Verification: convolving theta with gamma_0 should recover the identity
 # filter. Residual deviations from [1, 0, 0, ...] vanish as L increases,
@@ -2315,6 +2348,537 @@ for (i in 1:ncol(filter_mat_ar))
 # -The identity and the full decoupling (alpha0=0) DFP II overlap (after scaling)
 # -Increased decoupling (skewness) assigns increasingly negative weight to lag 1.
 
+
+
+# ════════════════════════════════════════════════════════════════════
+# EXERCISE 6:  Applying DFP II to HP
+# ════════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.1 Hodrick Prescott (HP)
+# ─────────────────────────────────────────────────────────────────────
+
+
+
+# ── HP FILTER SET-UP ──────────────────────────────────────────────────────────
+
+# Standard HP smoothing parameter for quarterly data.
+lambda_hp <- 1600
+
+# Filter half-length: L must be odd so that the symmetric filter is centred
+# at position (L - 1)/2 + 1 (not in the middle between two consecutive lags).
+L_HP <- 101
+
+# Compute the concurrent (causal, one-sided) HP trend filter.
+HP_obj   <- HP_target_mse_modified_gap(2 * (L_HP - 1) + 1, lambda_hp)
+# Classic one-sided HP
+hp_c <- HP_obj$hp_trend
+# Right tail of symmetric HP trend filter
+hp_trend <- HP_obj$hp_mse
+
+par(mfrow=c(1,1))
+ts.plot(cbind(hp_trend,hp_c),main=paste("Right half and classic concurrent HP(",lambda_hp,")",sep=""),
+        col=c("green","violet"))
+mtext("Right-half HP (MSE optimal under white noise)",line=-1,col="green")
+mtext("Classic HP-C",line=-2,col="violet")
+
+# Note on the HP Filter: An AR(2) Design
+# The HP filter satisfies an AR(2) difference equation, as illustrated by the
+# regression equations below (as L increases, the residuals vanish asymptotically):
+summary(lm(hp_c[2+1:L_HP]~hp_c[1+1:L_HP]+hp_c[1:L_HP]))
+summary(lm(hp_trend[2+1:L_HP]~hp_trend[1+1:L_HP]+hp_trend[1:L_HP]))
+# AR(2) HP coefficients
+ar_vec<-lm(hp_trend[2+1:L_HP]~hp_trend[1+1:L_HP]+hp_trend[1:L_HP])$coef[-1]
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.2 MSE-Optimal h-Step-Ahead Predictor
+# ─────────────────────────────────────────────────────────────────────
+
+# Filter length
+L<-50
+# One year: 4 quarters
+h <- 4
+
+# Optimal MSE filter: retain MA coefficients from lag h onward; pad to length L.
+# gammah[k] = b_{h+k} for k = 0, …, q-h, and 0 thereafter.
+gammah <- hp_trend[h+1:L]
+gamma0 <- hp_trend[1:L]
+gamma_I <- c(1,rep(0,L-1))
+xi <- hp_trend
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.3 Set-Up DFP II 
+# ─────────────────────────────────────────────────────────────────────
+
+# Lag support: 
+# HP is an AR(2), i.e., it has rank 2 > 1.
+# Therefore, right-skewing is possible with minimal constraints by constraining 
+#  the CCF at lag k = -1 only.
+
+
+l_start<-0
+l_end<-1
+if (l_start>=l_end)
+{
+  print("l_start must be smaller than l_end")
+  l_start<-l_end+1
+}
+# Integrator Sigma
+Sigma<-matrix(rep(0,L^2),ncol=L)
+for (i in (l_start+1):l_end)
+  Sigma[i,(1+l_start):i]<-1
+if (l_end<L)
+{
+  for (i in (l_end+1):L) #i<-l_end+1
+    Sigma[i,((i-l_end+l_start)+1):i]<-1
+}
+gamma_constraint<-(Sigma%*%c(rep(0,l_start),gamma0[1:(L-l_start)]))
+
+
+
+par(mfrow=c(1,1))
+ts.plot(gamma_constraint,
+        main = expression(gamma[constraint] == Sigma * gamma[0]),
+        xlab = "Lag", ylab = "",
+        sub = "Algebraic constraint vector for controlling the right-skweness of the CCF")
+abline(h = 0)
+
+
+
+# Baseline coupling: inner product of gammah with gamma_constraint under the
+# unconstrained MSE predictor gammah.
+# Purpose: mse_coup serves as a natural upper bound for the DFP constraint,
+# i.e., any effective decoupling should enforce a coupling strictly below this.
+mse_coup <- as.double(gammah %*% gamma_constraint)
+
+# Sequence of decoupling levels alpha0, each strictly smaller than mse_coup.
+# Smaller (more negative) values enforce a progressively stronger right skewing 
+# of  the CCF (decoupling from the paste).  
+# Note: since the predictors are not normalized (||b|| != 1), the
+# rule is not exact — alpha0 < mse_coup does not guarantee stronger decoupling
+# of b from gamma_constraint — but it serves as a useful practical proxy.
+alpha0_vec <- c(mse_coup / 1.5^(1:5), 0, -0.001,-0.002,-0.004,-0.007,-0.012)
+alpha0_vec <- c(mse_coup / 1.5^(1:9), 0)
+
+# Display alpha0_vec: the last (negative) entry indicates that the DFP
+# constraint enforces stronger decoupling than the MSE predictor gammah,
+# which should shift the CCF peak to the right from k = 0 to k = h = 1.
+alpha0_vec
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.4 Decoupling over the alpha0-Grid
+# ─────────────────────────────────────────────────────────────────────
+# For each alpha0 in alpha0_vec, compute the MSE-optimal PCS predictor via
+# Proposition 1 (Wildi 2026):
+#
+#   b = gammah + lambda * gamma_constraint,
+#   lambda = (alpha0 - gamma_constraint' * gammah) / (gamma_constraint' * gamma_constraint)
+#
+# This closed-form solution minimises the MSE subject to the modified
+# decoupling constraint b %*% gamma_constraint = alpha0.
+
+b_mat       <- NULL    # filter coefficients, one column per alpha0
+cor_vec_mat <- NULL    # full CCF vectors, one column per alpha0
+
+# CCF values at lags 0 and h for each alpha0 (for tabular summary)
+cor_vec_1 <- matrix(ncol = 2, nrow = length(alpha0_vec))
+
+# Number of leads on either side of lag 0 to include in the CCF (does not affect 
+# optimization)
+max_lag <- 1
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Compute MSE-DFP II predictor with modified constraint vector
+  #  b <- compute_mse_dfp(alpha0, gamma_constraint, gammah)$b0
+  b <- mse_dfp_from_alpha0_func(gamma_constraint, gammah, alpha0)$b
+  #  b <- regularized_dfp_func(gamma_constraint, gammah, alpha0,lambda)$b
+  
+  b_mat <- cbind(b_mat, b)
+  
+  # Compute the population CCF of b against the process over lags [-max_lag, h]
+  cor_vec <- compute_acf_at_lags_zero_delta_func(
+    max_lag, h, as.vector(b), xi)$cor_vec
+  cor_vec_mat     <- cbind(cor_vec_mat, cor_vec)
+  cor_vec_1[i, 1] <- cor_vec[1]         # CCF at lag 0 (coupling with present)
+  cor_vec_1[i, 2] <- cor_vec[1 + h]     # CCF at lag h (coupling with target)
+}
+
+colnames(b_mat) <- colnames(cor_vec_mat) <- paste0("alpha0=", round(alpha0_vec, 3))
+colnames(cor_vec_1) <- c("Lag 0", paste0("h=", h))
+rownames(cor_vec_1)<-paste0("alpha0=", round(alpha0_vec, 3))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.5 Routine Checks
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Check 1: Decoupling constraint ──────
+
+# Verification: the constraint b %*% gamma_constraint = alpha0 should hold
+# exactly for every column of b_mat (residuals should be numerically zero).
+t(b_mat) %*% gamma_constraint - alpha0_vec
+
+# ── Check 2: sign / orientation preservation ──────────────────────────────
+# A strictly positive sum of filter coefficients confirms that none of the
+# PCS filters inverts the direction of a trend or level shift in the data.
+apply(b_mat, 2, sum)
+
+# CHECK 3 — Positive Target Covariance
+t(b_mat)%*%gammah
+
+
+# Collect all filters (nowcast, MSE, and PCS variants) into a single matrix
+filter_mat <- cbind(gamma0, gammah, gamma_I, b_mat)
+colnames(filter_mat) <- c("Nowcast", paste("MSE(",h,")",sep=""),"Identity",
+                          paste0("DFP II ", round(alpha0_vec, 5)))
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.6 Plots and Performance Summary
+# ─────────────────────────────────────────────────────────────────────
+
+par(mfrow = c(1, 2))
+colo  <- c("black","green","darkgreen", rainbow(ncol(b_mat)))
+
+# ── Left panel: filter coefficients ──────────────────────────────────
+# Truncate to the first q+1 lags where the MA process has support.
+mplot <- scale(filter_mat,center=F,scale=T)
+
+plot(mplot[, 1], main = "Scaled filter coefficients: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)),max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i],line = -i, col = colo[i])
+abline(h = 0)
+abline(v =   1,     lty = 1)   # lag 0
+abline(v =   h+1, lty = 2)   # lag h
+axis(1, at = 1:nrow(mplot), labels = - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# ── Right panel: population CCFs ─────────────────────────────────────
+# Vertical lines mark lag 0 (solid) and lag h (dashed).
+max_lag<-l_end
+ccf_mat<-NULL
+for (i in 1:ncol(filter_mat))
+  ccf_mat<-cbind(ccf_mat,compute_acf_at_lags_zero_delta_func(
+    max_lag, h, filter_mat[,i], xi)$cor_vec)
+rownames(ccf_mat)<--max_lag - 1 + 1:nrow(ccf_mat)
+colnames(ccf_mat)<-colnames(filter_mat)
+mplot   <- ccf_mat
+
+plot(mplot[, 1], main = "Population CCFs: MSE and PCS variants",
+     axes = FALSE, type = "l", xlab = "Lag", ylab = "",
+     col = colo[1], lwd = 1,
+     ylim = c(min(0,min(mplot)), max(mplot)))
+for (i in 2:ncol(mplot))
+  lines(mplot[, i], col = colo[i])
+abline(h = 0)
+abline(v = max_lag + 1 + h, lty = 2)   # lag h
+abline(v = max_lag + 1 , lty = 1)   # lag h
+axis(1, at = 1:nrow(mplot), labels = -max_lag - 1 + 1:nrow(mplot))
+axis(2)
+box()
+
+# Cross-check the decoupling constraint:
+# 1. Select CCF in decoupling range l_start to l_end: note that CCF starts at 
+#    max_lag=l_end above (first entry is l_end)
+ccf_decouple<-matrix(ccf_mat[1+1:(l_end-l_start),],nrow=(l_end-l_start))
+colnames(ccf_decouple)<-colnames(ccf_mat)
+# 2. Retain only DFP designs (remove nowcast and benchmarks)
+ccf_decouple_check<-ccf_decouple[,which("DFP"==substr(colnames(ccf_decouple),1,3))[1]:ncol(ccf_decouple),drop=F]
+# 3. Apply integrator column wise and compare with alpha_0 scaled by lengths of b and xi: the differences should vanish:
+#     Note: we use xi instead of gamma0 when computing the CCF. Therefore we must scale with length of xi (not gamma0)
+# The differences should vanish (note: there's a 0/0 singularity when alpha0=0: just ignore)
+apply(ccf_decouple_check,2,sum)-(alpha0_vec/(sqrt(apply(b_mat^2,2,sum))*sqrt(sum(xi^2))))
+
+
+# Main Take-Aways:
+# - Decoupling from the paste while maximizing the target correlation right-skews 
+#   the CCF (DFP II).
+# - The right skew implies that, when feasible, the peak of the CCF will be right-shifted 
+#   assuming sufficient incentive (sufficiently strong decoupling).
+# - In contrast to the PCS, there is no explicit control on the location 
+#   of the CCF peak. 
+# - But this alleged problem is fake:
+#   1. One can always select alpha_0 such that the peak is located at the intended forrcast horizon (when feasible).
+#   2. There (most certainly) exists a closed-form expression for this alpha_0 given h (when feasible).
+# -Conclusion: 
+# A) Two approaches 
+#   A.1 Original DFP or PCS: address the right tail of the CCF.
+#   A.2 DFP II or perturbation: address the left tail of the CCF.
+# A.1 Works only if the problem is feasible (rank of constraint system).
+# A.2 Works always (because b can nearly always accommodate the left tail through the integrator trick )
+# Summary: 
+#  - A.1 better or more direct control on interesting right tail (location of peak). But not always feasible.
+#  - A.2 indirect (though probably closed-form direct possible) control on interesting right tail through 
+#     skewness. Skewness almost always feasible in practice. But peak shifting to the right not always feasible (only skewness feasible).
+
+# Why should we use A.1 then? It is less general/effective and its direct control (when feasible) probably extends to A.2, too.
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.7 Applying the Filters to Simulated Data
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 6.7.1 Forecast Comparison ────────────────────────────────────────
+
+
+# Generate a long white-noise series for a reliable empirical evaluation
+set.seed(1)
+len <- 10000
+eps <- rnorm(len)
+
+# Apply each filter to eps via causal (one-sided) convolution.
+# filter(..., sides = 1) computes the linear filter sum_{k=0}^{L-1} b_k * eps_{t-k}.
+y_out_mat <- NULL
+for (i in 1:ncol(filter_mat))
+  y_out_mat <- cbind(y_out_mat,
+                     filter(eps, filter_mat[, i], sides = 1))
+colnames(y_out_mat) <- colnames(filter_mat)
+
+scale(y_out_mat)[,1:2]
+
+colo <- c("black", "green","darkgreen", rainbow(ncol(b_mat)))
+
+
+# Plot a short excerpt to visually compare the temporal alignment of each predictor
+anf <- 390
+enf <- 430
+anf <- 500
+enf <- 600
+
+par(mfrow = c(1, 1))
+ts.plot(scale(y_out_mat[anf:enf, ]),
+        main = "Predictor outputs (standardised): excerpt",
+        col = colo, xlab = "Time", ylab = "")
+abline(h = 0)
+for (i in 1:ncol(filter_mat))
+  mtext(colnames(filter_mat)[i], col = colo[i], line = -i)
+
+# Outcome:
+#   - As alpha0 decreases, the predictors become noisy and strongly mean-reverting:
+#     the predictors are unable to track episodic swings away from the center line. 
+
+# ── 6.7.2 Empirical CCF Comparison ───────────────────────────────────
+# Compute empirical CCFs between the nowcast (x_t) and each predictor to
+# confirm that the population peak shift observed in Section 1.5 is
+# reproduced in finite-sample data.
+
+par(mfrow = c(3, 2))
+
+select_vec<-c(2,4,7,10,12,ncol(y_out_mat))
+
+
+for ( i in select_vec)
+{
+  ccf(na.exclude(y_out_mat[, 1]),
+      na.exclude(y_out_mat[, i]),
+      lag.max = h, plot = TRUE,
+      main = paste(colnames(y_out_mat)[i],sep=""))
+}  
+
+# Compute target correlations and smoothness
+targeth<-c(y_out_mat[(1+h):len,1],rep(NA,h))
+# Remove NAs
+y_outh<-na.exclude(cbind(targeth,y_out_mat))
+y_out<-y_outh[,2:ncol(y_outh)]
+colnames(y_out)<-colnames(y_out_mat)
+target<-y_outh[,1]
+
+target_cor<-NULL
+for (i in 1:ncol(y_out_mat))
+  target_cor<-c(target_cor,cor(target,y_out[,i]))
+names(target_cor)<-colnames(y_out_mat)
+target_cor
+
+smooth<-NULL
+for (i in 1:ncol(y_out_mat))
+  smooth<-c(smooth,sqrt(mean(diff(diff(scale(y_out[,i])))^2)))
+names(smooth)<-colnames(y_out_mat)
+# The predictors are becoming increasingly noisy with decreasing alpha_0
+smooth
+
+
+# Left-shift of trough: 
+#  -Curve: average distance between zero-crossings
+#  -Trough in curve: lag at which zero-crossings of DFP II and MSE(12) are closest 
+#    i.e. at which series are aligned.
+# -lead (negative) or lag (positive) of DFP II compared to MSE(12): at trough at -k 
+#   indicates a lead of k time units of DFP II over MSE(12).
+# -Increased decoupling from paste or skewness (smaller alpha0) generates a left-shift 
+#   of the trough (larger lead) of DFP II, up to some point: for alpha_0 smaller than 0.18 
+#   the lead at zero-crossings has vanished into the noise.
+
+
+max_lead   <- h
+vicinity=4
+last_crossing_or_closest_crossing=F
+outlier_limit=40
+par(mfrow = c(3, 2))
+plot_vec<-NULL
+for (i in select_vec) #i<-2
+{
+  xy_mat <- cbind(y_out[,i],y_out[,paste("MSE(",h,")",sep="")])
+  colnames(xy_mat)<-c(colnames(y_out)[i],paste("MSE(",h,")",sep=""))
+  tau<-compute_min_tau_func(xy_mat, max_lead,vicinity,last_crossing_or_closest_crossing,outlier_limit)
+  tau$min_tau_plot
+}
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.8 Time-Shifts
+# ─────────────────────────────────────────────────────────────────────
+
+# Time-Shifts
+
+K<-600
+plot_T<-F
+shift_mat<-NULL
+for (i in select_vec)
+{
+  
+  b1<- filter_mat[,i]
+  shift_mat<-cbind(shift_mat,amp_shift_func(K,b1, plot_T)$shift)   # time-shift for lagged filter (b1)
+  
+}
+colnames(shift_mat)<-colnames(filter_mat)[select_vec]
+
+par(mfrow = c(2, 2))
+colo  <- rainbow(ncol(shift_mat))
+mplot <- shift_mat
+colnames(mplot) <- colnames(shift_mat)
+
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Time-shift function: Whole frequency interval",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/6, 2*pi/6, 3*pi/6, 4*pi/6, 5*pi/6, pi))
+axis(2)
+box()
+
+# From 0 to pi/6 
+mplot<-shift_mat[1:K/6,]
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "In interval [0,pi/6]",
+     ylim = c(min(mplot), max(mplot)), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/36, 2*pi/36, 3*pi/36, 4*pi/36, 5*pi/36, pi/6))
+axis(2)
+box()
+
+# From 0 to pi/6 and trimmed to [-10,10]
+mplot<-shift_mat[1:K/6,]
+plot(mplot[,1], type = "l", axes = FALSE,
+     xlab = "Frequency", ylab = "Time shift (periods)",
+     main = "Trimmed to -10,10",
+     ylim = c(-10, 10), col = colo[1])
+mtext(colnames(mplot)[1], line = -1, col = colo[1])
+
+for (i in 2:ncol(mplot)) {
+  lines(mplot[, i], col = colo[i])
+  mtext(colnames(mplot)[i], col = colo[i], line = -i)
+}
+# Label frequency axis from 0 to π in sixths
+axis(1, at = 1 + 0:6 * K / 6,
+     labels = expression(0, pi/36, 2*pi/36, 3*pi/36, 4*pi/36, 5*pi/36, pi/6))
+axis(2)
+box()
+
+# ─────────────────────────────────────────────────────────────────────
+# 6.9 AR Form
+# ─────────────────────────────────────────────────────────────────────
+
+# ── 6.9.1 AR Inversion ───────────────────────────────────
+
+# Compute the AR inversion filter (the inverse of the MA polynomial),
+# which transforms the Wold (MA-infinity) representation back into
+# an AR representation.
+ar_inv <- ar_vec
+
+
+# Assemble the full AR filter (including the leading coefficient of 1).
+theta <- c(1, -ar_inv)
+
+# Verify correctness via a known identity:
+# convolving the AR inversion filter with the Wold (MA) coefficients must
+# yield the identity filter, i.e., [1, 0, 0, ...]. Negligible deviation from 
+# the identity is due to finite length-L inversions.
+conv_two_filt_func(xi, theta)$conv[1:L]
+
+# Visualise the AR inversion filter.
+par(mfrow = c(1, 1))
+ts.plot(theta, main = "AR Inversion Filter")
+
+
+# Having verified the identity, we convolve the AR operator with each PCS
+# predictor (in MA form) to obtain the corresponding AR-form representation.
+
+
+# ── 6.9.2 Derivation of AR Forms ───────────────────────────────────
+
+# Verification: convolving theta with gamma_0 should recover the identity
+# filter. Residual deviations from [1, 0, 0, ...] vanish as L increases,
+# reflecting the finite truncation of both the MA and AR representations.
+conv_two_filt_func(theta, gamma0)$conv[1:10]
+
+# Convolve the AR operator with each predictor in filter_mat to obtain
+# the AR-form coefficient vectors.
+filter_mat_ar <- NULL
+for (i in 1:ncol(filter_mat))
+  filter_mat_ar <- cbind(filter_mat_ar,
+                         conv_two_filt_func(theta, filter_mat[, i])$conv)
+colnames(filter_mat_ar) <- colnames(filter_mat)
+
+# Verification: the first column (nowcast gamma_0) should be the identity.
+filter_mat_ar[1:10, 1]
+
+
+# Plot
+
+colo <- c("black", "green", rainbow(ncol(filter_mat_ar) - 2))
+
+first_lags <- h+3
+par(mfrow = c(1, 1))
+# Plot the first `first_lags` AR coefficients for each predictor.
+ts.plot(
+  scale(filter_mat_ar[1:first_lags, ],center=F,scale=T),
+  col  = colo,
+  main = "DFP II Predictors in AR Form (scaled to unit-length)",
+  lty  = c(2, 2, rep(1, ncol(filter_mat) - 2)),
+  lwd  = c(1, 2, rep(1, ncol(filter_mat) - 2)))
+for (i in 1:ncol(filter_mat_ar))
+  mtext(colnames(filter_mat_ar)[i], col = colo[i], line = -i)
+
+
+# Comments:
+# -The identity and the full decoupling (alpha0=0) DFP II overlap (after scaling)
+# -Increased decoupling (skewness) assigns increasingly negative weight to lag 1.
 
 
 
