@@ -341,7 +341,7 @@
 # Perturbation-based approaches are, however, just one instance of a broader
 # strategy: modifying the left tail of the CCF is a general and flexible
 # pathway to look-ahead behaviour whenever the right tail is structurally
-# immutable or too rigid to admit meaningful modification. 
+# immutable or too rigid to admit meaningful modification, see Tutorial 16. 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
