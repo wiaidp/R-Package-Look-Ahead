@@ -2525,6 +2525,17 @@ for (i in 1:ncol(filter_mat_ar))
 # EXERCISE 6:  Applying DFP II to HP
 # ════════════════════════════════════════════════════════════════════
 
+# This concluding exercise applies the DFP II to a feasible peak-correlation
+# shifting problem based on the Hodrick-Prescott filter. While the original
+# results from Tutorials ??? could be replicated by setting l_start=0 and
+# l_end=1 (which renders the identity Sigma integrator: Sigma = Id),
+# we here deliberately depart from that pure replication setting by choosing
+# an alternative Sigma operator that emphasizes the CCF aggregated over past
+# lags k = -1, ..., -h, where h = 4 (yearly forecast in a quarterly data
+# framework). This example provides additional insights into the flexibility
+# of the DFP II framework.
+
+
 # ─────────────────────────────────────────────────────────────────────
 # 6.1 Hodrick Prescott (HP)
 # ─────────────────────────────────────────────────────────────────────
@@ -2589,7 +2600,7 @@ xi <- hp_trend
 
 
 l_start<-0
-l_end<-1
+l_end<-h
 if (l_start>=l_end)
 {
   print("l_start must be smaller than l_end")
