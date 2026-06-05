@@ -852,3 +852,276 @@ max(na.exclude(abs(y_dfp_ma - y_dfp_ar)[1:200]))
 
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# Exercise 3 Regularized MSE DFP
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Regularized DFP: Penalised Formulation ───────────────────────────────────
+#
+# For completeness, we present a regularized variant of the MSE-DFP optimisation
+# in which the hard decoupling constraint is replaced by a quadratic penalty
+# term in the objective function.
+#
+# ── Constrained (hard) formulation ───────────────────────────────────────────
+#
+# The original MSE-DFP problem minimises the mean-squared filter error subject
+# to an exact linear constraint on the coupling level:
+#
+#   min  t(b - gamma_h) %*% (b - gamma_h)
+#    
+#   s.t. t(b) %*% gamma_constraint = alpha_0
+#
+# ── Regularized (soft) formulation ───────────────────────────────────────────
+#
+# The regularized DFP relaxes the hard constraint by incorporating it as a
+# squared penalty term directly in the objective function:
+#
+#   min  t(b - gamma_h) %*% (b - gamma_h)
+#           + lambda * ( t(b) %*% gamma_constraint - alpha_0 )^2
+#
+# This is an unconstrained optimisation problem. The penalty weight lambda
+# governs the trade-off between MSE minimisation and constraint satisfaction:
+#
+#   lambda → 0   :  penalty vanishes; solution converges to unconstrained MSE
+#                   predictor gammah (no decoupling enforced).
+#   lambda → ∞   :  penalty dominates; the squared residual
+#                   ( t(b) %*% gamma_constraint - alpha_0 )^2 is driven to zero,
+#                   so the constraint is satisfied asymptotically and the
+#                   solution converges to the hard-constrained DFP optimum.
+#
+# ── Convergence demonstration ─────────────────────────────────────────────────
+#
+# We verify numerically that the regularized and hard-constrained solutions
+# agree in the limit of large lambda. The comparison is carried out within
+# the framework established in Exercise 1, using the same filter length L,
+# forecast horizon h, and constraint vector gamma_constraint defined there.
+# Convergence is assessed by tracking the filter coefficients b and the
+# achieved coupling t(b) %*% gamma_constraint as lambda increases.
+
+# ------------------------------------------------------------------------------
+# Note: Exercise 1 must be run before this exercise, as it initializes the
+# empirical framework (process specification, filter length, forecast horizon,
+# and MA coefficient vector) required by all subsequent exercises.
+# ------------------------------------------------------------------------------
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.1  Hard-Constrained vs. Regularized DFP: Strong Penalty (lambda = 10e6)
+# ─────────────────────────────────────────────────────────────────────────────
+# We compute both the hard-constrained MSE-DFP solution and its regularized
+# counterpart across the full alpha0 grid. With a very large penalty weight,
+# the soft constraint is enforced almost exactly and the two solutions should
+# be numerically indistinguishable.
+
+b_mat     <- NULL   # filter coefficient matrix: one column per alpha0 (hard DFP)
+b_mat_reg <- NULL   # filter coefficient matrix: one column per alpha0 (regularized DFP)
+lambda_vec1 <- NULL # placeholder for storing lambda values (populated in later sections)
+
+# Penalty weight: sufficiently large to drive the constraint residual to
+# near-machine-precision levels.
+lambda <- 10^6
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Hard-constrained MSE-DFP: exact solution via closed-form Lagrangian.
+  b0 <- compute_mse_dfp(alpha0, gamma0, gammah)$b0
+  b_mat <- cbind(b_mat, b0)
+  
+  # Regularized DFP: unconstrained minimisation with quadratic penalty.
+  b_reg <- regularized_dfp_func(gamma0, gammah, alpha0, lambda)$b
+  b_mat_reg <- cbind(b_mat_reg, b_reg)
+}
+
+colnames(b_mat) <- colnames(b_mat_reg) <- paste0("alpha0=", round(alpha0_vec, 3))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.2  Checks and Plot: Strong Penalty
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Check 1: Hard DFP constraint satisfaction ────────────────────────────────
+# The inner product t(b) %*% gamma0 must equal alpha0 exactly for every column.
+# All residuals should be numerically zero (machine-precision rounding only).
+t(b_mat) %*% gamma0 - alpha0_vec
+
+# ── Check 2: Regularized DFP constraint residual ─────────────────────────────
+# For the soft formulation, the residual t(b_reg) %*% gamma0 - alpha0 decreases
+# as lambda increases. At lambda = 10e6, deviations should be negligible.
+t(b_mat_reg) %*% gamma0 - alpha0_vec
+
+# ── Visual comparison ────────────────────────────────────────────────────────
+# Select design k and overlay the hard and regularized filter coefficients.
+# With lambda = 10e6 the two curves should overlap almost perfectly.
+k <- 3
+ts.plot(
+  cbind(b_mat[, k], b_mat_reg[, k]),
+  main = paste0("Hard DFP and regularized DFP (lambda = 10e6) overlap: alpha0 = ",
+                round(alpha0_vec[k], 3))
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.3  Regularized DFP: Moderate Penalty (lambda = 1)
+# ─────────────────────────────────────────────────────────────────────────────
+# Reducing the penalty weight to lambda = 1 weakens constraint enforcement.
+# The regularized solution now represents a genuine compromise between MSE
+# minimisation and decoupling, and a visible gap between the two filters
+# is expected.
+
+b_mat     <- NULL
+b_mat_reg <- NULL
+lambda_vec1 <- NULL
+
+# Penalty weight: moderate — constraint is only partially enforced.
+lambda <- 1
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Hard-constrained MSE-DFP (unchanged reference solution).
+  b0 <- compute_mse_dfp(alpha0, gamma0, gammah)$b0
+  b_mat <- cbind(b_mat, b0)
+  
+  # Regularized DFP with moderate penalty weight.
+  b_reg <- regularized_dfp_func(gamma0, gammah, alpha0, lambda)$b
+  b_mat_reg <- cbind(b_mat_reg, b_reg)
+}
+
+colnames(b_mat) <- colnames(b_mat_reg) <- paste0("alpha0=", round(alpha0_vec, 3))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.4  Checks and Plot: Moderate Penalty
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Check 1: Hard DFP constraint satisfaction ────────────────────────────────
+# Residuals should still be numerically zero for the hard-constrained solution.
+t(b_mat) %*% gamma0 - alpha0_vec
+
+# ── Check 2: Regularized DFP constraint residual ─────────────────────────────
+# At lambda = 1 the constraint residual becomes non-negligible: the penalty is
+# too weak to enforce the decoupling target closely, and the filter drifts
+# toward the unconstrained MSE solution.
+t(b_mat_reg) %*% gamma0 - alpha0_vec
+
+# ── Visual comparison ────────────────────────────────────────────────────────
+# With lambda = 1, the two filters diverge visibly; the regularized filter
+# lies between the unconstrained MSE predictor and the hard DFP solution.
+k <- 3
+ts.plot(
+  cbind(b_mat[, k], b_mat_reg[, k]),
+  main = paste0("Hard DFP and regularized DFP (lambda = 1) diverge: alpha0 = ",
+                round(alpha0_vec[k], 3))
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.5  Regularized DFP: Negligible Penalty (lambda = 10e-6)
+# ─────────────────────────────────────────────────────────────────────────────
+# With a near-zero penalty weight the decoupling constraint is effectively
+# ignored and the regularized DFP collapses to the unconstrained MSE predictor
+# gammah, regardless of alpha0.
+
+b_mat     <- NULL
+b_mat_reg <- NULL
+lambda_vec1 <- NULL
+
+# Penalty weight: negligible — decoupling constraint exerts no influence.
+lambda <- 10^(-6)
+
+for (i in seq_along(alpha0_vec)) {
+  
+  alpha0 <- alpha0_vec[i]
+  
+  # Hard-constrained MSE-DFP (reference solution, unaffected by lambda).
+  b0 <- compute_mse_dfp(alpha0, gamma0, gammah)$b0
+  b_mat <- cbind(b_mat, b0)
+  
+  # Regularized DFP with negligible penalty weight.
+  b_reg <- regularized_dfp_func(gamma0, gammah, alpha0, lambda)$b
+  b_mat_reg <- cbind(b_mat_reg, b_reg)
+}
+
+colnames(b_mat) <- colnames(b_mat_reg) <- paste0("alpha0=", round(alpha0_vec, 3))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.6  Checks and Plot: Negligible Penalty
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Check 1: Hard DFP constraint satisfaction ────────────────────────────────
+# Residuals remain numerically zero for the hard-constrained solution.
+t(b_mat) %*% gamma0 - alpha0_vec
+
+# ── Check 2: Regularized DFP constraint residual ─────────────────────────────
+# At lambda = 10e-6 the constraint residual is largest: the penalty is
+# essentially switched off and the filter makes no attempt to satisfy alpha0.
+t(b_mat_reg) %*% gamma0 - alpha0_vec
+
+# ── Visual comparison: hard DFP vs. regularized DFP ─────────────────────────
+# The two filters differ markedly; the regularized filter no longer tracks
+# the hard-constrained solution for any value of alpha0.
+k <- 3
+ts.plot(
+  cbind(b_mat[, k], b_mat_reg[, k]),
+  main = paste0("Hard DFP and regularized DFP (lambda = 10e-6) differ markedly: alpha0 = ",
+                round(alpha0_vec[k], 3))
+)
+
+# ── Collapse to the MSE predictor ────────────────────────────────────────────
+# With lambda → 0 the regularized DFP recovers the unconstrained MSE predictor
+# gammah. The plot below confirms the two curves are virtually identical.
+ts.plot(
+  cbind(gammah, b_mat_reg[, k]),
+  main = paste0("Regularized DFP (lambda = 10e-6) replicates MSE predictor: alpha0 = ",
+                round(alpha0_vec[k], 3))
+)
+
+
+# ── Main Findings ─────────────────────────────────────────────────────────────
+#
+# The regularized DFP defines a continuous family of filters parameterised
+# jointly by lambda and alpha0, interpolating between two well-defined extremes:
+#
+#   lambda → 0   :  the penalty vanishes and the regularized DFP converges to
+#                   the unconstrained MSE predictor gammah, with no decoupling.
+#
+#   lambda → ∞   :  the penalty dominates and the regularized DFP converges to
+#                   the hard-constrained MSE-DFP solution, with the decoupling
+#                   constraint t(b) %*% gamma0 = alpha0 satisfied exactly.
+#
+# For intermediate lambda, the filter represents a smooth trade-off between
+# forecast accuracy (MSE) and decoupling strength, offering an alternative
+# tuning strategy when strict constraint satisfaction is not required or when
+# a softer, more regularized filter shape is preferred.
+
+# ── Technical Note: Geometric Equivalence of Regularized and Hard DFP ────────
+#
+# 1. Shared solution space:
+#    The regularized DFP solution resides in the same affine subspace as the
+#    hard-constrained DFP solution (see Exercise 1.6).
+#    Both formulations produce filters of the form
+#
+#      b = gammah + mu * gamma0,   mu ∈ ℝ,
+#
+#    i.e., the unconstrained MSE predictor gammah displaced along the single
+#    direction gamma0. The two approaches therefore span identical
+#    solution sets and no regularized solution exists that cannot, in principle,
+#    be reproduced exactly by the hard-constrained formulation with a suitably
+#    chosen alpha0, and vice versa.
+#
+# 2. Practical implication:
+#    The regularized formulation is best understood as an alternative
+#    parameterisation of the same family of filters, potentially more convenient
+#    when a soft penalty is easier to tune than an exact coupling target.
+#    However, for full transparency and exact reproducibility of a given CCF
+#    profile, the hard-constrained DFP with an explicitly specified alpha0 is
+#    generally the preferred formulation.
+
+
+
