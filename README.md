@@ -60,7 +60,7 @@ The project directory is organized into sub-folders:
 
 
 
-Getting started: Open the R project by clicking the project icon located in the main repository. This will launch the project in RStudio. From there, load any tutorial file from the `Look-Ahead Tutorials' sub-folder and run the code. Tutorials are separated into DFP and PCS and arranged in order of increasing complexity.
+Getting started: Open the R project by clicking the project icon (Look-Ahead\_project.Rproj) located in the main repository. This will launch the project in RStudio and automatically set paths to functions and data. From there, load any tutorial file from the `Look-Ahead Tutorials' sub-folder and run the code. Tutorials are separated into DFP and PCS and arranged in order of increasing complexity.
 
 
 
@@ -201,7 +201,6 @@ The author proposes the following complementary R-based prediction frameworks (h
 
 
 1. MDFA: https://github.com/wiaidp/MDFA-tutorial. MDFA is a generic prediction approach addressing the full ATS trilemma in the frequency domain. Accuracy, smoothness, and timeliness are derived from and defined on the amplitude and phase characteristics of the predictor filter.
-
 2. M-SSA: https://github.com/wiaidp/R-package-SSA-Predictor. The M-SSA specializes in the Accuracy-Smoothness trade-off, targeting applications where the cost of spurious false alarms is prohibitive.
 
 
