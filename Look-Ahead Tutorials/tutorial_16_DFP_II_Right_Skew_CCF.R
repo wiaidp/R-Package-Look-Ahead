@@ -2661,8 +2661,8 @@ xi      <- hp_trend              # MA coefficients of the data-generating proces
 # simultaneously pulling the CCF downward at all lags k = -1, -2, …, -h = -4,
 # rather than targeting the single lag k = -1. 
 # Lag window over which the decoupling constraint is enforced.
-l_start <- 4
-l_end   <- 6
+l_start <- 0
+l_end   <- 4
 
 if (l_start >= l_end) {
   print("l_start must be strictly less than l_end; resetting l_start.")
