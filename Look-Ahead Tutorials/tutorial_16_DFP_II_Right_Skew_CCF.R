@@ -210,10 +210,17 @@
 #              the geometric accumulation of past innovations is abandoned 
 #              entirely.
 #
-#              We demonstrate that DFP II can exactly replicate the identity 
-#              filter's look-ahead forecast rule through a suitably constructed 
-#              integrator matrix Sigma. We also derive the AR-form representations 
-#              of the predictors by inverting the MA form.
+#              We demonstrate that DFP II can replicate the identity filter's 
+#              look-ahead forecast rule through a suitably constructed 
+#              integrator matrix Sigma. As a consequence classic and/or simple 
+#              benchmarks (MSE, identity) are embedded in DFP II. 
+#
+#              We also derive the AR-form representations of the predictors by 
+#              inverting the MA form typically used in the context of DFP or PCS. 
+#              The MA form highlights the inner structure and interpretation, 
+#              while the AR form is typically used in implementation. Both forms 
+#              are strictly equivalent in terms of the produced predictor 
+#              (assuming invertibility).
 
 # Exercise 4 — DFP II Design for Difficult Forecast Problems
 #              Introduces a constraint specification that performs reliably in
@@ -221,7 +228,7 @@
 #              to apply or infeasible, providing a practical fallback strategy
 #              for challenging forecast environments. In particular the resulting 
 #              predictor inherits look ahead behaviour while retaining smoothness, 
-#              in contrast to the identity of exercise 3. 
+#              in contrast to the identity benchmark of exercise 3. 
 
 # Exercise 5 — DFP II Applied to a Feasible Forecast Problem: MA(9) Process
 #              In contrast to Exercises 1–4, which focus on the AR(1) process
@@ -236,9 +243,9 @@
 # Exercise 6 — DFP II Applied to the Hodrick-Prescott Trend Filter
 #              Extends Exercise 5 to the HP trend filter setting, showing that
 #              DFP II generalises naturally to this practically important case.
-#              Specifically, besides a straightforward replication of `optimal' 
+#              Specifically, instead of a straightforward replication of `optimal' 
 #              DFP (or PCS) we propose a slightly misspecified design to 
-#              illustrate some of the specific features of the DFP II approach.
+#              highlight some of the specific features of the DFP II approach.
 
 
 # ═════════════════════════════════════════════════════════════════════════════
