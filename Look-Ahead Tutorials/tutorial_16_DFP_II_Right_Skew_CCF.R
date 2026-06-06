@@ -7,12 +7,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # In challenging forecast problems where the MSE predictor exhibits "stuck at
-# present" behavior, the original DFP (Decouple From Present) and Peak
-# Correlation Shift (PCS) impose constraints on the predictor to encourage
+# present" behavior (increasing the forecast horizon does not improve 
+# advancement), the original DFP (Decouple From Present) and Peak Correlation 
+# Shift (PCS) impose constraints on the predictor to encourage
 # "look-ahead behavior". This refers to a left-shift of the predictor (lead or
 # advancement) relative to the MSE benchmark, while tracking the target x_{t+h}
-# as closely as possible at the intended forecast horizon h, subject to the
-# constraint.
+# as closely as possible (at the intended forecast horizon h and subject to the
+# constraint).
 
 # In some difficult forecast problems, the constraint(s) conflict(s) strongly with
 # the Data Generating Process (DGP), thereby unduly degrading performance at
@@ -22,25 +23,25 @@
 # One approach to handling difficult or even infeasible forecast problems, where
 # the look-ahead constraint(s) cannot be satisfied, is to slightly modify the
 # original process to gain additional degrees of freedom for imposing the
-# look-ahead constraint(s) (see Tutorial 14).
+# look-ahead constraint(s) (see the perturbation based approach in Tutorial 14).
 
 # The AR(1) process represents a particularly challenging example, since the
 # Cross Correlation Function (CCF) at positive lags (future) of the predictor
-# is immutable, directly conflicting with the classic look-ahead constraints of
-# DFP or PCS. Perturbation-based approaches instead affect the left tail
-# (negative lags, past) of the CCF, resulting in a right-skew of the CCF (see 
-# Tutorial 14).
+# is immutable (up to sign and scale), directly conflicting with the classic 
+# look-ahead constraints of DFP or PCS. Perturbation-based approaches instead 
+# affect the left tail (negative lags, the `past') of the CCF, resulting in a 
+# right-skew of the CCF (see Tutorial 14).
 
 # Here we formalize this idea by introducing look-ahead constraints that target
 # the left tail, i.e., the past, of the CCF. This approach is referred to as
 # Decouple From Past (DFP II).
 
-# DFP II can be viewed as a generalization of the original DFP, where the
-# constraint targets lag 0 rather than the entire past. As such, DFP II could
-# have been introduced at the end of the original DFP tutorials. However, given
-# that DFP II is particularly relevant and effective for difficult or even
-# infeasible forecast problems (e.g., AR(1)), it is presented after the
-# corresponding sequence of Tutorials 12, 13, and 14.
+# DFP II can be viewed as a generalization of the original DFP (Decouple Fom 
+# Present), where the constraint targets lag 0 rather than the entire past. As 
+# such, DFP II could have been introduced at the end of the original DFP 
+# tutorials. However, given that DFP II is particularly relevant and effective 
+# for difficult or even infeasible forecast problems (e.g., AR(1)), it is 
+# presented after the corresponding sequence of Tutorials 12, 13, and 14.
 
 # We briefly revisit the AR(1) case to illustrate the difficulty of imposing
 # constraints on the right tail (future) of the CCF, and to motivate the core
@@ -80,11 +81,11 @@
 # k = 0. This pattern is rigidly enforced by the DGP on every predictor b via
 # the Yule-Walker equations. Consequently, reshaping the CCF according to any
 # of the PCS constraint types is generally impossible, unless one merely
-# replicates the original AR(1) profile.
+# replicates the original AR(1) profile (up to sign and scale).
 #
 # However, for negative lags k = -1, -2, ...:
 #
-#   CCF(k) = (b[-k+(1:L)]' %*% gamma_0) / (||b|| * ||gamma_0||)
+#   CCF(k) = (b[(-k+1):L]' %*% gamma_0[1:(L+k)]) / (||b|| * ||gamma_0||)
 #
 # This expression depends on the predictor b and the negative lag k, and hence
 # can be controlled to some extent by b, irrespective of gamma_0, assuming
@@ -99,7 +100,7 @@
 
 # 1. Decouple From PAST, DFP II, addresses the CCF at NEGATIVE lags k = -1, -2, ...:
 #
-#      CCF(k) = (b[-k+(1:L)]' %*% gamma_0) / (||b|| * ||gamma_0||)
+#      CCF(k) = (b[(-k+1):L]' %*% gamma_0[1:(L+k)]) / (||b|| * ||gamma_0||)
 #
 #    This expression depends on the predictor b and the negative lag k, and
 #    hence can be controlled to some extent by b.
@@ -107,7 +108,7 @@
 # 2. Specifically, we aim to control the aggregated CCF over a range of past
 #    lags k = -l_start, ..., -l_end. This aggregated CCF is proportional to:
 #
-#      sum over k = -l_start, ..., -l_end  of  b[-k + (1:L)]' %*% gamma_0
+#      sum over k = -l_start, ..., -l_end  of  b[(-k+1):L]' %*% gamma_0[1:(L+k)]
 #         (ignoring the scaling 1/ (||b|| * ||gamma_0||)). 
 #
 #    This expression simplifies to:
@@ -117,15 +118,15 @@
 #    where Sigma is the integration operator of order (l_end - l_start).
 #    See examples below. Note that when Sigma equals the identity matrix,
 #    DFP II replicates the original DFP. DFP II is therefore a generalization
-#    of the original Decoupling (from PRESENT) approach.
+#    of the original Decoupling approach.
 
 # 3. The integration operator Sigma, applied over the range of past lags,
 #    increases the rank of the constraint system. Even if the DGP conflicts
 #    with the classic DFP or PCS constraint types, as in the low-rank AR(1)
 #    case where gamma_0 and gamma_h are linearly dependent for all h, the
 #    integration operator of order (l_end - l_start) augments the system rank.
-#    That is, Sigma %*% gamma_0 and gamma_h are linearly independent, provided
-#    gamma_h != 0.
+#    That is, Sigma %*% gamma_0 and gamma_h are linearly independent (provided
+#    gamma_h != 0). 
 
 # 4. DFP II Criterion: The optimization problem is defined as:
 #
@@ -142,9 +143,9 @@
 
 # 5. Setting alpha_0 to a small value in the constraint effectively reduces
 #
-#      sum over k = -l_start, ..., -l_end  of  CCF(k)
+#    sum over k = -l_start, ..., -l_end  CCF(k)  ∝  b' %*% Sigma %*% gamma_0
 #
-#    or equivalently, reduces b' %*% Sigma %*% gamma_0. This decouples the
+#    i.e., it reduces b' %*% Sigma %*% gamma_0. This decouples the
 #    predictor from the past of the series at lags k = -l_start, ..., -l_end.
 #    At the same time, maximizing the target correlation at the forecast
 #    horizon, i.e., maximizing CCF(h) at the positive lag k = h, introduces
@@ -165,6 +166,79 @@
 #    the original DFP or PCS constraints.
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# EXERCISES OVERVIEW
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# Exercise 1 — AR(1): Look-Ahead via Perturbation
+#              Replicates Exercise 3 of Tutorial 14 to establish a baseline for
+#              right-skewness and look-ahead behaviour under coefficient
+#              perturbation of the MSE predictor. Serves as a reference point
+#              for the DFP II results developed in subsequent exercises.
+
+# Exercise 2 — Role of the Integrator Sigma
+#              Using the same AR(1) DGP, illustrates how the choice of the
+#              integrator matrix Sigma shapes both the filter coefficient profile
+#              and the degree of right-skewness induced in the CCF. Highlights
+#              the sensitivity of DFP II to the lag window over which decoupling
+#              is enforced.
+
+# Exercise 3 — Replication of the Forward-Looking Identity Filter (MA Form)
+#
+#              Background:
+#              The h-step-ahead MSE predictor for an AR(1) process with 
+#              coefficient a1 has the MA representation
+#
+#                 MSE(h) = a1^h * sum_{k >= 0} a1^k * epsilon_{t-k},
+#
+#              which weights all past innovations geometrically, with the most 
+#              recent innovation epsilon_t receiving the largest weight a1^h and 
+#              earlier innovations receiving progressively smaller weights 
+#              a1^{h+1}, a1^{h+2}, …
+#
+#              The identity filter (in MA form) retains only the most recent 
+#              innovation:
+#
+#                b_identity = (1, 0, 0, …, 0)',
+#
+#              effectively discarding all earlier innovations epsilon_{t-1}, 
+#              epsilon_{t-2}, … that enter the MSE predictor. By concentrating 
+#              the entire filter weight on epsilon_t, the identity filter 
+#              looks ahead: it omits past epsilon_{t-k}. The cost of this 
+#              look-ahead is increased noise, since the smoothing provided by 
+#              the geometric accumulation of past innovations is abandoned 
+#              entirely.
+#
+#              We demonstrate that DFP II can exactly replicate the identity 
+#              filter's look-ahead forecast rule through a suitably constructed 
+#              integrator matrix Sigma. We also derive the AR-form representations 
+#              of the predictors by inverting the MA form.
+
+# Exercise 4 — DFP II Design for Difficult Forecast Problems
+#              Introduces a constraint specification that performs reliably in
+#              settings where the standard DFP or PCS approaches are difficult
+#              to apply or infeasible, providing a practical fallback strategy
+#              for challenging forecast environments. In particular the resulting 
+#              predictor inherits look ahead behaviour while retaining smoothness, 
+#              in contrast to the identity of exercise 3. 
+
+# Exercise 5 — DFP II Applied to a Feasible Forecast Problem: MA(9) Process
+#              In contrast to Exercises 1–4, which focus on the AR(1) process
+#              (a degenerate case for PCS and DFP), Exercises 5 and 6 consider
+#              settings in which look-ahead behaviour is genuinely feasible and
+#              the standard DFP and PCS frameworks are directly applicable.
+#              Exercise 5 revisits the MA(9) process studied in earlier
+#              tutorials and demonstrates that DFP II performs competitively
+#              in this well-conditioned setting, recovering the expected
+#              CCF profile and look-ahead behaviour without difficulty.
+
+# Exercise 6 — DFP II Applied to the Hodrick-Prescott Trend Filter
+#              Extends Exercise 5 to the HP trend filter setting, showing that
+#              DFP II generalises naturally to this practically important case.
+#              Specifically, besides a straightforward replication of `optimal' 
+#              DFP (or PCS) we propose a slightly misspecified design to 
+#              illustrate specific features of the DFP II approach.
 
 
 # ═════════════════════════════════════════════════════════════════════════════
