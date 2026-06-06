@@ -238,7 +238,7 @@
 #              DFP II generalises naturally to this practically important case.
 #              Specifically, besides a straightforward replication of `optimal' 
 #              DFP (or PCS) we propose a slightly misspecified design to 
-#              illustrate specific features of the DFP II approach.
+#              illustrate some of the specific features of the DFP II approach.
 
 
 # ═════════════════════════════════════════════════════════════════════════════
