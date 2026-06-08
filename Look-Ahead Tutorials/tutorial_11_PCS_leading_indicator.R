@@ -123,7 +123,7 @@ source(paste(getwd(), "/R/DFP.r", sep = ""))
 # Load PCS optimisation routines.
 source(paste(getwd(), "/R/PCS.r", sep = ""))
 
-# Load the tau-statistic utility: measures lead/lag at zero crossings.
+# Load HP utilities
 source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
 
 # Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).

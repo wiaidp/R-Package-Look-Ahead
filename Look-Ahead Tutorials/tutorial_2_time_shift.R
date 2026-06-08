@@ -133,7 +133,7 @@ summary(model)   # inspect coefficient significance across lags
 # See Wildi (2024) for theoretical background.
 # `max_lead` sets the maximum lead horizon to test.
 filter_mat <- cbind(x, y)
-max_lead   <- 10
+max_lead   <- 6
 tau<-compute_min_tau_func(filter_mat, max_lead)
 # The measure is noisy (it looks only at zero crossings). We see dips 
 # at -4 and -8.
