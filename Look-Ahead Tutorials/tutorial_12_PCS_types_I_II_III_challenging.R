@@ -116,7 +116,7 @@
 # Exercises 4-6  in this tutorial focus on feasible forecast problems;
 # Exercise 1-3 and 7 illustrate infeasible problems. Infeasibility and impossibility
 # are examined more thoroughly in Tutorial 13. Here the primary focus is on a
-# complex look-ahead forecast problem with effective look ahead even when infeasible.
+# challenging look-ahead forecast problem with effective look ahead even when infeasible.
 #
 #   Feasibility: A valid PCS solution exists; the PCS constraints are satisfied
 #     and the target correlation is positive, i.e., CCF(h) > 0.
@@ -176,8 +176,9 @@
 #    More precisely:
 #      b' %*% gamma_{k+1} = a1 * (b' %*% gamma_k) = a1^(k-1) * (b' %*% gamma_1)  
 #    for k > 0. This implies CCF(k+1) = a1^(k-1) * CCF(1), which decays 
-#    exponentially regardless of the predictor vector b. It is therefore 
-#    structurally impossible to displace the CCF peak to any horizon h > 1.
+#    exponentially (in absolute value) regardless of the predictor vector b. It 
+#    is therefore structurally impossible to displace the CCF peak to any 
+#    horizon h > 1.
 #
 #    Note: The relation above holds only for k > 0. At k = 0,
 #      b' %*% gamma_1 ≠ a1 * (b' %*% gamma_0),
@@ -266,7 +267,7 @@
 #   nominally suggest look-ahead — turn out to fall into one of two problematic
 #   categories:
 #     (a) Sign-inverted predictors: CCF(h) > CCF(h-1) is achieved by flipping
-#         the sign of the output, rendering the predictor directionally unusable.
+#         signs, rendering the predictor directionally unusable.
 #     (b) Effectively lagging predictors: the predictor lags behind the
 #         benchmark rather than anticipating it.
 #   In both cases the outcome is difficult to interpret and provides no practical
