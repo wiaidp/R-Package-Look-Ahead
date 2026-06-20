@@ -484,7 +484,6 @@ ts.plot(xi, main = "Wold Decomposition: slowly decaying impulse response (post-1
 # component of the ARMA(1,1) model, which expands the rank of the PCS
 # constraint system from 1 to 2 (see Tutorial 13).
 
-
 # The model-based ACF, derived analytically from the Wold decomposition,
 # matches the empirical ACF computed above.
 ts.plot(ARMAacf(ar = 0, ma = xi, lag.max = L),
