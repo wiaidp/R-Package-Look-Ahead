@@ -60,7 +60,7 @@ The project directory is organized into sub-folders:
 
 
 
-Getting started: Open the R project by clicking the project icon (Look-Ahead\_project.Rproj) located in the main repository. This will launch the project in RStudio and automatically set paths to functions and data. From there, load any tutorial file from the `Look-Ahead Tutorials' sub-folder and run the code. Tutorials are separated into DFP and PCS and arranged in order of increasing complexity.
+Getting started: Download the Look-Ahead GitHub project to a local folder. In this folder, open the R project by clicking the project icon Look-Ahead\_project.Rproj. This will launch the project in RStudio and automatically set paths to functions and data. From there, load any tutorial file from the `Look-Ahead Tutorials' sub-folder and run the code. Tutorials are separated into DFP and PCS and arranged in order of increasing complexity.
 
 
 
