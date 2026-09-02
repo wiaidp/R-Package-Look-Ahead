@@ -907,3 +907,13 @@ xt1 <- cbind(TC = table_tau[2,2:ncol(table_tau)], as.data.frame(tab1, check.name
 xt1
 
 
+####################################################################################
+# Additional exercises not in paper:
+# 1. Show equivalence of primal and dual on frontier (an d difference away from frontier)
+# 2. Multi-frequency approach
+# 3. Apply Curvature Max-Tau to BCA
+
+
+
+
+
