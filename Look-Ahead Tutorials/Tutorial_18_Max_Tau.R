@@ -410,14 +410,23 @@ table_alpha0
 # Apart from this reparameterisation (tau -> alpha0, rather than choosing
 # alpha0 directly), Exercise 2 is otherwise IDENTICAL to Exercise 1.
 
-# Grid of desired leads (tau) at the reference frequency omega_0 = 0: the last Tau 
-# is `large`, representing an infinite lead.
-tau_vec<--c(1,2,6,100000)
+
+#-------------------------------------------------------------------------------
+# ── 2.1 COMPUTE TIME-SHIFT DFP ────────────────────────────
+#-------------------------------------------------------------------------------
+
+
+# Grid of desired leads (tau) at the reference frequency omega_0 = 0: the last entry 
+# is `large`, representing an infinite lead. 
+# Note: Tau>0 is the lead of DFP over the MSE benchmark: the constraint addresses the 
+# DIFFERENCE between the shift of DFP and MSE.
+tau_vec<-c(1,2,6,100000)
 
 b0_mat<-cor_vec_mse_la_mat<-NULL
 for (i in 1:length(tau_vec))#i<-1
 {
-  lead<-tau_vec[i]
+# Note: the sign convention in mse_dfp_from_tau_func is that leads correspond to negative numbers.   
+  lead<--tau_vec[i]
   # Call the dedicated function to compute the DFP filter for a specified lead
   # (see dfp_from_tau_func for the derivation based on Proposition 3, Wildi 2026)
   dfp_obj <- mse_dfp_from_tau_func(gamma_constraint, gamma_target, lead)
@@ -440,6 +449,10 @@ colnames(b0_mat)<-colnames(cor_vec_mse_la_mat)<-paste("Shift ",-tau_vec,sep="")
 b_tau<-b0_mat
 cor_vec_mse_la_mat_tau<-cor_vec_mse_la_mat
 
+#-------------------------------------------------------------------------------
+# ── 2.2 VARIOUS CHECKS ────────────────────────────
+#-------------------------------------------------------------------------------
+
 # Compute Gamma(0)
 Gamma0_tau<-apply(b_tau,2,sum)
 # Check: all positive (as Tau\to\infty, Gamma(0)\to 0, see Wildi 2026)
@@ -453,8 +466,13 @@ tauh<--as.double(gammah%*%(0:(L-1))/sum(gammah))
 # b. Compute lead of DFP over MSE
 tau<-(tau_tau-tauh)
 # c. Lead matches constraint: difference vanishes
-tau-(-tau_vec)
+tau-tau_vec
 
+#-------------------------------------------------------------------------------
+# ── 2.3 SUMMARY STATISTICS ────────────────────────────
+#-------------------------------------------------------------------------------
+
+# Compute Performances
 # Compute decoupling parameter, i.e., CCF(0) (up to scaling)
 alpha_tau<-as.vector(t(b_tau)%*%gamma0)
 # Compute corresponding performances for MSE benchmark.
@@ -464,31 +482,18 @@ table_tau<-cbind(mse_b,rbind(cor_vec_mse_la_mat_tau[1,],cor_vec_mse_la_mat_tau[h
 
 rownames(table_tau)<-c("Correlation with nowcast: CCF(0)","TC: CCF(h)","Shift at omega0=0 (lead when positive)","alpha0")
 
+# Similar to table_alpha0 in Exercise 1 though we now remove the Gamma(0)-row (always positive) 
+# and add an alpha0 row: the decoupling parameter alpha0=alpha0(Tau) is now derived from lead Tau over MSE predictor 
 table_tau
 
-# Plots
-par(mfrow=c(2,2))
-ts.plot(b_tau,col=rainbow(ncol(cor_vec_mse_la_mat_tau)),main="b0, Tau")
-ts.plot(cor_vec_mse_la_mat_tau,col=rainbow(ncol(cor_vec_mse_la_mat_tau)),main="CCF, Tau")
-ts.plot(scale(b_alpha0,center=F,scale=T),col=rainbow(ncol(cor_vec_mse_la_mat_alpha0)),main="b0 scaled, alpha0")
-ts.plot(cor_vec_mse_la_mat_alpha0,col=rainbow(ncol(cor_vec_mse_la_mat_alpha0)),main="CCF, alpha0")
 
+#-------------------------------------------------------------------------------
+# ── 2.4 PLOTS ────────────────────────────
+#-------------------------------------------------------------------------------
 
-#---------------------------------
-# Checks
-# Expressions should vanish
-t(b_alpha0)%*%gamma_constraint-alpha0_vec
-t(b_tau)%*%(0:(L-1))/apply(b_tau,2,sum)-tauh-tau_vec
-
-
-
-#----------------------------------
-# Plots
-# Compute CCF of HP-trend
-
-
-
-# Plots: filter coefficients and CCF
+#-------------------------------------------------------------------------------
+# Plot 1: Filter coefficients and CCF
+#-------------------------------------------------------------------------------
 
 par(mfrow=c(2,2))
 
@@ -588,9 +593,9 @@ box()
 
 
 
-
-
-
+#-------------------------------------------------------------------------------
+# Plot 2: Predictors: lead/left-shift at Crises
+#-------------------------------------------------------------------------------
 
 
 diff_log_GDP<-diff(log(GDPC1[paste(as.integer(start_year-L/4),"/",end_year,sep="")]))
@@ -729,18 +734,6 @@ box()
 
 
 
-
-colnames(table_alpha0) <- c("MSE","DFP~$\\alpha_0=0.1$", alpha0_vec[2:length(alpha0_vec)])
-rownames(table_alpha0) <- c("CCF(0)", "CCF(h=2)","$\\Gamma(0)$","$\\tau$")
-xt <- round(table_alpha0,4)
-xt
-
-  
-colnames(table_tau) <- c("MSE","DFP~Lead~=~$1$", -tau_vec[2:(length(tau_vec)-1)],"$\\infty$")
-rownames(table_tau) <- c("CCF(0)", "CCF(h=2)","$\\tau$","$\\alpha_0(\\tau)$")
-table_tau[3,5]<-Inf
-xt <- round(table_tau,3)
-xt
 
 
 #######################################################################################
