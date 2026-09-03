@@ -746,28 +746,27 @@ box()
 
 
 
-
-
 ########################################################################################
 # EXERCISE 3 : MAX-TAU
 ########################################################################################
 
-# Design: replicate TC of time-shift DFP and compare shifts/leads of Max-Tau vs. time-shift DFP
-# Max-Tau outperforms the latter at the reference frequency. 
-# We use two reference-frequencies: omega0=0 (trend) and omega0=pi/20 (10 year cycle)
+# Design: replicate TC of time-shift DFP and compare shifts/leads of Max-Tau vs. time-shift DFP.
+# Max-Tau outperforms the latter at the reference frequency.
+# We use two reference frequencies: omega0=0 (trend) and omega0=pi/20 (10 year cycle).
 
- 
+
 #-------------------------------------------------------------------------------
-# 3.1 COMPUTE TC TO MATCH TIME-SHIFT DFP 
+# 3.1 COMPUTE TC TO MATCH TIME-SHIFT DFP
 #-------------------------------------------------------------------------------
 
-# Compute TC of time-shift DFP: these are used as constraints for max-tau
-# For identical TC Max-Tau must generate a larger lead at the reference frequency
-# Novelty: in addition to trend frequency omega0=0 we also provide results for the 
-# business-cycle frequency omega0=pi/20 corresponding to a periodicity of 2*pi/omega0=40 quarters or ten years.
+# Compute TC of time-shift DFP: these are used as constraints for Max-Tau.
+# For identical TC, Max-Tau must generate a larger lead at the reference frequency.
+# Novelty: in addition to the trend frequency omega0=0, we also provide results for the
+# business-cycle frequency omega0=pi/20, corresponding to a periodicity of
+# 2*pi/omega0=40 quarters, i.e. ten years.
 
-# Note: the DFP above relies on TC normalized with 1/|gamma0| (1/|hp_trend|). However, 
-# the Max-Tau normalizes with 1/|gammah| (1/gamma_target) for alphah in its constraint. So we have to 
+# Note: the DFP above relies on TC normalized with 1/|gamma0| (1/|hp_trend|). However,
+# Max-Tau normalizes with 1/|gammah| (1/gamma_target) for alphah in its constraint. So we have to
 # recompute the TC with the new re-scaling to obtain the correct Max-Tau matching the DFP.
 target_correlation_vec<-NULL
 # Scaling is required because alphah has the meaning of a correlation
@@ -775,12 +774,12 @@ for (i in 1:ncol(b_tau))
 {
   if (T)
   {
-    # Correlation with MSE gammah instead of gamma0 (correct)    
+    # Correlation with MSE gammah instead of gamma0 (correct)
     target_correlation_vec<-c(target_correlation_vec,b_tau[,i]%*%gamma_target/sqrt(b_tau[,i]%*%b_tau[,i]*gamma_target%*%gamma_target))
     #    target_correlation_vec<-c(target_correlation_vec,b_tau[,i]%*%gamma_target/sqrt(b_tau[,i]%*%b_tau[,i]*hp_trend%*%hp_trend))
   } else
   {
-    # Correlation with nowcast (incorrect)   
+    # Correlation with nowcast (incorrect)
     target_correlation_vec<-c(target_correlation_vec,b_tau[,i]%*%gamma_target/sqrt(b_tau[,i]%*%b_tau[,i]*hp_trend%*%hp_trend))
   }
 }
@@ -793,47 +792,46 @@ gamma_h<-gamma_target
 # Ten year periodicity
 n_freq<-20
 omega0<-pi/n_freq
-# Impose maximal lead at omega0 with respect to MSE target gamma_h (phase_excess<-T) or with respect to identity (phase_excess<-F), see Corollaries 3 and 4 in Wildi (2026). 
+# Impose maximal lead at omega0 with respect to MSE target gamma_h (phase_excess<-T) or with respect to identity (phase_excess<-F), see Corollaries 3 and 4 in Wildi (2026).
 # If gamma_h is lagging at omega0, then phase_excess<-F will generate a larger lead when feasible.
 # Note that the maximal phase lead is restricted to pi/2 (n_freq/4 in time units) with respect to gamma_h or identity, ensuring strict positivity (like the original time-shift DFP).
 # Effect of phase_excess:
 # -Maximizing the lead relative to identity or gammah is determined by a slightly different decoupling vector, see Corollary 4.
-# -Only difference: the upper boundary of pi/2 is taken with respect to identity or gammah
+# -Only difference: the upper boundary of pi/2 is taken with respect to identity or gammah.
 # -As long as both leads (with respect to identity or gammah) are below pi/2, the solution is exactly the same.
 phase_excess<-F
-# Notes: 
-# When feasible, Max-Tau generates the maximal lead namely n_freq/2
+# Notes:
+# When feasible, Max-Tau generates the maximal lead, namely n_freq/2.
 # For given L, the imposed TC might restrict Tau being smaller than n_freq/2.
 # However, for increasing L the filter exploits the additional degrees of freedom so that Tau will increase.
 # Ultimately, for arbitrarily large L, the upper limit Tau=n_freq/2 is achieved for any TC (overfitting).
-# Overfitting will be addressed below (Exercise 4)
+# Overfitting will be addressed below (Exercise 4).
 
 b_tau_max<-max_tau_vec<-max_tau_excess_vec<-NULL
 for (i in 1:length(target_correlation_vec))#i<-1
 {
   target_correlation<-target_correlation_vec[i]
-  #  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,epsilon)
-  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,omega0,phase_excess)
 
-# Append predictor weights  
+  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,omega0,phase_excess)
+  
+  # Append predictor weights
   b_tau_max<-cbind(b_tau_max,max_tau_obj$b_opt)
-# Append shifts (lead/lag) referenced agaisnt identity
+  # Append shifts (lead/lag) referenced against identity
   max_tau_vec<-c(max_tau_vec,max_tau_obj$tau_max)
 }
 # Take minus sign to match sign convention in paper (in code it is assumed that transferfunction is based on exp(+i*omega) whereas in paper we assume exp(-1.i*omega)).
-# A lead means a positive number (of the sign inverted tau):
+# A lead means a positive number (of the sign-inverted tau):
 max_tau_vec
 # Compare Tau of Max-Tau with Tau of MSE.
 # Note: when omega0>0 the formula for Tau is: Tau=Phi(omega0)/omega0
-tauh10<--(Arg(gamma_h%*%exp(1.i*omega0*(0:(L-1))))/omega0)
+tauh10<-(Arg(gamma_h%*%exp(-1.i*omega0*(0:(L-1))))/omega0)
 tauh10
+# Max-Tau exceeds tauh10 (efficient frontier)
 
-# Note: if tauh<0 then the MSE has a lag (compared to the identity). Therefore, setting phase_excess<-F will generate a larger lead, limited only by pi/2 with respect to identity (instead of pi/2 with respect to lagging MSE).
+# Note: if tauh<0 then the MSE has a lag (compared to the identity). Therefore, setting phase_excess<-F will generate a larger lead, limited only by pi/2 with respect to identity (instead of pi/2 with respect to the lagging MSE).
 
 b_tau_max_omega<-b_tau_max
 filt_mat_tau_max_omega<-cbind(gamma_target,b_tau_max_omega)
-
-
 
 
 #-------------------------------------------------------------------------------
@@ -856,25 +854,23 @@ diag(t(b_tau_max_omega)%*%b_tau_max_omega)-1
 
 
 #-------------------------------------------------------------------------------
-# 3.3 MAX-TAU FOR TREND FREQUENCY ZERO
+# 3.4 MAX-TAU FOR TREND FREQUENCY ZERO
 #-------------------------------------------------------------------------------
- 
+
 omega0<-0
-#phase_excess<-F
+# Note: for omega0=0 the Boolean phase_excess==T/F has no effect because Tau is not bounded.
 b_tau_max<-max_tau_vec<-max_tau_excess_vec<-NULL
 for (i in 1:length(target_correlation_vec))#i<-1
 {
   target_correlation<-target_correlation_vec[i]
-  #  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,epsilon)
-  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,omega0,phase_excess)
-  #  design_optimal_filter(gamma_target, target_correlation,omega0=0) 
   
-  #  max_tau_obj<-optimize_filter( omega0, gamma_h, target_correlation, epsilon)
+  max_tau_obj<-max_tau_dual_func(gamma_target, target_correlation,omega0,phase_excess)
+
   b_tau_max<-cbind(b_tau_max,max_tau_obj$b_opt)
   max_tau_vec<-c(max_tau_vec,max_tau_obj$tau_max)
-}#
+}
 # Take minus sign to match sign convention in paper (in code it is assumed that transferfunction is based on exp(+i*omega) whereas in paper we assume exp(-1.i*omega)).
-# A lead means a positive number (of the sign inverted tau):
+# A lead means a positive number (of the sign-inverted tau):
 max_tau_vec
 # Compute Tau of MSE
 if (omega0==0)
@@ -885,15 +881,18 @@ if (omega0==0)
   tauh0<--Arg(sum(gamma_target*exp(1.i*omega0*(0:(L-1)))))/omega0
 }
 tauh0
-# Note: if tauh<0 then the MSE has a lag (compared to the identity). Therefore, setting phase_excess<-F will generate a larger lead, limited only by pi/2 with respect to identity (instead of pi/2 with respect to lagging MSE).
+# Outcome: max_tau_vec>tauh0 (efficient frontier)
+
 b_tau_max_0<-b_tau_max
 
-#-------------------
-# Checks: 
-# a. Solution is linear combination of gamma_target, \mathbf{1} and \mathbf{k}
+#-------------------------------------------------------------------------------
+# 3.5 CHECKS
+#-------------------------------------------------------------------------------
+# a. Solution is linear combination of gamma_target, \mathbf{1} and \mathbf{k}:
+# the regression residual vanishes.
 summary(lm(b_tau_max_0[,i]~cbind(gamma_target,rep(1,L),(0:(L-1)))-1))
 
-# b. Target correlation constraint
+# b. TC constraint
 target_correlation_check<-NULL
 # Scaling is required because alpha_h has the meaning of a correlation
 for (i in 1:ncol(b_tau))
@@ -905,22 +904,42 @@ target_correlation_check-target_correlation_vec
 # c. Check unit length constraint: should vanish
 diag(t(b_tau_max_0)%*%b_tau_max_0)-1
 
-#-----------------------------------------
-# 4. Compute time-shifts of DFP and Max-Tau designs at both frequencies: all have identical target correlations
+#-------------------------------------------------------------------------------
+# 3.6 COMPUTE PERFORMANCES
+#-------------------------------------------------------------------------------
+# Compute time-shifts of DFP and Max-Tau designs at both reference frequencies:
+# all filters share IDENTICAL target correlations (TC). Therefore, Max-Tau
+# optimized for a given omega0 must outperform all other filters AT THAT
+# FREQUENCY, i.e. its Tau must be the largest in the corresponding column.
 
-# a. omega0=0
-
+# I) omega0=0
+# -----------------------------------------------------------------------------
+# For each TC level, compute Tau(0) (lead at the trend frequency) for:
+#   - the time-shift DFP filter (b_tau)
+#   - Max-Tau optimized for omega0=0     (b_tau_max_0)
+#   - Max-Tau optimized for omega0=pi/20 (b_tau_max_omega)
 tau_mat_0<-NULL
 for (i in 1:ncol(b_tau))
 {
   tau_mat_0<-rbind(tau_mat_0,-c(b_tau[,i]%*%(0:(L-1))/sum(b_tau[,i]), b_tau_max_0[,i]%*%(0:(L-1))/sum(b_tau_max_0[,i]), b_tau_max_omega[,i]%*%(0:(L-1))/sum(b_tau_max_omega[,i])))
 }
+# The last row corresponds to TC=1 (perfect replication of the MSE target),
+# in which case Tau(0) of DFP and Max-Tau(0) both diverge to their
+# theoretical maximum: set to Inf here for clarity in the table.
 tau_mat_0[nrow(tau_mat_0),1:2]<-Inf
 colnames(tau_mat_0)<-c("DFP","Max-Tau(0)","Max-Tau(pi/20)")
 rownames(tau_mat_0)<-round(target_correlation_vec,3)
+# RESULT: for given TC (rownames of the matrix), Max-Tau(0) (middle column) has the largest
+# Tau(0) at omega0=0. No other linear predictor of length <= L can
+# outperform Max-Tau(0) in BOTH TC and Tau(0) simultaneously — confirming
+# the efficient-frontier property at the trend frequency.
 tau_mat_0
 
-# b. omega0=pi/20
+
+# II) omega0=pi/20
+# -----------------------------------------------------------------------------
+# Same comparison, but now measuring the lead at the business-cycle
+# frequency omega0=pi/20 (10-year cycle).
 omega<-pi/n_freq
 tau_mat_omega<-NULL
 for (i in 1:ncol(b_tau))
@@ -929,33 +948,38 @@ for (i in 1:ncol(b_tau))
 }
 colnames(tau_mat_omega)<-c("DFP","Max-Tau(0)","Max-Tau(pi/20)")
 rownames(tau_mat_omega)<-round(target_correlation_vec,3)
+# RESULT: for given TC (rownames of the matrix), Max-Tau(pi/20) (rightmost column) has the
+# largest Tau(pi/20) at omega0=pi/20 — confirming the efficient-frontier
+# property at the business-cycle frequency.
 tau_mat_omega
 
+
+
+#-------------------------------------------------------------------------------
+# 3.7 PLOTS
+#-------------------------------------------------------------------------------
+
+# I) PREDICTOR WEIGHTS AND TIME-SHIFTS
+# -----------------------------------------------------------------------------
+
+# Assemble filter matrices with descriptive column names showing the
+# achieved lead (tau) for each TC level.
 filt_mat_tau_max_0<-cbind(gamma_target,b_tau_max_0)
 colnames(filt_mat_tau_max_0)<-c("MSE",paste("\u03C4","=",round(tau_mat_0[,2],2),sep=""))
 
 colnames(filt_mat_tau_max_omega)<-c("MSE",paste("\u03C4","=",round(tau_mat_omega[,3],2),sep=""))
 
 
-#----------------------------------
-# Plots
-# Compute CCF of HP-trend
-
-
-
-# Plots: filter coefficients and CCF
-
+# Plot layout: filter coefficients (lag domain) and time-shift (frequency domain)
 colo<-c("green",rainbow(ncol(b_tau_max_0)))
 
 par(mfrow=c(2,2))
 
 
+# I.1) omega0=0: FILTER COEFFICIENTS
+# -----------------------------------------------------------------------------
 
-# 1 DFP based on Max-Tau(0)
-# 2.1 b_tau 
-
-
-# Scale filter coefficients:
+# Scale filter coefficients for comparability across filters
 mplot<-scale(filt_mat_tau_max_0,center=F,scale=T)
 
 layout<-plot(mplot[,1],main="Predictors: Max-Tau(0)",axes=F,type="l",xlab="Lag",ylab="",col=colo[1],lwd=3,lty=2,ylim=c(min(mplot),max(mplot)))
@@ -970,7 +994,8 @@ axis(1,at=c(1,1:(nrow(mplot)/10)*10),labels=c(1,1:(nrow(mplot)/10)*10)-c(1,rep(0
 axis(2)
 box()
 
-# 2.2 Time-shift
+# I.2) omega0=0: TIME-SHIFT ACROSS FREQUENCIES
+# -----------------------------------------------------------------------------
 K<-600
 plot_T<-F
 amp<-shift<-NULL
@@ -984,7 +1009,6 @@ colnames(amp)<-colnames(shift)<-colnames(filt_mat_tau_max_0)
 mplot<-shift[1:(K/10),]
 
 plot(mplot[,1],ylim=c(min(mplot),9),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Time-Shift Lower Frequencies",lty=2,lwd=2)
-#mtext(colnames(mplot)[1],col=colo[1],line=-1)
 for (i in 2:ncol(mplot))
 {  
   lines(mplot[,i],col=colo[i],type="l")
@@ -996,9 +1020,10 @@ axis(2)
 box()
 
 
-# 2 Max-tau based on omega0=pi/20
+# II.2) omega0=pi/20: FILTER COEFFICIENTS
+# -----------------------------------------------------------------------------
 
-# Scale filter coefficients:
+# Scale filter coefficients for comparability across filters
 mplot<-scale(filt_mat_tau_max_omega,center=F,scale=T)
 
 layout<-plot(mplot[,1],main="Max-Tau(pi/20)",axes=F,type="l",xlab="Lag",ylab="",col=colo[1],lwd=3,lty=2,ylim=c(min(mplot),max(mplot)))
@@ -1013,7 +1038,8 @@ axis(1,at=c(1,1:(nrow(mplot)/10)*10),labels=c(1,1:(nrow(mplot)/10)*10)-c(1,rep(0
 axis(2)
 box()
 
-# 3.2 Time-shift
+# 3.2 omega0=pi/20: TIME-SHIFT ACROSS FREQUENCIES
+# -----------------------------------------------------------------------------
 K<-600
 plot_T<-F
 amp<-shift<-NULL
@@ -1027,7 +1053,6 @@ colnames(amp)<-colnames(shift)<-colnames(filt_mat_tau_max_omega)
 mplot<-shift[1:(K/10),]
 
 plot(mplot[,1],ylim=c(-5,9),axes=F,col=colo[1],type="l",xlab="Frequency",ylab="",main="Time-Shift Lower Frequencies",lty=2,lwd=2)
-#mtext(colnames(mplot)[1],col=colo[1],line=-1)
 for (i in 2:ncol(mplot))
 {  
   lines(mplot[,i],col=colo[i],type="l")
@@ -1039,10 +1064,32 @@ axis(1,at=c(1,K/20,K/10),labels=c("0","pi/20","pi/10"))
 axis(2)
 box()
 
+#-------------------------------------------------------------------------------
+# OUTCOME
+#-------------------------------------------------------------------------------
+# A) Top two plots (omega0=0):
+# - For decreasing TC:
+#   a) the weight on the linear decoupling vector of Max-Tau increases, and the
+#      predictor profile becomes "more linear" (violet line, top left panel).
+#   b) the time-shift (lead) at frequency zero increases (top right panel).
+#   c) Unfortunately, this lead does NOT extend to business-cycle frequencies.
+#      Therefore, Max-Tau(0) is not well-suited as a leading indicator design
+#      for business-cycle analysis.
+#
+# B) Bottom two plots (omega0=pi/20):
+# - For decreasing TC:
+#   a) the weight on the purely sinusoidal decoupling vector of Max-Tau increases,
+#      and the predictor looks increasingly periodic (violet line, bottom left panel).
+#   b) the time-shift increases at omega0=pi/20 (bottom right panel).
+#   c) Max-Tau(pi/20) consistently outperforms the MSE target at business-cycle
+#      frequencies, implying the predictor LEADS the nowcast for business-cycle
+#      analysis.
 
-
-
-
+# II) PREDICTORS AT RECESSIONS
+# -----------------------------------------------------------------------------
+# Apply each filter to the actual GDP growth series and visually inspect
+# behaviour around two historical recession episodes: the Dotcom bust and
+# the Great Recession (Financial Crisis).
 
 y_mat_tau_max_omega<-NULL
 for (i in 1:ncol(filt_mat_tau_max_omega))
@@ -1056,11 +1103,12 @@ colnames(y_mat_tau_max_0)<-colnames(filt_mat_tau_max_0)
 par(mfrow=c(2,2))
 
 
-
 #------------
-# 1. Designs based on decoupling alpha0
+# II.1) omega0=0: RECESSION PLOTS
+# -----------------------------------------------------------------------------
 colo<-c("green",rainbow(ncol(b_tau_max_0)))
 
+# Dotcom recession window
 anf<-87
 enf<-105
 mplot<-scale(y_mat_tau_max_0)[anf:enf,]
@@ -1082,13 +1130,13 @@ axis(1,at=1:length(na.exclude(mplot[,3])),labels=label_vec[-L+anf:enf])
 axis(2)
 box()
 
+# Great Recession / Financial Crisis window
 anf<-108
 enf<-134
 
 mplot<-scale(y_mat_tau_max_0)[anf:enf,]
 
 plot(mplot[,1],col=colo[1],main="Great recession", axes=F,type="l",xlab="",ylab="",lwd=3,lty=2,ylim=c(min(mplot),max(mplot)))
-#mtext(colnames(mplot)[1],col=colo[1],line=-1)
 for (i in 2:ncol(mplot))
 {
   lines(mplot[,i],col=colo[i])
@@ -1103,9 +1151,10 @@ box()
 
 
 
-# 2. Based on time-shift DFP
+# II.2) omega0=pi/20: RECESSION PLOTS
+# -----------------------------------------------------------------------------
 
-
+# Dotcom recession window
 anf<-87
 enf<-105
 mplot<-scale(y_mat_tau_max_omega)[anf:enf,]
@@ -1127,13 +1176,13 @@ axis(1,at=1:length(na.exclude(mplot[,3])),labels=label_vec[-L+anf:enf])
 axis(2)
 box()
 
+# Great Recession / Financial Crisis window
 anf<-108
 enf<-134
 
 mplot<-scale(y_mat_tau_max_omega)[anf:enf,]
 
 plot(mplot[,1],col=colo[1],main="Great recession", axes=F,type="l",xlab="",ylab="",lwd=3,lty=2,ylim=c(min(mplot),max(mplot)))
-#mtext(colnames(mplot)[1],col=colo[1],line=-1)
 for (i in 2:ncol(mplot))
 {
   lines(mplot[,i],col=colo[i])
@@ -1147,34 +1196,34 @@ axis(2)
 box()
 
 
+#-------------------------------------------------------------------------------
+# OUTCOME
+#-------------------------------------------------------------------------------
+# As predicted by the time-shift panels in the previous plot, Max-Tau(0) does
+# NOT qualify as a leading business-cycle tool: the design leads at LOWER
+# frequencies. Specifically, for components with duration exceeding 20 years,
+# Max-Tau(0) would lead.
+#
+# In contrast, Max-Tau(pi/20) is leading (left-shifted) at BOTH recession
+# episodes (Dotcom and Great Recession).
+#
+# Larger and/or different leads could be obtained by allowing for a smaller
+# TC or by choosing an alternative omega0.
+#
+# Alternatively, one could control overfitting to enhance the lead further —
+# see the Exercises below.
 
 
-tab2 <- tau_mat_omega
-tab1 <- tau_mat_0
-
-colnames(tab1)[ncol(tab1)] <- colnames(tab2)[ncol(tab2)] <- "Max-Tau($\\pi/$20)"
-
-tab1_df <- as.data.frame(" " = rownames(tab1), tab1, 
-                         check.names = FALSE, stringsAsFactors = FALSE)
-xt1 <- tab1_df
-tab2_df <- as.data.frame(" " = rownames(tab2), tab2, 
-                         check.names = FALSE, stringsAsFactors = FALSE)
-xt2 <- tab2_df
-
-# Here we introduce target correlation based on normalization with gammah (gamma_target).
-# This the correct in this context. But the time-shift DFP has its CCF normalizing with respect to the nowcast gamma0 (hp_trend). So we refer to the latter. The solution is not affected by 
-# the scaling.
-# a) Normalize with respect to gammah
-xt1 <- cbind(TC = rownames(tab1), as.data.frame(tab1, check.names = FALSE))
-# b) Normalize with respect to gamma0 (relying on previous DFP results)
-xt1 <- cbind(TC = table_tau[2,2:ncol(table_tau)], as.data.frame(tab1, check.names = FALSE))
-
-xt1 <- cbind(TC = table_tau[2,2:ncol(table_tau)], as.data.frame(tab1, check.names = FALSE))
-
-xt1
-
-
+###############################################################################
+# EXERCISE 4: REPLICATE DUAL MAX-TAU BY INVERTED PRIMAL MAX-TAU
 ####################################################################################
+
+
+
+
+
+
+
 # Additional exercises not in paper:
 # 1. Show equivalence of primal and dual on frontier (an d difference away from frontier)
 # 2. Multi-frequency approach
