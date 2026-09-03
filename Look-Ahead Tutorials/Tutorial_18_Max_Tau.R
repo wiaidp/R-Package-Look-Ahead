@@ -869,6 +869,7 @@ for (i in 1:length(target_correlation_vec))#i<-1
   b_tau_max<-cbind(b_tau_max,max_tau_obj$b_opt)
   max_tau_vec<-c(max_tau_vec,max_tau_obj$tau_max)
 }
+max_tau_vec0<-max_tau_vec
 # Take minus sign to match sign convention in paper (in code it is assumed that transferfunction is based on exp(+i*omega) whereas in paper we assume exp(-1.i*omega)).
 # A lead means a positive number (of the sign-inverted tau):
 max_tau_vec
@@ -1214,12 +1215,86 @@ box()
 # see the Exercises below.
 
 
+
+
 ###############################################################################
-# EXERCISE 4: REPLICATE DUAL MAX-TAU BY INVERTED PRIMAL MAX-TAU
-####################################################################################
+# EXERCISE 4: REPLICATE DUAL MAX-TAU BY INVERTED PRIMAL MAX-TAU ON FRONTIER
+###############################################################################
+
+# Topic: Max-Tau can be obtained either via the dual formulation (Appendix B:
+# the R-code implemented above) or via the inverted primal (Theorem 2). We
+# here verify that the two formulations coincide ON the efficient frontier,
+# but differ AWAY from the frontier.
 
 
+#-------------------------------------------------------------------------------
+# 4.1 VERIFY FRONTIER
+#-------------------------------------------------------------------------------
+# The frontier is determined by TC larger than U (see Theorem 2 for the
+# definition of U).
 
+U <- as.double(sqrt(1 - sum(gammah)^2 / (gammah %*% gammah * L)))
+U
+
+# In our case, only the first three imposed TC values are above U:
+target_correlation_vec > U
+# --> The first three TC are on the frontier; the last one is NOT on the
+#     frontier (see paper for details).
+
+
+#-------------------------------------------------------------------------------
+# 4.2 VERIFY IDENTITY OF PRIMAL AND DUAL ON FRONTIER
+#-------------------------------------------------------------------------------
+# Select any of the TC values that lie on the frontier.
+
+i <- 1
+target_correlation <- target_correlation_vec[i]
+
+# Compute the corresponding maximized Tau (dual formulation).
+TC <- tau_from_f(gammah, target_correlation)
+
+tau <- max(TC$tau)
+# This should match max_tau_vec0[i]: the maximized Tau obtained from the dual
+# in Exercise 3.2.
+tau - max_tau_vec0[i]
+
+# Given Tau, we can insert it into the primal to obtain the Max-Tau predictor
+# (Theorem 2, inverted primal formulation).
+tau_primal_obj <- max_tau_primal_func(gammah, tau)
+
+# Check: the difference between primal and dual solutions should vanish.
+max(abs(tau_primal_obj$b - b_tau_max[, i]))
+
+
+#-------------------------------------------------------------------------------
+# 4.3 VERIFY DIFFERENCE OF PRIMAL AND DUAL AWAY FROM FRONTIER
+#-------------------------------------------------------------------------------
+# Select the last TC (not on the frontier).
+
+i <- 4
+target_correlation <- target_correlation_vec[i]
+
+# Compute the corresponding maximized Tau (dual formulation).
+TC <- tau_from_f(gammah, target_correlation)
+
+tau <- max(TC$tau)
+# This does NOT match max_tau_vec0[i]: the maximized Tau from the dual in
+# Exercise 3.2. The dual value here is finite, whereas the corresponding
+# max_tau_vec0[i] is infinite.
+tau - max_tau_vec0[i]
+
+# Given Tau, we can insert it into the primal to obtain the Max-Tau predictor
+# (Theorem 2).
+tau_primal_obj <- max_tau_primal_func(gammah, tau)
+
+# Check: the difference between primal and dual solutions does NOT vanish
+# away from the frontier.
+max(abs(tau_primal_obj$b - b_tau_max[, i]))
+
+
+#################################################################################
+# EXERCISE 5
+#################################################################################
 
 
 
