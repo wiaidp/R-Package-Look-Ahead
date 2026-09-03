@@ -1221,7 +1221,7 @@ box()
 # EXERCISE 4: REPLICATE DUAL MAX-TAU BY INVERTED PRIMAL MAX-TAU ON FRONTIER
 ###############################################################################
 
-# Topic: Max-Tau can be obtained either via the dual formulation (Appendix B:
+# Topic: Max-Tau can be obtained either via the dual formulation (Appendix B IN wILDI 2026:
 # the R-code implemented above) or via the inverted primal (Theorem 2). We
 # here verify that the two formulations coincide ON the efficient frontier,
 # but differ AWAY from the frontier.
@@ -1250,7 +1250,7 @@ target_correlation_vec > U
 i <- 1
 target_correlation <- target_correlation_vec[i]
 
-# Compute the corresponding maximized Tau (dual formulation).
+# Compute the corresponding maximized Tau through inversion of TC(Tau) on frontier (Theorem 2).
 TC <- tau_from_f(gammah, target_correlation)
 
 tau <- max(TC$tau)
@@ -1279,8 +1279,8 @@ TC <- tau_from_f(gammah, target_correlation)
 
 tau <- max(TC$tau)
 # This does NOT match max_tau_vec0[i]: the maximized Tau from the dual in
-# Exercise 3.2. The dual value here is finite, whereas the corresponding
-# max_tau_vec0[i] is infinite.
+# Exercise 3.2. The value here is finite, whereas the corresponding
+# max_tau_vec0[i] is infinite (see Wildi 2026).
 tau - max_tau_vec0[i]
 
 # Given Tau, we can insert it into the primal to obtain the Max-Tau predictor
@@ -1291,18 +1291,24 @@ tau_primal_obj <- max_tau_primal_func(gammah, tau)
 # away from the frontier.
 max(abs(tau_primal_obj$b - b_tau_max[, i]))
 
+#-------------------------------------------------------------------------------
+# SUMMARY
+#-------------------------------------------------------------------------------
+# In summary: the inverted primal and the dual Max-Tau formulations coincide
+# ONLY on the frontier. In applications, only the frontier is relevant, since
+# designs away from the frontier are not optimal — they could be outperformed
+# in BOTH target correlation (TC) and Tau simultaneously (for example by designs ON the frontier).
+
 
 #################################################################################
-# EXERCISE 5
+# EXERCISE 5 CONTROLLING OVERFITTING IN DUAL MAX-TAU THROUGH CURVATURE
 #################################################################################
 
 
 
 
 # Additional exercises not in paper:
-# 1. Show equivalence of primal and dual on frontier (an d difference away from frontier)
 # 2. Multi-frequency approach
-# 3. Apply Curvature Max-Tau to BCA
 
 
 
