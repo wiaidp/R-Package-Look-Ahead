@@ -36,7 +36,7 @@
 #   - Such extreme look-ahead designs require increasing SIGN REVERSION,
 #     starting with trend and mean inversion. Formally, the transfer
 #     function becomes negative at the reference frequency omega_0 = 0,
-#     i.e. Gamma(0) < 0.
+#     i.e. Gamma(0) < 0 (see exercise 1).
 #   - TC is also substantially reduced in such extreme DFP designs
 #     (see examples below).
 #
@@ -307,7 +307,7 @@ table_alpha0 <- cbind(
     tau_alpha0                           # time-shift (lead) at frequency 0
   )
 )
-rownames(table_alpha0)<-c("TC: CCF(h)","Correlation with nowcast: CCF(0)","Gamma(0)","Shift at omega0=0 (lead when positive)")
+rownames(table_alpha0)<-c("Correlation with nowcast: CCF(0)","TC: CCF(h)","Gamma(0)","Shift at omega0=0 (lead when positive)")
 
 # DISCUSSION OF RESULTS MSE-DFP: THE TC/LEAD DILEMMA AND THE (CONDITIONAL) EFFICIENT FRONTIER
 #
@@ -345,27 +345,81 @@ rownames(table_alpha0)<-c("TC: CCF(h)","Correlation with nowcast: CCF(0)","Gamma
 #      UNCONDITIONALLY, among ALL linear predictors of the same length —
 #      not merely among those that decouple from the nowcast.
 #
+table_alpha0
+
+
+# ── NOTE ON SIGN INVERSION ───────────────────────────────────────────────────
+#
+# The last two columns of `table_alpha0` (alpha0 close to zero) generate
+# Gamma(0) < 0.
+#
+# WHAT THIS MEANS:
+#   The sign of a non-vanishing mean will be INVERTED by the filter. WHY?
+#
+#   Let x_t = mu > 0 be a constant series. Apply the filter
+#   b = (b_0, ..., b_{L-1})' to x_t:
+#
+#       (mu, ..., mu) %*% b = sum_{k=0}^{L-1} mu * b_k = mu * Gamma(0)
+#
+#   If Gamma(0) < 0, the sign of x_t = mu is REVERSED after filtering.
+#
+#   This does NOT mean the predictor is meaningless: as long as TC > 0
+#   (which is the case here — see row 1 of `table_alpha0`), the predictor
+#   still correlates POSITIVELY with the target, i.e. it remains
+#   effectively informative about the target's dynamics.
+#
+# WHAT IT DOES MEAN IN PRACTICE:
+#   Sign inversion of the mean signifies that the data should be CENTERED
+#   before applying the predictor; otherwise the resulting level will carry
+#   the wrong sign. Once the forecast is computed on centered data, the
+#   correct mean can simply be added back to the centered forecast.
+#
+# WHY THIS IS NOT A SERIOUS LIMITATION:
+#   Static mean or scale adjustments are trivial operations. They do NOT
+#   affect the dynamic look-ahead capabilities of the predictor — i.e. the
+#   TC/lead trade-off discussed above is entirely unaffected by whether the
+#   data was centered before or after filtering. Both TC and Tau are insensitive 
+#   to shift and scaling.
+
+#
 # This sets up the comparison in the next section: Max-Tau will match or
 # dominate every point on the MSE-DFP frontier above in terms of the
 # TC/lead trade-off.
-table_alpha0
+
+
+
 
 
 ########################################################################################
 # Exercise 2: Time-Shift DFP
 ########################################################################################
 
-#-------------------------------------
-# Time-shift DFP (based on tau)
+# As seen in `table_alpha0`, MSE-DFP can generate SIGN INVERSION
+# (Gamma(0) < 0) when alpha0 is pushed close to zero.
+#
+# Time-shift DFP AVOIDS sign inversion by construction: instead of
+# specifying the decoupling parameter alpha0 directly, we specify the
+# desired LEAD tau at the reference frequency omega_0 = 0, and infer the
+# corresponding alpha0 = alpha(tau) via the bijective (strictly monotonic)
+# relationship established in Proposition 3 and Corollary 2, Wildi (2026).
+#
+# Since alpha(tau) is derived from this relationship, it is guaranteed to
+# stay within the range that preserves Gamma(0) > 0 — hence no sign
+# inversion.
+#
+# Apart from this reparameterisation (tau -> alpha0, rather than choosing
+# alpha0 directly), Exercise 2 is otherwise IDENTICAL to Exercise 1.
 
-
+# Grid of desired leads (tau) at the reference frequency omega_0 = 0: the last Tau 
+# is `large`, representing an infinite lead.
 tau_vec<--c(1,2,6,100000)
+
 b0_mat<-cor_vec_mse_la_mat<-NULL
 for (i in 1:length(tau_vec))#i<-1
 {
   lead<-tau_vec[i]
   # Call the dedicated function to compute the DFP filter for a specified lead
-  # (see dfp_from_tau_func for the derivation based on Theorem 2, Wildi 2026)
+  # (see dfp_from_tau_func for the derivation based on Proposition 3, Wildi 2026)
   dfp_obj <- mse_dfp_from_tau_func(gamma_constraint, gamma_target, lead)
   
   # Extract the components returned by the function
@@ -380,24 +434,37 @@ for (i in 1:length(tau_vec))#i<-1
   cor_vec_mse_la_mat<-cbind(cor_vec_mse_la_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b,hp_trend)$cor_vec)
   
 }
-colnames(b0_mat)<-colnames(cor_vec_mse_la_mat)<-paste("Shift ",tau_vec,sep="")
+colnames(b0_mat)<-colnames(cor_vec_mse_la_mat)<-paste("Shift ",-tau_vec,sep="")
+
 
 b_tau<-b0_mat
 cor_vec_mse_la_mat_tau<-cor_vec_mse_la_mat
 
 # Compute Gamma(0)
 Gamma0_tau<-apply(b_tau,2,sum)
+# Check: all positive (as Tau\to\infty, Gamma(0)\to 0, see Wildi 2026)
+Gamma0_tau
+
 # Compute time-shifts at frequency zero
 tau_tau<--as.vector(t(b_tau)%*%(0:(L-1))/apply(b_tau,2,sum))
-tau_tau[which(Gamma0_tau<0)]<-NA
+# Check: lead over MSE matches imposed constraint
+# a. Compute shift of MSE
+tauh<--as.double(gammah%*%(0:(L-1))/sum(gammah))
+# b. Compute lead of DFP over MSE
+tau<-(tau_tau-tauh)
+# c. Lead matches constraint: difference vanishes
+tau-(-tau_vec)
+
+# Compute decoupling parameter, i.e., CCF(0) (up to scaling)
 alpha_tau<-as.vector(t(b_tau)%*%gamma0)
-mse_b<-c(t(gammah)%*%gamma0/sqrt(t(gammah)%*%gammah*t(gamma0)%*%gamma0),1,-as.double(t(gammah)%*%(0:(L-1))/sum(gammah)),t(gammah)%*%gamma0)
+# Compute corresponding performances for MSE benchmark.
+mse_b<-c(t(gammah)%*%gamma0/sqrt(t(gammah)%*%gammah*t(gamma0)%*%gamma0),t(gammah) %*% gammah / sqrt(t(gammah) %*% gammah * t(gamma0) %*% gamma0),-as.double(t(gammah)%*%(0:(L-1))/sum(gammah)),t(gammah)%*%gamma0)
 
 table_tau<-cbind(mse_b,rbind(cor_vec_mse_la_mat_tau[1,],cor_vec_mse_la_mat_tau[h+1,],tau_tau,alpha_tau))
-dim(table_tau)
 
-b_tau[,4]%*%gamma_target/sqrt(b_tau[,4]%*%b_tau[,4]*gamma_target%*%gamma_target)
+rownames(table_tau)<-c("Correlation with nowcast: CCF(0)","TC: CCF(h)","Shift at omega0=0 (lead when positive)","alpha0")
 
+table_tau
 
 # Plots
 par(mfrow=c(2,2))
