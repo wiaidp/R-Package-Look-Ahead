@@ -1,43 +1,110 @@
-# New Material : September 2026
-# Introduction of Max-Tau Predictor
-# Main difference to DFP: Max-Tau decouples from new vectors which maximize lead unconditionally: 
-# no other linear predictor of the same length can outperform Max-Tau in terms of target correlation (TC) and 
-# lead at the reference frequency.
-
-# Max-Tau defines an unconditional efficient frontier between Accuracy (TC) and Timeliness (time-shift lead at reference frequency)
-
-# New paper: See Papers folder.
+# This is still Work in progress!!!
 
 
 
-# ── INITIALISATION ────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+# NEW MATERIAL: September 2026
+# Introduction of the Max-Tau Predictor
+# ══════════════════════════════════════════════════════════════════════════
+#
+# ══════════════════════════════════════════════════════════════════════════
+# NEW MATERIAL: September 2026
+# Introduction of the Max-Tau Predictor
+# ══════════════════════════════════════════════════════════════════════════
+#
+# CONCEPT
+# -------
+# Max-Tau differs from DFP in a fundamental way:
+#
+#   - DFP decouples from the *nowcast* and defines a CONDITIONAL efficient
+#     frontier between Target Correlation (TC) and lead, i.e. conditional on
+#     that decoupling constraint.
+#
+#   - Max-Tau decouples from *new vectors which maximise lead
+#     unconditionally*. This means: no other linear predictor of the same
+#     filter length can outperform Max-Tau in BOTH target correlation (TC)
+#     and lead at the reference frequency. Max-Tau therefore defines an
+#     UNCONDITIONAL efficient TC/lead frontier.
+#
+#
+# LOOK-AHEAD AND SIGN INVERSION
+# ------------------------------
+# Max-Tau always outperforms DFP in terms of TC/lead ON THE FRONTIER.
+# However, MSE-DFP can generate look-ahead behaviour that is out of reach
+# for both Max-Tau and time-shift DFP — at a cost:
+#
+#   - Such extreme look-ahead designs require increasing SIGN REVERSION,
+#     starting with trend and mean inversion. Formally, the transfer
+#     function becomes negative at the reference frequency omega_0 = 0,
+#     i.e. Gamma(0) < 0.
+#   - TC is also substantially reduced in such extreme DFP designs
+#     (see examples below).
+#
+# In contrast, time-shift DFP and Max-Tau CANNOT invert signs: the
+# orientation of the trend and the sign of the mean are always preserved.
+#
+#
+# NOVELTY: GENERALISING THE REFERENCE FREQUENCY
+# -----------------------------------------------
+# Until now, DFP has addressed the reference frequency omega_0 = 0 (trend)
+# only. We extend Max-Tau here to address omega_0 > 0 as well — e.g.
+# Max-Tau can maximise lead at BUSINESS-CYCLE frequencies, not just at
+# the trend frequency.
+#
+#
+# CAVEAT: OVERFITTING
+# --------------------
+# Because Max-Tau maximises lead at a single reference frequency, it
+# becomes prone to overfitting as filter length L increases (DFP does not
+# share this problem to the same extent). Two remedies are illustrated in
+# this and subsequent tutorials:
+#   (1) controlling curvature of the filter, or
+#   (2) extending the lead criterion to multiple frequencies.
+#
+# Reference: see the accompanying paper in the "Papers" folder.
+#
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Reference: see the accompanying paper in the "Papers" folder.
+#
+# ══════════════════════════════════════════════════════════════════════════
+
+
+# ── 1. INITIALISATION ───────────────────────────────────────────────────────
+
 rm(list = ls())
 
-# Load DFP optimisation routines.
-# Provides DFP_compute_lambda_alpha0_func() and related solvers.
-source(paste(getwd(), "/R/DFP.r", sep = ""))
+# --- Load core algorithms (packaged as functions; treated here as black boxes) ---
 
-# Load Max-Tau optimisation routines.
-source(paste(getwd(), "/R/Max_Tau.r", sep = ""))
+# DFP optimisation routines: provides DFP_compute_lambda_alpha0_func() and
+# the mse-based DFP solver mse_dfp_from_alpha0_func() used below for comparison.
+source(file.path(getwd(), "R", "DFP.r"))
 
+# Max-Tau optimisation routines (new for this tutorial).
+source(file.path(getwd(), "R", "Max_Tau.r"))
 
-# Load HP utilities
-source(paste(getwd(), "/R utility functions/HP_JBCY_functions.r", sep = ""))
+# HP filter utilities (construction of HP trend/gap filters, MSE weights, etc.)
+source(file.path(getwd(), "R utility functions", "HP_JBCY_functions.r"))
 
-# Load general DFP/PCS utility functions (amplitude, time-shift, and CCF helpers).
-source(paste(getwd(), "/R utility functions/DFP_PCS_utility_functions.r", sep = ""))
+# General DFP/PCS utility functions (amplitude, time-shift, and CCF helpers,
+# e.g. compute_acf_at_lags_zero_delta_func()).
+source(file.path(getwd(), "R utility functions", "DFP_PCS_utility_functions.r"))
 
+# --- Required packages ---
 library(xts)
 library(mFilter)
 
-# Install and load the alfred package for direct FRED data access (no API key required).
-install.packages("alfred")
+# 'alfred' allows direct FRED data retrieval without an API key.
+# Install once if not already available.
+if (!requireNamespace("alfred", quietly = TRUE)) install.packages("alfred")
 library(alfred)
 
 
-# ── DATA ──────────────────────────────────────────────────────────────────────
-# Toggle reload_data to TRUE to fetch fresh data from FRED and overwrite the
-# locally saved file; set to FALSE to load the previously saved copy.
+# ── 2. DATA: US REAL GDP ─────────────────────────────────────────────────────
+
+# Toggle reload_data to TRUE to fetch fresh data from FRED (overwrites local
+# copy); FALSE loads the previously saved series (recommended for reproducible
+# tutorial runs).
 reload_data <- FALSE
 
 if (reload_data) {
@@ -45,129 +112,243 @@ if (reload_data) {
   GDPC1 <- as.xts(GDPC1)
   save(GDPC1, file = file.path(getwd(), "Data", "GDP"))
 } else {
-  load(file = file.path(getwd(), "Data", "GDP"))
+  load(file.path(getwd(), "Data", "GDP"))
 }
 
+# Quick sanity checks
 head(GDPC1)
 tail(GDPC1)
 is.xts(GDPC1)
 
-# Convert to a plain numeric vector.
-# xts objects carry implicit index-handling conventions that can interfere with
-# downstream computations (e.g., applying a filter to an xts object may silently
-# reverse the time axis). Working with plain doubles avoids these pitfalls.
+# --- Restrict sample and switch to plain numeric vector ---
+#
+# NOTE: xts objects carry implicit index-handling conventions that can
+# interfere with downstream computations (e.g. filter() applied to an xts
+# object may silently reverse the time axis). We therefore keep a plain
+# numeric vector (y) for all computations, and an xts copy (y_xts) purely
+# for plotting.
+
 start_year <- 1992
 end_year   <- 2024
+sample_range <- paste(start_year, end_year, sep = "/")
 
-y     <- as.double(log(GDPC1[paste(start_year, "/", end_year, sep = "")]))
-y_xts <-           log(GDPC1[paste(start_year, "/", end_year, sep = "")])
+y_xts <- log(GDPC1[sample_range])          # for plotting only
+y     <- as.double(y_xts)                  # for computation
 len   <- length(y)
 
 
+# ── 3. EXPLORATORY PLOTS ─────────────────────────────────────────────────────
 
-# ── EXPLORATORY PLOTS ─────────────────────────────────────────────────────────
 par(mfrow = c(2, 2))
-plot(GDPC1,                          main = "US Real GDP (levels)")
-plot(y_xts,                          main = "Log GDP")
-plot(diff(y_xts),                    main = "Log-differences of GDP")
-acf(na.exclude(diff(y_xts)),         main = "ACF of log-differences")
+plot(GDPC1,                  main = "US Real GDP (levels)")
+plot(y_xts,                  main = "Log GDP")
+plot(diff(y_xts),            main = "Log-differences of GDP")
+acf(na.exclude(diff(y_xts)), main = "ACF of log-differences")
+
+# The data, retrieved from FRED (https://fred.stlouisfed.org/), are displayed in the above 
+# Figure, where log-differences (bottom left) cover the last three recession episodes from 
+# 1992 to 2024. HP is applied to log-differences to track trend-growth, whose sign indicates 
+# below/above-average growth (Wildi, 2024). While this application deviates from business-cycle 
+# orthodoxy—where the HP bandpass is typically applied to the original non-stationary GDP—
+# we select this framework because it emphasizes lead/lag issues more clearly and because 
+# tracking growth through the lowpass addresses spurious cycles inherent to the classic 
+# approach (Wildi, 2024) and earlier Tutorials.
+
+# ── 4. TARGET SPECIFICATION: HP TREND OF DIFF-LOG GDP ───────────────────────
+
+# Forecast horizon (in periods): we select a two-quarters ahead horizon as in Wildi (2026)
+h <- 2
+
+# HP smoothing parameter (standard quarterly setting)
+lambda_hp <- 1600
+
+# Filter length: L must be odd so the symmetric (two-sided) filter is
+# centred at position (L-1)/2 + 1.
+L <- 51
+
+# --- Two-sided HP benchmark filter (double length) ---
+# We compute the two-sided filter at length 2*(L-1)+1 so that we can later
+# compare a one-sided (real-time) filter of length L against the right tail
+# of the corresponding two-sided (symmetric) filter.
+HP_obj <- HP_target_mse_modified_gap(2 * (L - 1) + 1, lambda_hp)
+
+HP_two          <- HP_obj$target
+hp_gap          <- HP_obj$hp_gap[1:L]
+modified_hp_gap <- HP_obj$modified_hp_gap[1:L]
+
+# Concurrent (one-sided) HP trend filter, assuming an I(2) process
+hp_trend_long <- HP_obj$hp_trend
+hp_trend      <- hp_trend_long[1:L]
+
+# MSE-optimal one-sided filter for the bi-infinite HP trend, assuming
+# white-noise innovations (white noise is ensured by ACF in above plot: bottom right panel)
+hp_mse_long <- HP_obj$hp_mse
+hp_mse      <- hp_mse_long[1:L]
 
 
+##############################################################################
+# Exercise 1
+##############################################################################
+
+#-------------------------------------------------------------------------------
+# ── 1.1. DFP SETTINGS: TARGET AND CONSTRAINT VECTORS ──────────────────────────
+#-------------------------------------------------------------------------------
+
+# Forecast horizon (delta) for the target
+delta <- h
+
+# Start lag for the cross-correlation function (CCF); max_lag = 0 restricts
+# attention to the right tail only (non-negative lags/leads).
+max_lag <- 0
+
+# Target: MSE-optimal predictor of the HP trend at horizon h = delta
+gammah <- gamma_target <- hp_trend_long[h + 1:L]
+
+# Constraint: nowcast (horizon 0) predictor of the HP trend
+gamma0 <- gamma_constraint <- hp_trend_long[1:L]
+
+# --- Sanity checks on gamma_target ---
+ts.plot(gamma_target, main = "Target vector: HP trend weights at horizon h")
+
+sum(hp_trend_long)                             # should sum to 1
+sqrt(t(hp_trend_long) %*% hp_trend_long)       # filter norm (std-dev proxy)
 
 
-# Specify target: HP trend applied to diff-log GDP
-h<-2
-# HP
-lambda_hp<-1600
-# L is an odd integer such that the symmetric filter is centered at (L-1)/2+1  
-L<-51
+#-------------------------------------------------------------------------------
+# ── 1.2. MSE-DFP BENCHMARK: FAMILY OF SOLUTIONS INDEXED BY alpha0 ─────────────────
+#-------------------------------------------------------------------------------
+#
+# Before introducing Max-Tau, we replicate the classic MSE-DFP benchmark
+# across a grid of alpha0 values. alpha0 controls the degree of decoupling
+# from the nowcast constraint: smaller alpha0 permits more decoupling
+# (and hence more lead).
+#
+# NOTE ON UPCOMING EXERCISES:
+#   - Exercise 2: time-shift DFP, where alpha0 = alpha(tau) is derived
+#     directly from the desired lead tau at the reference frequency
+#     omega_0 = 0.
+#   - Exercise 3: Max-Tau.
+#
+# CAUTION:
+#   MSE-DFP can generate look-ahead behaviour that is out of reach for
+#   both time-shift DFP and Max-Tau — but at the cost of SIGN INVERSION.
+#   In this example, that will occur when alpha0 is close to 0 (i.e.
+#   near-complete decoupling from the nowcast constraint).
 
+alpha0_vec <- c(0.1, 0.05, 0.02, 0.017, 0.005, 0)
 
-# Here we compute only the two-sided filter for double length 2*(L-1)+1
-# This is used when comparing one-sided to right tail of two-sided
-HP_obj<-HP_target_mse_modified_gap(2*(L-1)+1,lambda_hp)
-HP_two=HP_obj$target
-hp_gap=HP_obj$hp_gap[1:L]
-modified_hp_gap=HP_obj$modified_hp_gap[1:L]
-# Concurrent HP assuming I(2)-process
-hp_trend_long=HP_obj$hp_trend
-hp_trend=hp_trend_long[1:L]
-# MSE estimate of bi-infinite HP assuming white noise
-hp_mse_long=HP_obj$hp_mse
-hp_mse<-hp_mse_long[1:L]
+# Containers for results across the alpha0 grid
+lambda               <- NULL   # Lagrange multipliers from the DFP solve
+b0_mat               <- NULL   # DFP filter coefficients (one column per alpha0)
+cor_vec_mse_la_mat   <- NULL   # CCF of each DFP filter vs. the MSE target
 
-
-# Show that HP-gap applied to returns is the same as original gap applied to levels
-hp_gap<-c(1-hp_trend[1],-hp_trend[2:L])
-# Apply HP-gap and HP-gap transformed to log and lago-returns
-eps<-y#-mean(y)
-len<-length(eps)
-y_gaph<-filter(log(GDPC1),hp_gap,side=1)
-y_gap<-y_gaph[-1]
-y_gap_modified<-filter(eps,modified_hp_gap,side=1)
-
-#----------------------------------
-# DFP general settings
-# Forecast horizon
-h<-delta<-h
-# Start for CCF (start at lag k i.e. only positive legas (right tail))
-max_lag<-0
-
-# Specify gamma at forecast horizon sup_vec_target=delta and at lead/lag sup_vec_constraint
-# Target: MSE predictor
-gamma_target<-gammah<-hp_trend_long[h+1:L]
-# Constraint: nowcast
-gamma_constraint<-gamma0<-hp_trend_long[1:L]
-# Some checks
-ts.plot(gamma_target)
-# Should add to one
-sum(hp_trend_long)
-# STD
-sqrt(t(hp_trend_long)%*%hp_trend_long)
-
-
-#-------------------------------------
-# DFP based on alpha0
-
-alpha0_vec<-c(0.1,0.05,0.02,0.017,0.005,0)
-
-
-
-lambda<-lambda1<-lambda2<-NULL
-b0_mat<-NULL
-cor_vec_mse_la_mat<-NULL
-
-for (i in 1:length(alpha0_vec))#i<-1
-{ 
-  alpha0<-alpha0_vec[i]
-  # Compute quadratic in lambda and then unit length DFP  
-  b0_obj<-mse_dfp_from_alpha0_func(gamma_constraint, gamma_target, alpha0)
-  b<-b0_obj$b
-  b0_mat<-cbind(b0_mat,b)
-  lambda<-c(lambda,b0_obj$lambda)
+for (i in seq_along(alpha0_vec)) {
   
-  # Compute CCF of PCS predictors with respect to MSE gamma_target  
-  cor_vec_mse_la_mat<-cbind(cor_vec_mse_la_mat,compute_acf_at_lags_zero_delta_func(max_lag,h,b0_mat[,i],hp_trend)$cor_vec)
+  alpha0 <- alpha0_vec[i]
   
+  # --- Core DFP solve: quadratic-in-lambda problem, then unit-length filter ---
+  b0_obj <- mse_dfp_from_alpha0_func(gamma_constraint, gamma_target, alpha0)
+  b      <- b0_obj$b
+  
+  b0_mat <- cbind(b0_mat, b)
+  lambda <- c(lambda, b0_obj$lambda)
+  
+  # --- Cross-correlation of the resulting DFP predictor with the MSE target ---
+  cor_vec_mse_la_mat <- cbind(
+    cor_vec_mse_la_mat,
+    compute_acf_at_lags_zero_delta_func(max_lag, h, b0_mat[, i], hp_trend)$cor_vec
+  )
 }
-colnames(b0_mat)<-colnames(cor_vec_mse_la_mat)<-alpha0_vec
 
-cor_vec_t_hp_trend<-compute_acf_at_lags_zero_delta_func(max_lag,h,gammah,hp_trend)$cor_vec
+colnames(b0_mat)             <- alpha0_vec
+colnames(cor_vec_mse_la_mat) <- alpha0_vec
 
-
-b_alpha0<-b0_mat
-cor_vec_mse_la_mat_alpha0<-cor_vec_mse_la_mat
-# Compute Gamma(0)
-Gamma0_alpha0<-apply(b_alpha0,2,sum)
-# Compute time-shifts at frequency zero
-tau_alpha0<--as.vector(t(b_alpha0)%*%(0:(L-1))/apply(b_alpha0,2,sum))
-tau_alpha0[which(Gamma0_alpha0<0)]<-NA
-# Compute all statistics for MSE benchmark also
-mse_b<-c(t(gammah)%*%gamma0/sqrt(t(gammah)%*%gammah*t(gamma0)%*%gamma0),t(gammah)%*%gammah/sqrt(t(gammah)%*%gammah*t(gamma0)%*%gamma0),sum(gammah),-as.double(t(gammah)%*%(0:(L-1))/sum(gammah)))
+# CCF of the MSE (HP trend) target itself, for reference/comparison
+cor_vec_t_hp_trend <- compute_acf_at_lags_zero_delta_func(
+  max_lag, h, gammah, hp_trend
+)$cor_vec
 
 
-table_alpha0<-cbind(mse_b,rbind(cor_vec_mse_la_mat_alpha0[1,],cor_vec_mse_la_mat_alpha0[h+1,],Gamma0_alpha0,tau_alpha0))
-dim(table_alpha0)
+
+#-------------------------------------------------------------------------------
+# ── 1.3 SUMMARY STATISTICS ACROSS THE alpha0 GRID ────────────────────────────
+#-------------------------------------------------------------------------------
+
+b_alpha0                  <- b0_mat
+cor_vec_mse_la_mat_alpha0 <- cor_vec_mse_la_mat
+
+# Gamma(0): sum of filter coefficients. Gamma(0)<0 implies trend and mean inversion.
+Gamma0_alpha0 <- apply(b_alpha0, 2, sum)
+# The last two filters are subject to inversion:
+Gamma0_alpha0
+
+# Time-shift (lead/lag) at frequency zero, for each alpha0
+tau_alpha0 <- -as.vector(t(b_alpha0) %*% (0:(L - 1)) / apply(b_alpha0, 2, sum))
+
+# Time-shift is not properly defined when Gamma(0) < 0 (it corresponds to the shift 
+# of the sign inverted predictor). Therefore we insert NA.
+tau_alpha0[which(Gamma0_alpha0 < 0)] <- NA
+
+# --- Corresponding statistics for the plain MSE benchmark filter ---
+mse_b <- c(
+  t(gammah) %*% gamma0 / sqrt(t(gammah) %*% gammah * t(gamma0) %*% gamma0), # TC vs. nowcast
+  t(gammah) %*% gammah / sqrt(t(gammah) %*% gammah * t(gamma0) %*% gamma0), # TC vs. itself
+  sum(gammah),                                                              # Gamma(0)
+  -as.double(t(gammah) %*% (0:(L - 1)) / sum(gammah))                       # tau at freq 0
+)
+
+# --- Combine into a single comparison table: MSE benchmark vs. DFP(alpha0) grid ---
+table_alpha0 <- cbind(
+  mse_b,
+  rbind(
+    cor_vec_mse_la_mat_alpha0[1, ],      # TC at lag 0 (nowcast)
+    cor_vec_mse_la_mat_alpha0[h + 1, ],  # TC at lag h (target horizon)
+    Gamma0_alpha0,                       # Gamma(0)
+    tau_alpha0                           # time-shift (lead) at frequency 0
+  )
+)
+rownames(table_alpha0)<-c("TC: CCF(h)","Correlation with nowcast: CCF(0)","Gamma(0)","Shift at omega0=0 (lead when positive)")
+
+# DISCUSSION OF RESULTS MSE-DFP: THE TC/LEAD DILEMMA AND THE (CONDITIONAL) EFFICIENT FRONTIER
+#
+# Ideally, a predictor would simultaneously maximise:
+#   - Target Correlation (TC) (first row in below table), measured as the CCF at 
+#     horizon h, CCF(h), and
+#   - Lead (tau) (last row in column).
+#
+# Both cannot be achieved at once — this is the DILEMMA. The best attainable
+# outcome is a predictor lying ON THE EFFICIENT FRONTIER between TC and lead.
+# MSE-DFP sits on the efficient frontier of all predictors SUBJECT TO
+# nowcast decoupling. Here is how this manifests in the table (table_alpha0):
+#
+#   1. STRONGER DECOUPLING (smaller entries in row 2, CCF(0)) spills over
+#      into smaller TC (row 1, CCF(h)). MSE-DFP minimises this undesirable
+#      loss of TC: no other linear predictor can achieve both a smaller
+#      CCF(0) AND a larger CCF(h) simultaneously — this is precisely what
+#      makes it "efficient".
+#
+#   2. Stronger decoupling can be linked BIJECTIVELY (via a strictly
+#      monotonic function) to the lead (tau) at the reference frequency
+#      omega_0 = 0 — see Corollary 2 in Wildi (2026). This link requires
+#      Gamma(0) > 0 (row 3 in the table).
+#
+#   3. Therefore, BY COROLLARY 2, the dilemma between tau (row 4, lead) and
+#      TC (row 1) holds whenever Gamma(0) > 0: pushing lead higher
+#      necessarily costs some TC, and vice versa.
+#
+#   4. HOWEVER, the link between CCF(0) and tau does NOT guarantee that tau
+#      is maximised across ALL linear predictors of the same length — it is
+#      not. The efficient frontier described above (points 1-3) is only
+#      efficient CONDITIONAL ON nowcast decoupling.
+#
+#      Max-Tau resolves this geometric limitation: it maximises tau
+#      UNCONDITIONALLY, among ALL linear predictors of the same length —
+#      not merely among those that decouple from the nowcast.
+#
+# This sets up the comparison in the next section: Max-Tau will match or
+# dominate every point on the MSE-DFP frontier above in terms of the
+# TC/lead trade-off.
+table_alpha0
 
 
 ########################################################################################
