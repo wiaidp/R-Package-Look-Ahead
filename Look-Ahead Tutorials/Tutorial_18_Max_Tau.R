@@ -1311,6 +1311,15 @@ max(abs(tau_primal_obj$b - b_tau_max[, i]))
 # 2. Multi-frequency approach
 
 
+# Two ideas I-SSA
+# 1. Show that SSA optimiality applies in I-SSA: inserting cointegrated lower diemnsional b
+#    leads to more difficult expressions (but closed-form). Use instead cointegration constraints together 
+#     with Lagrange multipliers: this way the original structure is obtained to show that solution 
+#     has same structure. We can then use existing closed-form for solution and Lagrange-multiplier 
+#     to show validity of SSA-efficient frontier.
+# 2. New I-SSA paper with I-SSA trend from tutorial and new I-SSA derivation with proof of structure.
 
 
-
+# Max-Tau and the Self-Similar AR(1)
+# In contrast to random-walk, AR(1) is subject to mean reversion which can be anticipated more 
+# cleverly than through classic zero-shrinkage of MSE by DFP II or by Max-Tau.
