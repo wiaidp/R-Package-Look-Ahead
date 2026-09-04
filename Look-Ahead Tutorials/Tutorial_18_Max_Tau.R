@@ -1793,6 +1793,9 @@ box()
 #
 # Technical restriction: omega = 0 is currently NOT supported by the
 # underlying optimization (see note above).
+omega_vec <- c(pi / 20)
+omega_vec <- c(pi / 10)
+omega_vec <- c(pi / 5)
 omega_vec <- c(pi / 20, pi / 10, pi / 5)
 
 # ---- Step 2: solve the multi-frequency dual Max-Tau problem -----------------
@@ -1891,14 +1894,15 @@ mplot <- -cbind(shift_dual, shift_dual_curvature, shift_dual_mult)
 # this covers the full business-cycle band of interest.
 par(mfrow = c(1, 1))
 
-plot(mplot[1:(K / 5), 1],
+plot(mplot[1:(K / 5+1), 1],
      type = "l", col = "red",
      axes = FALSE, ylim = c(-5, 5),
      xlab = "Frequency", ylab = "Shift",
      main = "Shift Comparison: Single- vs. Multi-Frequency Dual Max-Tau")
-lines(mplot[1:(K / 5), 2], col = "blue")
-lines(mplot[1:(K / 5), 3], col = "violet")
+lines(mplot[1:(K / 5+1), 2], col = "blue")
+lines(mplot[1:(K / 5+1), 3], col = "violet")
 abline(h = 0)
+abline(v=1+c(K/(5*4),K/(5*2),K/5))
 
 # Custom x-axis labeled in units of pi, matching the frequency grid.
 axis(1, at = 1 + 0:6 * K / 30,
@@ -1914,9 +1918,10 @@ legend("topright",
 # -------------------------------------------------------------------------
 # INTERPRETATION
 # -------------------------------------------------------------------------
-# The multi-frequency predictor (violet) matches the single-frequency
-# predictors at omega = pi/20 and OUTPERFORMS them around omega = pi/10 
-# and omega = pi/5.
+# The multi-frequency predictor (violet) outperforms the single frequency 
+# Max-Tau (red) at all three reference frequencies (black vertical lines). It bis 
+# nearly identical to the curvature Max-Tau (blue) at pi/20 and outperforms at 
+# pi/10 and pi/5.
 
 
 
