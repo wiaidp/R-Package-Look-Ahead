@@ -1,22 +1,18 @@
-# This is still Work in progress!!!
-
-
-
-# ══════════════════════════════════════════════════════════════════════════
+# WORK IN PROGRESS (SEPTEMBER 2026)
 # NEW MATERIAL: September 2026
-# Introduction of the Max-Tau Predictor
+
+
+
+
 # ══════════════════════════════════════════════════════════════════════════
-#
-# ══════════════════════════════════════════════════════════════════════════
-# NEW MATERIAL: September 2026
-# Introduction of the Max-Tau Predictor
+# TUTORIAL 18: MAX-TAU PREDICTOR
 # ══════════════════════════════════════════════════════════════════════════
 #
 # CONCEPT
 # -------
 # Max-Tau differs from DFP in a fundamental way:
 #
-#   - DFP decouples from the *nowcast* and defines a CONDITIONAL efficient
+#   - DFP decouples from the *nowcast* and defines a CONDITIONAL (weak) efficient
 #     frontier between Target Correlation (TC) and lead, i.e. conditional on
 #     that decoupling constraint.
 #
@@ -24,7 +20,7 @@
 #     unconditionally*. This means: no other linear predictor of the same
 #     filter length can outperform Max-Tau in BOTH target correlation (TC)
 #     and lead at the reference frequency. Max-Tau therefore defines an
-#     UNCONDITIONAL efficient TC/lead frontier.
+#     UNCONDITIONAL (strong) efficient TC/lead frontier.
 #
 #
 # LOOK-AHEAD AND SIGN INVERSION
@@ -43,13 +39,17 @@
 # In contrast, time-shift DFP and Max-Tau CANNOT invert signs: the
 # orientation of the trend and the sign of the mean are always preserved.
 #
+# But the time-shift DFP can lead to negative TC (see Section 4.4 in the
+# new (Sept-2026) paper) and needs specific control to avoid this (most)
+# undesirable outcome. In contrast, Max-Tau always ensures a positive TC.
+#
 #
 # NOVELTY: GENERALISING THE REFERENCE FREQUENCY
 # -----------------------------------------------
 # Until now, DFP has addressed the reference frequency omega_0 = 0 (trend)
 # only. We extend Max-Tau here to address omega_0 > 0 as well — e.g.
 # Max-Tau can maximise lead at BUSINESS-CYCLE frequencies, not just at
-# the trend frequency.
+# the trend frequency, see Exercise 3.
 #
 #
 # CAVEAT: OVERFITTING
@@ -61,11 +61,30 @@
 #   (1) controlling curvature of the filter, or
 #   (2) extending the lead criterion to multiple frequencies.
 #
-# Reference: see the accompanying paper in the "Papers" folder.
 #
+# PROS AND CONS
+# --------------
+# PROS:
+#   - Max-Tau defines a strong (unconditional) efficient frontier (against
+#     ALL linear predictors).
+#   - Max-Tau preserves the sign of mean/trend and ensures a positive TC.
+#
+# CONS:
+#   - MSE-DFP can generate more extreme look-ahead when sign inversion (of
+#     mean/trend) is permitted, at the cost of substantially reduced TC.
+#   - Max-Tau is subject to overfitting at the reference frequency. This can
+#     be addressed by additional regularisation (curvature, see exercise 5)
+#     or by extending Max-Tau from a single to multiple reference
+#     frequencies (see exercise 6).
+#
+
 # ══════════════════════════════════════════════════════════════════════════
 #
-# Reference: see the accompanying paper in the "Papers" folder.
+# ── BACKGROUND / REFERENCE ───────────────────────────────────────────
+#   Wildi, M. (2026b)
+#     Forecasting on the Accuracy–Timeliness Frontier: 
+#     Decoupling From Present and Max-Tau Predictors.
+#     (not yet published, see "Papers" folder in project)
 #
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -156,7 +175,7 @@ acf(na.exclude(diff(y_xts)), main = "ACF of log-differences")
 
 # ── 4. TARGET SPECIFICATION: HP TREND OF DIFF-LOG GDP ───────────────────────
 
-# Forecast horizon (in periods): we select a two-quarters ahead horizon as in Wildi (2026)
+# Forecast horizon (in periods): we select a two-quarters ahead horizon as in Wildi (2026b)
 h <- 2
 
 # HP smoothing parameter (standard quarterly setting)
@@ -329,7 +348,7 @@ rownames(table_alpha0)<-c("Correlation with nowcast: CCF(0)","TC: CCF(h)","Gamma
 #
 #   2. Stronger decoupling can be linked BIJECTIVELY (via a strictly
 #      monotonic function) to the lead (tau) at the reference frequency
-#      omega_0 = 0 — see Corollary 2 in Wildi (2026). This link requires
+#      omega_0 = 0 — see Corollary 2 in Wildi (2026b). This link requires
 #      Gamma(0) > 0 (row 3 in the table).
 #
 #   3. Therefore, BY COROLLARY 2, the dilemma between tau (row 4, lead) and
@@ -401,7 +420,7 @@ table_alpha0
 # specifying the decoupling parameter alpha0 directly, we specify the
 # desired LEAD tau at the reference frequency omega_0 = 0, and infer the
 # corresponding alpha0 = alpha(tau) via the bijective (strictly monotonic)
-# relationship established in Proposition 3 and Corollary 2, Wildi (2026).
+# relationship established in Proposition 3 and Corollary 2, Wildi (2026b).
 #
 # Since alpha(tau) is derived from this relationship, it is guaranteed to
 # stay within the range that preserves Gamma(0) > 0 — hence no sign
@@ -428,7 +447,7 @@ for (i in 1:length(tau_vec))#i<-1
 # Note: the sign convention in mse_dfp_from_tau_func is that leads correspond to negative numbers.   
   lead<--tau_vec[i]
   # Call the dedicated function to compute the DFP filter for a specified lead
-  # (see dfp_from_tau_func for the derivation based on Proposition 3, Wildi 2026)
+  # (see dfp_from_tau_func for the derivation based on Proposition 3, Wildi 2026b)
   dfp_obj <- mse_dfp_from_tau_func(gamma_constraint, gamma_target, lead)
   
   # Extract the components returned by the function
@@ -455,7 +474,7 @@ cor_vec_mse_la_mat_tau<-cor_vec_mse_la_mat
 
 # Compute Gamma(0)
 Gamma0_tau<-apply(b_tau,2,sum)
-# Check: all positive (as Tau\to\infty, Gamma(0)\to 0, see Wildi 2026)
+# Check: all positive (as Tau\to\infty, Gamma(0)\to 0, see Wildi 2026b)
 Gamma0_tau
 
 # Compute time-shifts at frequency zero
@@ -792,7 +811,7 @@ gamma_h<-gamma_target
 # Ten year periodicity
 n_freq<-20
 omega0<-pi/n_freq
-# Impose maximal lead at omega0 with respect to MSE target gamma_h (phase_excess<-T) or with respect to identity (phase_excess<-F), see Corollaries 3 and 4 in Wildi (2026).
+# Impose maximal lead at omega0 with respect to MSE target gamma_h (phase_excess<-T) or with respect to identity (phase_excess<-F), see Corollaries 3 and 4 in Wildi (2026b).
 # If gamma_h is lagging at omega0, then phase_excess<-F will generate a larger lead when feasible.
 # Note that the maximal phase lead is restricted to pi/2 (n_freq/4 in time units) with respect to gamma_h or identity, ensuring strict positivity (like the original time-shift DFP).
 # Effect of phase_excess:
@@ -1221,7 +1240,7 @@ box()
 # EXERCISE 4: REPLICATE DUAL MAX-TAU BY INVERTED PRIMAL MAX-TAU ON FRONTIER
 ###############################################################################
 
-# Topic: Max-Tau can be obtained either via the dual formulation (Appendix B IN wILDI 2026:
+# Topic: Max-Tau can be obtained either via the dual formulation (Appendix B IN wILDI 2026b:
 # the R-code implemented above) or via the inverted primal (Theorem 2). We
 # here verify that the two formulations coincide ON the efficient frontier,
 # but differ AWAY from the frontier.
@@ -1280,7 +1299,7 @@ TC <- tau_from_f(gammah, target_correlation)
 tau <- max(TC$tau)
 # This does NOT match max_tau_vec0[i]: the maximized Tau from the dual in
 # Exercise 3.2. The value here is finite, whereas the corresponding
-# max_tau_vec0[i] is infinite (see Wildi 2026).
+# max_tau_vec0[i] is infinite (see Wildi 2026b).
 tau - max_tau_vec0[i]
 
 # Given Tau, we can insert it into the primal to obtain the Max-Tau predictor
