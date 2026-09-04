@@ -6,7 +6,7 @@
 
 
 ##############################################################################################
-# 1. DUAL OPTIMIZATION
+# 1. DUAL OPTIMIZATION: single frequency omega0
 ##############################################################################################
 
 ##############################################################################################
@@ -524,6 +524,132 @@ max_tau_dual_curvature <- function(gammah, target_correlation, e_val) {
 }
 
 
+
+
+##############################################################################################
+# 1.3 Dual with multiple frequencies: omega is a vector with several frequencies
+##############################################################################################
+
+
+max_tau_dual_mutiple_freq_func <- function(gamma_target, target_correlation, omega) {
+  
+  if (abs(target_correlation)>1)
+  {
+    print("Target correlation must be smaller one in absolute value")
+    return()
+  }
+  if (0%in%omega)
+  {
+    print("Currently the code cannot handle zero frequency!")
+    return()
+  }
+  L <- length(gamma_target)
+  I <- length(omega)
+  # Rescale target correlation  
+  alphah<-as.double(target_correlation*sqrt((gamma_target)%*%gamma_target))
+  
+  
+  # 1. Construct vectors and matrices
+  idx <- 0:(L - 1)
+  C <- sapply(omega, function(w) cos(w * idx))
+  S_mat <- sapply(omega, function(w) sin(w * idx))
+  S <- rowSums(S_mat)
+  
+  A <- cbind(gamma_target, C)
+  d0 <- c(alphah, rep(0, I))
+  d1 <- c(0, rep(1, I))
+  
+  # Pseudo-inverse of A^T to find v0 and v1
+  # b0 = A * (A^T A)^-1 * d
+  AtA_inv <- solve(t(A) %*% A)
+  v0 <- as.vector(A %*% AtA_inv %*% d0)
+  v1 <- as.vector(A %*% AtA_inv %*% d1)
+  
+  # Projection of S onto the null space of A^T
+  S_proj <- A %*% AtA_inv %*% t(A) %*% S
+  S_perp <- S - as.vector(S_proj)
+  M <- sqrt(sum(S_perp^2))
+  K <- sum(v0 * S)
+  
+  # 2. Find feasible boundaries for f: ||v0 + f*v1||^2 = 1
+  v1_sq <- sum(v1^2)
+  v0_v1 <- sum(v0 * v1)
+  v0_sq <- sum(v0^2)
+  
+  discriminant_bound <- v0_v1^2 - v1_sq * (v0_sq - 1)
+  if (discriminant_bound < 0) {
+    stop("Problem is infeasible: Norm constraint cannot be satisfied.")
+  }
+  
+  f_minus <- (-v0_v1 - sqrt(discriminant_bound)) / v1_sq
+  f_plus  <- (-v0_v1 + sqrt(discriminant_bound)) / v1_sq
+  
+  candidates <- c()
+  if (f_minus > 0) candidates <- c(candidates, f_minus)
+  if (f_plus > 0)  candidates <- c(candidates, f_plus)
+  
+  if (length(candidates) == 0) {
+    stop("Problem is infeasible: No positive f satisfies the constraints.")
+  }
+  
+  # 3. Find interior stationary points (roots of the derivative quadratic)
+  c2 <- M^2 * v0_v1^2 + K^2 * v1_sq
+  c1 <- 2 * M^2 * (1 - v0_sq) * v0_v1 + 2 * K^2 * v0_v1
+  c0 <- M^2 * (1 - v0_sq)^2 - K^2 * (1 - v0_sq)
+  
+  discriminant_int <- c1^2 - 4 * c2 * c0
+  if (discriminant_int >= 0) {
+    f_int1 <- (-c1 - sqrt(discriminant_int)) / (2 * c2)
+    f_int2 <- (-c1 + sqrt(discriminant_int)) / (2 * c2)
+    
+    # Check if interior points are within bounds [f_minus, f_plus] and > 0
+    tol <- 1e-8
+    if (f_int1 > 0 && f_int1 >= f_minus - tol && f_int1 <= f_plus + tol) {
+      candidates <- c(candidates, f_int1)
+    }
+    if (f_int2 > 0 && f_int2 >= f_minus - tol && f_int2 <= f_plus + tol) {
+      candidates <- c(candidates, f_int2)
+    }
+  }
+  
+  # 4. Evaluate the objective function for all valid candidates
+  eval_objective <- function(f) {
+    b0_f <- v0 + f * v1
+    norm_b0_sq <- sum(b0_f^2)
+    
+    # Cap at 1 to avoid NaN due to floating point inaccuracies at boundaries
+    if (norm_b0_sq > 1) norm_b0_sq <- 1 
+    
+    J <- (sum(b0_f * S) / f) - (M / f) * sqrt(1 - norm_b0_sq)
+    return(J)
+  }
+  
+  # Find the candidate that minimizes the objective
+  obj_values <- sapply(candidates, eval_objective)
+  best_idx <- which.min(obj_values)
+  f_opt <- candidates[best_idx]
+  
+  # 5. Construct the optimal b
+  b0_opt <- v0 + f_opt * v1
+  norm_b0_sq <- sum(b0_opt^2)
+  if (norm_b0_sq > 1) norm_b0_sq <- 1
+  
+  if (M > 1e-12) {
+    u_opt <- -sqrt(1 - norm_b0_sq) * (S_perp / M)
+  } else {
+    u_opt <- rep(0, L)
+  }
+  
+  b_opt <- b0_opt + u_opt
+  
+  return(list(
+    f_opt = f_opt,
+    b_opt = b_opt,
+    min_objective = obj_values[best_idx],
+    candidates = candidates,
+    candidate_objectives = obj_values
+  ))
+}
 
 
 

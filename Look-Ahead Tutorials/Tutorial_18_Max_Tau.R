@@ -65,8 +65,8 @@
 # PROS AND CONS
 # --------------
 # PROS:
-#   - Max-Tau defines a strong (unconditional) efficient frontier (against
-#     ALL linear predictors).
+#   - Max-Tau defines a strong (unconditional) efficient frontier, against
+#     ALL linear predictors.
 #   - Max-Tau preserves the sign of mean/trend and ensures a positive TC.
 #
 # CONS:
@@ -412,6 +412,11 @@ table_alpha0
 ########################################################################################
 # EXERCISE 2: TIME-SHIFT DFP
 ########################################################################################
+
+#====================================================================================
+# It is assumed that Exercise 1 has been run to initialize all settings!
+#====================================================================================
+
 
 # As seen in `table_alpha0`, MSE-DFP can generate SIGN INVERSION
 # (Gamma(0) < 0) when alpha0 is pushed close to zero.
@@ -772,6 +777,11 @@ box()
 # Design: replicate TC of time-shift DFP and compare shifts/leads of Max-Tau vs. time-shift DFP.
 # Max-Tau outperforms the latter at the reference frequency.
 # We use two reference frequencies: omega0=0 (trend) and omega0=pi/20 (10 year cycle).
+
+#====================================================================================
+# It is assumed that Exercises 1 and 2 have been run to initialize all settings!
+#====================================================================================
+
 
 
 #-------------------------------------------------------------------------------
@@ -1246,6 +1256,10 @@ box()
 # but differ AWAY from the frontier.
 
 
+#====================================================================================
+# It is assumed that Exercises 1-3 have been run to initialize all settings!
+#====================================================================================
+
 #-------------------------------------------------------------------------------
 # 4.1 VERIFY FRONTIER
 #-------------------------------------------------------------------------------
@@ -1323,6 +1337,10 @@ max(abs(tau_primal_obj$b - b_tau_max[, i]))
 #################################################################################
 # EXERCISE 5 CONTROLLING OVERFITTING IN DUAL MAX-TAU THROUGH CURVATURE
 #################################################################################
+
+#====================================================================================
+# It is assumed that Exercises 1-4 have been run to initialize all settings!
+#====================================================================================
 
 #-------------------------------------------------------------------------------
 # 5.1 SET-UP AND (ORIGINAL) DUAL MAX-TAU (WITHOUT CURVATURE CONTROL)
@@ -1488,6 +1506,45 @@ box()
 # EXERCISE 6 MULTI-FREQUENCY MAX-TAU
 #################################################################################
 
+#====================================================================================
+# It is assumed that Exercises 1-5 have been run to initialize all settings!
+#====================================================================================
+
+
+# Business cycle frequencies
+omega<-c(pi/20,pi/10,pi/5)
+
+dual_max_tau_mult_obj<-max_tau_dual_mutiple_freq_func(gamma_target, target_correlation, omega)
+
+# Optimal f: common to all frequencies
+f<-dual_max_tau_mult_obj$f_opt  
+b_dual_mult<-dual_max_tau_mult_obj$b_opt 
+min_objective<-dual_max_tau_mult_obj$min_objective
+#dual_max_tau_mult_obj$candidates 
+#dual_max_tau_mult_obj$candidate_objectives
+
+# Checks
+
+
+# Plots
+ts.plot(b_dual_mult)
+
+K<-600
+obj_dual<-amp_shift_func(K,b_dual,F)
+shift_dual<-obj_dual$shift
+obj_dual_curvature<-amp_shift_func(K,b_dual_curvature,F)
+shift_dual_curvature<-obj_dual_curvature$shift
+obj_dual_mult<-amp_shift_func(K,b_dual_mult,F)
+shift_dual_mult<-obj_dual_mult$shift
+mplot<--cbind(shift_dual,shift_dual_curvature,shift_dual_mult)
+par(mfrow=c(1,1))
+plot(mplot[1:(K/5),1],type="l",axes=F,xlab="Frequency",ylab="Shift",main="Shift",ylim=c(-5,5),col="red")
+lines(mplot[1:(K/5),2],col="blue")
+lines(mplot[1:(K/5),3],col="violet")
+abline(h=0)
+axis(1,at=1+0:6*K/30,labels=c("0","pi/30","2pi/30","3pi/30","4pi/30","5pi/30","pi/5"))
+axis(2)
+box()
 
 
 #################################################################################
