@@ -1555,6 +1555,7 @@ print(max(abs(tau_primal_obj$b - b_tau_max[, i])))
 #===============================================================================
 
 target_correlation <- 0.9
+target_correlation <- target_correlation_vec[length(target_correlation_vec)]
 
 # Default settings for this exercise: reference frequency at the trend, and
 # lead measured against the identity (not against gammah).
