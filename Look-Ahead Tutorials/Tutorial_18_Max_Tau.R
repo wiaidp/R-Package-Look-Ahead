@@ -1,11 +1,8 @@
-# WORK IN PROGRESS (SEPTEMBER 2026)
-# NEW MATERIAL: September 2026
-
-
 
 # ══════════════════════════════════════════════════════════════════════════
 # TUTORIAL 18: MAX-TAU PREDICTOR
 # ══════════════════════════════════════════════════════════════════════════
+# NEW PAPER (see reference below) AND NEW TUTORIAL (SEPTEMBER 2026) 
 #
 # CONCEPT
 # -------
