@@ -1506,15 +1506,20 @@ box()
 # EXERCISE 6 MULTI-FREQUENCY MAX-TAU
 #################################################################################
 
+# This code is still under investigation
+
 #====================================================================================
 # It is assumed that Exercises 1-5 have been run to initialize all settings!
 #====================================================================================
 
+#-------------------------------------------------------------------------------
+# 6.1 SET-UP MULTIPLE FREQUENCY DUAL MAX-TAU AND COMPUTE PREDICTOR
+#-------------------------------------------------------------------------------
 
-# Business cycle frequencies
-omega<-c(pi/20,pi/10,pi/5)
+# Select business cycle frequencies with durations 10, 5 and 2.5 years
+omega_vec<-c(pi/20,pi/10,pi/5)
 
-dual_max_tau_mult_obj<-max_tau_dual_mutiple_freq_func(gamma_target, target_correlation, omega)
+dual_max_tau_mult_obj<-max_tau_dual_mutiple_freq_func(gamma_target, target_correlation, omega_vec)
 
 # Optimal f: common to all frequencies
 f<-dual_max_tau_mult_obj$f_opt  
@@ -1523,12 +1528,27 @@ min_objective<-dual_max_tau_mult_obj$min_objective
 #dual_max_tau_mult_obj$candidates 
 #dual_max_tau_mult_obj$candidate_objectives
 
-# Checks
+#-------------------------------------------------------------------------------
+# 6.2 VALIDATION CHECKS
+#-------------------------------------------------------------------------------
+
+# a. TC constraint: difference should vanish
+sum(b_dual_mult * gamma_target)/sqrt(gamma_target%*%gamma_target)-target_correlation
+# b. Unit length constraint: difference should vanish 
+b_dual_mult%*%b_dual_mult-1
+# c. Time-shift constraints: for each frequency, the difference should vanish
+for (i in 1:length(omega_vec))
+  print(b_dual_mult%*%cos(omega_vec[i]*(0:(L-1)))-f)
 
 
-# Plots
+#-------------------------------------------------------------------------------
+# 6.3 PLOTS
+#-------------------------------------------------------------------------------
+
+# I) Predictor weights
 ts.plot(b_dual_mult)
 
+# II) Time-shifts in business cycle band (+low frequencies)
 K<-600
 obj_dual<-amp_shift_func(K,b_dual,F)
 shift_dual<-obj_dual$shift
@@ -1545,6 +1565,9 @@ abline(h=0)
 axis(1,at=1+0:6*K/30,labels=c("0","pi/30","2pi/30","3pi/30","4pi/30","5pi/30","pi/5"))
 axis(2)
 box()
+
+# Outcome: 
+# b_dual_mult equals the other two at pi/20 and outperforms around pi/10 and pi/5.
 
 
 #################################################################################
