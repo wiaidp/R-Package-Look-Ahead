@@ -1300,10 +1300,168 @@ max(abs(tau_primal_obj$b - b_tau_max[, i]))
 # in BOTH target correlation (TC) and Tau simultaneously (for example by designs ON the frontier).
 
 
+
 #################################################################################
 # EXERCISE 5 CONTROLLING OVERFITTING IN DUAL MAX-TAU THROUGH CURVATURE
 #################################################################################
 
+#-------------------------------------------------------------------------------
+# 5.1 SET-UP AND (ORIGINAL) DUAL MAX-TAU (WITHOUT CURVATURE CONTROL)
+#-------------------------------------------------------------------------------
+
+target_correlation<-0.9
+# The following two are the default settings
+omega<-0
+phase_excess<-F
+
+dual_obj<-max_tau_dual_func(gammah, target_correlation,omega0,phase_excess)
+
+b_dual<-dual_obj$b_opt
+taub<-dual_obj$tau_max
+taub
+# Compare with benchmark
+tauh<--gammah%*%(0:(L-1))/gammah%*%rep(1,L)
+tauh
+
+#-------------------------------------------------------------------------------
+# OUTCOME
+#-------------------------------------------------------------------------------
+# - Dual Max-Tau dominates by design at the reference frequency omega0=0:
+#   taub > tauh.
+#
+# - Increasing L: Max-Tau exploits the additional degrees of freedom, aiming
+#   at Tau = infinity for a given TC. If L is "small" and TC is "large", then
+#   Tau = infinity is impossible. However, for unbounded L, Max-Tau can
+#   concentrate its effect arbitrarily tightly at the reference frequency
+#   omega0 = 0, so that Tau = infinity ultimately becomes possible for ANY TC:
+#   for L = infinity, TC and Tau are no longer in conflict. Specifically: for
+#   any TC < 1, Tau = infinity as L -> infinity.
+#
+# - An infinite Tau means that Max-Tau no longer lies on the efficient
+#   frontier. This is the case when TC < U (see Theorem 2).
+
+# Check:
+U <- as.double(sqrt(1 - sum(gammah)^2 / (gammah %*% gammah * L)))
+U
+
+# TC in this example is smaller than U:
+target_correlation < U
+
+#   For any TC < U, Tau = infinity.
+#
+# - In this example, L is relatively large (L = 51), while TC is not very
+#   large (target_correlation <- 0.9). In this case, taub = infinity
+#   (in practice, a very large number) is possible.
+
+
+# Decreasing L will increase U. So decreasing L and/or increasing TC (such
+# that TC > U) will lead to a finite Tau, signifying that Max-Tau sits on the
+# frontier, again. Alternatively, one can control the singularity (overfitting) of
+# Max-Tau by constraining the curvature at omega0, as done in the next exercise. Then,
+# Tau, TC, and curvature will compete, forming a trilemma at the optimum
+# — i.e., a higher-dimensional efficient frontier. In such a case, the new
+# curvature dual Max-Tau (Exercise 5.2) may sit on its higher-dimensional frontier, while
+# the original dual Max-Tau (Exercise 5.1) does not sit on its (lower-dimensional) frontier.
+
+
+#-------------------------------------------------------------------------------
+# 5.2 SET-UP: CURVATURE DUAL MAX-TAU
+#-------------------------------------------------------------------------------
+
+# Set-up decoupling vector for curvature constraint
+k2_vec<-(0:(L-1))^2
+
+# Compute the curvature of Max-Tau and set e=curvature_max_tau/10
+# Note: second derivative at zero is (-i)^2*b_dual%*%k2_vec=-b_dual%*%k2_vec (negative sign)
+curvature_max_tau<-as.double(-b_dual%*%k2_vec)
+# Check: curvature is positive
+curvature_max_tau
+
+# Impose a smaller curvature
+e_val<-0#curvature_max_tau/200
+
+b_dual%*%b_dual
+b_dual%*%gammah/sqrt(sum(gammah*gammah))
+b_dual%*%k2_vec
+
+# Call to curvature dual Max-Tau
+dual_curvature_obj <- max_tau_dual_curvature(gammah, target_correlation, e_val)
+
+b_dual_curvature<-as.double(dual_curvature_obj$b)
+
+# Time shift:
+tau_b_dual_curvature<--b_dual_curvature%*%(0:(L-1))/b_dual_curvature%*%rep(1,L)
+tau_b_dual_curvature
+
+#-------------------------------------------------------------------------------
+# 5.3 OUTPUTS AND VALIDATION CHECKS
+#-------------------------------------------------------------------------------
+
+# Optimal f:
+#   f = Gamma(0), so f > 0 means that the filter does NOT remove trend signals,
+#   in contrast to the overfitted Max-Tau, whose f = 0 (removes trends) and
+#   tau = infinity. The stacked dual optimizes Tau given f (first step), and then f 
+#   (second step). This the same as inverting the primal on the efficient frontier,
+#   see Exercise 4.
+dual_curvature_obj$f
+
+# Max-Tau predictor:
+dual_curvature_obj$b
+
+# Minimum objective (b'k / f):
+#   - This is -Tau (minus Tau), so the minimum corresponds to Max-Tau, subject to the TC
+#     (as in the original dual) AND the additional Curvature constraint.
+#   - If the curvature constraint binds, the maximized Tau is SMALLER than
+#     that of the (overfitted) dual without the curvature constraint.
+#   - At the optimum, Curvature, TC, and Tau compete with each other:
+#     a trilemma, defining a 3-dimensional efficient frontier.
+dual_curvature_obj$objective
+# Compare with dual without curvature (change sign): 
+#  minus dual_curvature_obj$objective is smaller than taub
+taub
+
+# Checks
+# Should all give zero
+# a) Gamma(0)=f
+sum(dual_curvature_obj$b)-dual_curvature_obj$f
+# b) Unit length
+sum(dual_curvature_obj$b^2)-1
+# c) TC constraint
+sum(dual_curvature_obj$b * gammah)/sqrt(sum(gammah*gammah))-target_correlation
+# d) Curvature constraint
+sum(dual_curvature_obj$b * k2_vec)-e_val
+
+
+#-------------------------------------------------------------------------------
+# 5.4 PLOTS
+#-------------------------------------------------------------------------------
+
+# Plots
+K<-600
+obj_dual<-amp_shift_func(K,b_dual,F)
+shift_dual<-obj_dual$shift
+obj_dual_curvature<-amp_shift_func(K,b_dual_curvature,F)
+shift_dual_curvature<-obj_dual_curvature$shift
+mplot<--cbind(shift_dual,shift_dual_curvature)
+
+par(mfrow=c(1,1))
+plot(mplot[1:(K/10),1],type="l",axes=F,xlab="Frequency",ylab="Shift",main="Shift",ylim=c(-5,5),col="red")
+lines(mplot[1:(K/10),2],col="blue")
+abline(h=0)
+axis(1,at=1+0:6*K/60,labels=c("0","pi/60","2pi/60","3pi/60","4pi/60","5pi/60","pi/10"))
+axis(2)
+box()
+
+#-------------------------------------------------------------------------------
+# OUTCOME
+#-------------------------------------------------------------------------------
+# The time-shift of the curvature dual Max-Tau (blue) is smaller at the
+# reference frequency omega0=0, where the (uncurved) dual dominates by design
+# (capped in the figure), but LARGER at most frequencies in [0, pi/10], where it 
+# dominates the original Max-Tau.
+#
+# Increasing L will lead to an increasingly singular dual Max-Tau (red),
+# whereas the curvature dual Max-Tau (blue) will remain smooth at omega0=0.
 
 
 
