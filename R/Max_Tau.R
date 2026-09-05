@@ -527,9 +527,10 @@ max_tau_dual_curvature <- function(gammah, target_correlation, e_val) {
 
 
 ##############################################################################################
-# 1.3 Dual with multiple frequencies: omega is a vector with several frequencies
+# 1.3 Dual with multiple frequencies: omega is a vector with several frequencies.
+# Frequency zero cannot be addressed currently: the function stops with an error message.
+# If omega is a single frequency larger zero, the function replicates max_tau_dual_func above.
 ##############################################################################################
-
 
 max_tau_dual_mutiple_freq_func <- function(gamma_target, target_correlation, omega) {
   
@@ -549,107 +550,93 @@ max_tau_dual_mutiple_freq_func <- function(gamma_target, target_correlation, ome
   alphah<-as.double(target_correlation*sqrt((gamma_target)%*%gamma_target))
   
   
-  # 1. Construct vectors and matrices
-  idx <- 0:(L - 1)
-  C <- sapply(omega, function(w) cos(w * idx))
-  S_mat <- sapply(omega, function(w) sin(w * idx))
-  S <- rowSums(S_mat)
+  # Create vectors
+  S <- rep(0, L)
+  C <- matrix(0, nrow = L, ncol = I + 1)
+  C[, 1] <- gamma_target
   
-  A <- cbind(gamma_target, C)
-  d0 <- c(alphah, rep(0, I))
-  d1 <- c(0, rep(1, I))
-  
-  # Pseudo-inverse of A^T to find v0 and v1
-  # b0 = A * (A^T A)^-1 * d
-  AtA_inv <- solve(t(A) %*% A)
-  v0 <- as.vector(A %*% AtA_inv %*% d0)
-  v1 <- as.vector(A %*% AtA_inv %*% d1)
-  
-  # Projection of S onto the null space of A^T
-  S_proj <- A %*% AtA_inv %*% t(A) %*% S
-  S_perp <- S - as.vector(S_proj)
-  M <- sqrt(sum(S_perp^2))
-  K <- sum(v0 * S)
-  
-  # 2. Find feasible boundaries for f: ||v0 + f*v1||^2 = 1
-  v1_sq <- sum(v1^2)
-  v0_v1 <- sum(v0 * v1)
-  v0_sq <- sum(v0^2)
-  
-  discriminant_bound <- v0_v1^2 - v1_sq * (v0_sq - 1)
-  if (discriminant_bound < 0) {
-    stop("Problem is infeasible: Norm constraint cannot be satisfied.")
+  for (i in 1:I) {
+    t <- 0:(L-1)
+    ci <- cos(omega[i] * t)
+    si <- sin(omega[i] * t)
+    C[, i + 1] <- ci
+    S <- S + si
   }
   
-  f_minus <- (-v0_v1 - sqrt(discriminant_bound)) / v1_sq
-  f_plus  <- (-v0_v1 + sqrt(discriminant_bound)) / v1_sq
+  # Matrices and Projections
+  CTC_inv <- solve(t(C) %*% C)
+  v0 <- c(alphah, rep(0, I))
+  v1 <- c(0, rep(1, I))
   
-  candidates <- c()
-  if (f_minus > 0) candidates <- c(candidates, f_minus)
-  if (f_plus > 0)  candidates <- c(candidates, f_plus)
+  b0_0 <- C %*% (CTC_inv %*% v0)
+  b0_1 <- C %*% (CTC_inv %*% v1)
   
-  if (length(candidates) == 0) {
-    stop("Problem is infeasible: No positive f satisfies the constraints.")
-  }
+  # Feasibility quadratic: ||b0_0 + f*b0_1||^2 <= 1
+  # A*f^2 + 2*B*f + C0 <= 1
+  A <- sum(b0_1^2)
+  B <- sum(b0_0 * b0_1)
+  C0 <- sum(b0_0^2)
   
-  # 3. Find interior stationary points (roots of the derivative quadratic)
-  c2 <- M^2 * v0_v1^2 + K^2 * v1_sq
-  c1 <- 2 * M^2 * (1 - v0_sq) * v0_v1 + 2 * K^2 * v0_v1
-  c0 <- M^2 * (1 - v0_sq)^2 - K^2 * (1 - v0_sq)
+  disc <- B^2 - A * (C0 - 1)
+  if (disc < 0) stop("No feasible f exists.")
   
-  discriminant_int <- c1^2 - 4 * c2 * c0
-  if (discriminant_int >= 0) {
-    f_int1 <- (-c1 - sqrt(discriminant_int)) / (2 * c2)
-    f_int2 <- (-c1 + sqrt(discriminant_int)) / (2 * c2)
-    
-    # Check if interior points are within bounds [f_minus, f_plus] and > 0
-    tol <- 1e-8
-    if (f_int1 > 0 && f_int1 >= f_minus - tol && f_int1 <= f_plus + tol) {
-      candidates <- c(candidates, f_int1)
-    }
-    if (f_int2 > 0 && f_int2 >= f_minus - tol && f_int2 <= f_plus + tol) {
-      candidates <- c(candidates, f_int2)
-    }
-  }
+  f_min <- (-B - sqrt(disc)) / A
+  f_max <- (-B + sqrt(disc)) / A
   
-  # 4. Evaluate the objective function for all valid candidates
-  eval_objective <- function(f) {
-    b0_f <- v0 + f * v1
+  # Ensure f > 0
+  f_min <- max(f_min, 1e-9)
+  if (f_min > f_max) stop("No feasible f > 0 exists.")
+  
+  # Projection of S
+  P_S <- S - C %*% (CTC_inv %*% (t(C) %*% S))
+  norm_PS <- sqrt(sum(P_S^2))
+  
+  # Objective function
+  obj_fun <- function(f) {
+    b0_f <- b0_0 + f * b0_1
     norm_b0_sq <- sum(b0_f^2)
     
-    # Cap at 1 to avoid NaN due to floating point inaccuracies at boundaries
+    # Handle slight numerical inaccuracies at boundaries
     if (norm_b0_sq > 1) norm_b0_sq <- 1 
     
-    J <- (sum(b0_f * S) / f) - (M / f) * sqrt(1 - norm_b0_sq)
-    return(J)
+    N_f <- sum(b0_f * S) - norm_PS * sqrt(1 - norm_b0_sq)
+    return(N_f / f)
   }
   
-  # Find the candidate that minimizes the objective
-  obj_values <- sapply(candidates, eval_objective)
-  best_idx <- which.min(obj_values)
-  f_opt <- candidates[best_idx]
+  # Optimize over f
+  opt_res <- optimize(obj_fun, interval = c(f_min, f_max))
+  f_opt <- opt_res$minimum
+  min_obj <- opt_res$objective
   
-  # 5. Construct the optimal b
-  b0_opt <- v0 + f_opt * v1
-  norm_b0_sq <- sum(b0_opt^2)
-  if (norm_b0_sq > 1) norm_b0_sq <- 1
+  # Check boundaries
+  obj_min_bound <- obj_fun(f_min)
+  obj_max_bound <- obj_fun(f_max)
   
-  if (M > 1e-12) {
-    u_opt <- -sqrt(1 - norm_b0_sq) * (S_perp / M)
-  } else {
-    u_opt <- rep(0, L)
+  f_final <- f_opt
+  if (obj_min_bound < min_obj) {
+    f_final <- f_min
+    min_obj <- obj_min_bound
+  }
+  if (obj_max_bound < min_obj) {
+    f_final <- f_max
+    min_obj <- obj_max_bound
   }
   
-  b_opt <- b0_opt + u_opt
+  # Reconstruct optimal b
+  b0_final <- b0_0 + f_final * b0_1
+  d_final <- - P_S / norm_PS * sqrt(1 - sum(b0_final^2))
+  b_final <- b0_final + d_final
   
-  return(list(
-    f_opt = f_opt,
-    b_opt = b_opt,
-    min_objective = obj_values[best_idx],
-    candidates = candidates,
-    candidate_objectives = obj_values
-  ))
+  list(
+    f_optimal = f_final,
+    b_optimal = b_final,
+    objective = min_obj,
+    feasible_range = c(f_min, f_max)
+  )
 }
+
+
+
 
 
 

@@ -1797,7 +1797,8 @@ box()
 omega_vec <- c(pi / 20)
 omega_vec <- c(pi / 10)
 omega_vec <- c(pi / 5)
-omega_vec <- c(pi / 20, pi / 10, pi / 5)
+# Equidistant coverage of business cycle frequencies
+omega_vec <- c(pi / 20, 2*pi / 20, 3*pi/20, 4*pi/20)
 
 # ---- Step 2: solve the multi-frequency dual Max-Tau problem -----------------
 # max_tau_dual_mutiple_freq_func() extends the single-frequency dual Max-Tau
@@ -1816,7 +1817,7 @@ f             <- dual_max_tau_mult_obj$f_opt          # common optimal f in stac
 b_dual_mult   <- dual_max_tau_mult_obj$b_opt           # optimal predictor weights
 min_objective <- dual_max_tau_mult_obj$min_objective   # value of the objective at optimum
 
-
+b_dual_mult<-as.vector(b_dual_mult)
 #===============================================================================
 # 6.2 VALIDATION CHECKS
 #===============================================================================
@@ -1903,7 +1904,7 @@ plot(mplot[1:(K / 5+1), 1],
 lines(mplot[1:(K / 5+1), 2], col = "blue")
 lines(mplot[1:(K / 5+1), 3], col = "violet")
 abline(h = 0)
-abline(v=1+c(K/(5*4),K/(5*2),K/5))
+abline(v=1+c(K/(5*4),K/(5*4)+K/(5*4),K/(5*4)+2*K/(5*4),K/(5*4)+3*K/(5*4)))
 
 # Custom x-axis labeled in units of pi, matching the frequency grid.
 axis(1, at = 1 + 0:6 * K / 30,
@@ -1919,11 +1920,10 @@ legend("topright",
 # -------------------------------------------------------------------------
 # INTERPRETATION
 # -------------------------------------------------------------------------
-# The multi-frequency predictor (violet) outperforms the single frequency 
-# Max-Tau (red) at all three reference frequencies (black vertical lines). It bis 
-# nearly identical to the curvature Max-Tau (blue) at pi/20 and outperforms at 
-# pi/10 and pi/5.
-
+# The multi-frequency predictor (violet) outperforms both single-frequency
+# Max-Tau predictors (red, blue) at all four reference frequencies (marked by
+# the black vertical lines). While it is not uniformly better everywhere, it
+# outperforms them across the majority of the business-cycle band.
 
 
 #################################################################################
