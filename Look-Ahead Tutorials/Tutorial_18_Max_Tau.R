@@ -1817,10 +1817,7 @@ legend("topright",
 #
 # Technical restriction: omega = 0 is currently NOT supported by the
 # underlying optimization (see note above).
-omega_vec <- c(pi / 20)
-omega_vec <- c(pi / 10)
-omega_vec <- c(pi / 5)
-# Equidistant coverage of business cycle frequencies
+# Reference frequencies: equidistant coverage of business cycle range (2.5 to 10 years)
 omega_vec <- c(pi / 20, 2*pi / 20, 3*pi/20, 4*pi/20)
 
 # ---- Step 2: solve the multi-frequency dual Max-Tau problem -----------------
@@ -1944,7 +1941,7 @@ legend("topright",
 # INTERPRETATION
 # -------------------------------------------------------------------------
 # The multi-frequency predictor (violet) outperforms both single-frequency
-# Max-Tau predictors (red, blue) at all four reference frequencies (marked by
+# Max-Tau predictors (red, blue) at all four business-cycle frequencies (marked by
 # the black vertical lines). While it is not uniformly better everywhere, it
 # outperforms them across the majority of the business-cycle band.
 #
@@ -1959,6 +1956,7 @@ legend("topright",
 #        wiggly solutions directly;
 #   iii) selecting a smaller L, which reduces the number of free parameters
 #        available to overfit in the first place.
+
 
 
 
