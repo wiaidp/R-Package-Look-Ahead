@@ -1554,7 +1554,8 @@ print(max(abs(tau_primal_obj$b - b_tau_max[, i])))
 # 5.1 SET-UP AND (ORIGINAL) DUAL MAX-TAU -- WITHOUT CURVATURE CONTROL
 #===============================================================================
 
-target_correlation <- 0.9
+# We select the last TC in target_correlation_vec: this is not on the efficient 
+# frontier of dual Max-Tau and Tau=infty.  
 target_correlation <- target_correlation_vec[length(target_correlation_vec)]
 
 # Default settings for this exercise: reference frequency at the trend, and
@@ -1635,10 +1636,10 @@ cat("Curvature of the uncurved dual Max-Tau (should be positive):\n")
 print(curvature_max_tau)
 
 # ---- Impose a (much) smaller curvature ------------------------------------------
-# Setting e_val <- 0 forces the filter to be perfectly FLAT (zero curvature)
-# at omega0 = 0 -- the strongest possible curvature constraint. Try, e.g.,
-# e_val <- curvature_max_tau / 200 for a softer constraint.
-e_val <- 0  # curvature_max_tau / 200
+# Setting curvature_max_tau / 10 constrains the curvature of the filter.
+# Extreme designs, e.g., e_val=0, might generate lags. The one-tenth rule 
+# is a good start, with eventual better results with smaller (or larger) curvatures
+e_val <- curvature_max_tau / 10 #for a softer constraint.
 
 # A few diagnostic quantities for the UNCURVED filter, for later comparison:
 cat("Uncurved filter: squared norm b'b:\n");                       print(b_dual %*% b_dual)
@@ -1654,7 +1655,8 @@ b_dual_curvature <- as.double(dual_curvature_obj$b)
 tau_b_dual_curvature <- -b_dual_curvature %*% (0:(L - 1)) / (b_dual_curvature %*% rep(1, L))
 cat("Time-shift of the curvature-constrained dual Max-Tau:\n")
 print(tau_b_dual_curvature)
-# This is no more infinity.
+# This is no more infinity: the problem specification now sits on the efficient 
+# frontier of the trilemma between TC, Tau and curvature.
 
 #===============================================================================
 # 5.3 OUTPUTS AND VALIDATION CHECKS
@@ -1735,6 +1737,10 @@ axis(1, at = 1 + 0:6 * K / 60,
      labels = c("0", "pi/60", "2pi/60", "3pi/60", "4pi/60", "5pi/60", "pi/10"))
 axis(2)
 box()
+legend("topright",
+       legend = c("Dual Max-Tau", "Dual Max-Tau (curvature)"),
+       col    = c("red", "blue"),
+       lty    = 1, bty = "n")
 
 
 #-------------------------------------------------------------------------------
@@ -1900,7 +1906,7 @@ plot(mplot[1:(K / 5+1), 1],
      type = "l", col = "red",
      axes = FALSE, ylim = c(-5, 5),
      xlab = "Frequency", ylab = "Shift",
-     main = "Shift Comparison: Single- vs. Multi-Frequency Dual Max-Tau")
+     main = "Shift Comparison: Single- vs. Multi-Frequency (Dual Max-Tau)")
 lines(mplot[1:(K / 5+1), 2], col = "blue")
 lines(mplot[1:(K / 5+1), 3], col = "violet")
 abline(h = 0)
@@ -1924,6 +1930,19 @@ legend("topright",
 # Max-Tau predictors (red, blue) at all four reference frequencies (marked by
 # the black vertical lines). While it is not uniformly better everywhere, it
 # outperforms them across the majority of the business-cycle band.
+#
+# Note, however, that the ripples in the violet shift curve are larger than
+# for the single-frequency predictors. This is a symptom of overfitting. 
+# Possible remedies (not pursued further here) include:
+#
+#   i)   adding more reference frequencies, so that the available degrees of
+#        freedom get exhausted more evenly across the band;
+#   ii)  reducing flexibility/curvature of the filter (e.g. as in the
+#        curvature-regularized Max-Tau of Exercise 5), which penalizes
+#        wiggly solutions directly;
+#   iii) selecting a smaller L, which reduces the number of free parameters
+#        available to overfit in the first place.
+
 
 
 #################################################################################
