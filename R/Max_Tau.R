@@ -17,8 +17,10 @@
 # Computes the Max-Tau predictor
 # gamma_h: target in MA form (typically MSe predictor or nowcast but could be arbitrary filter, not necessarily MSE optimal)
 # target_correlation: desired correlation with gamma_h (between -1 and +1)
-# omega0: reference frequency for computing the lead (typically zero).
-# phase_excess: if T then the lead is tau := tau_b-tau_h (a lead with respect to gamma_h); otherwise tau=tau_b (in absolute terms or with respect to identity).
+# omega0: reference frequency for computing the lead (typically zero but any frequency allowed).
+# phase_excess: if T then the lead is tau := tau_b-tau_h (a lead with respect to gamma_h); 
+# otherwise tau=tau_b (in absolute terms or with respect to identity). 
+# See Corollaries 3,4 in Wildi (2026b) for background.
 max_tau_dual_func <- function(gamma_target, target_correlation,omega0=0,phase_excess=F) {
   
   if (omega0<0|omega0>pi)
