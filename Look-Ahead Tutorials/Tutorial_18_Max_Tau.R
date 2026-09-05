@@ -61,19 +61,36 @@
 #
 #
 # PROS AND CONS
-# --------------
+# -------------
 # PROS:
 #   - Max-Tau defines a strong (unconditional) efficient frontier against
-#     ALL linear predictors.
-#   - Max-Tau preserves the sign of mean/trend and ensures a positive TC.
+#     ALL linear predictors: no other filter can simultaneously match its
+#     target-correlation (TC) and beat it in Tau at the chosen frequency/ies.
+#   - Max-Tau preserves the sign of the mean/trend and guarantees a positive
+#     target correlation (TC > 0) by construction.
+#   - Max-Tau is virtually always feasible/regular in applications: the
+#     underlying decoupling vector is either purely linear (at omega0 = 0)
+#     or purely sinusoidal (at omega0 > 0), and in neither case do its
+#     coefficients decay to zero. This means it is essentially never
+#     collinear with the target (MSE) predictor, so the optimization problem
+#     remains full rank and well-posed.
 #
 # CONS:
-#   - MSE-DFP can generate more extreme look-ahead when sign inversion (of, e.g.,
-#     mean/trend) is permitted, at the cost of substantially reduced TC.
-#   - Max-Tau is subject to overfitting at the reference frequency. This
-#     can be addressed by additional regularisation (curvature, see
-#     Exercise 5) or by extending Max-Tau from a single to multiple
-#     reference frequencies (see Exercise 6).
+#   - MSE-DFP can generate more extreme look-ahead when sign
+#     inversion of the target (e.g. mean/trend) is permitted -- but typically
+#     at the cost of a substantially reduced TC. Max-Tau is naturally bounded 
+#     by the upper infinite bound on Tau at the reference frequency. 
+#   - Max-Tau is subject to overfitting AT the single reference frequency: the
+#     optimizer can exploit the remaining degrees of freedom to inflate Tau
+#     locally, at the cost of an increasing singularity. 
+#     This can be addressed by:
+#       i)  additional regularization (e.g. curvature penalty, see
+#           Exercise 5), or
+#       ii) extending Max-Tau from a single to multiple reference
+#           frequencies (see Exercise 6), which spreads the same degrees
+#           of freedom across a broader band and thereby limits how much
+#           any one frequency can be overfit.
+
 #
 # ══════════════════════════════════════════════════════════════════════════
 #
